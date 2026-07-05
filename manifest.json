@@ -1,0 +1,9 @@
+{
+  "name": "Zap Dispatch Mini TMS",
+  "short_name": "Zap TMS",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#061827",
+  "theme_color": "#061827",
+  "icons": []
+}

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Zap Dispatch TMS</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#061827">
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">Zap Dispatch</p>
+      <h1>Mini TMS</h1>
+      <p class="muted">Carrier • Load • Broker • Revenue Tracker</p>
+    </div>
+    <button id="themeToggle" class="icon-btn">◐</button>
+  </header>
+
+  <main>
+    <section class="screen active" id="dashboard">
+      <div class="hero-card">
+        <div>
+          <p class="eyebrow">Today’s board</p>
+          <h2 id="dashRevenue">$0</h2>
+          <p class="muted">Estimated gross revenue from all saved loads.</p>
+        </div>
+        <div class="ring"><span id="loadCount">0</span></div>
+      </div>
+
+      <div class="grid two">
+        <div class="metric-card"><p>Carriers</p><h3 id="carrierCount">0</h3></div>
+        <div class="metric-card"><p>Active trucks</p><h3 id="truckCount">0</h3></div>
+        <div class="metric-card"><p>Open loads</p><h3 id="openLoads">0</h3></div>
+        <div class="metric-card"><p>Dispatcher commission</p><h3 id="dashCommission">$0</h3></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title"><h2>Quick actions</h2></div>
+        <div class="quick-actions">
+          <button class="primary-btn jump" data-screen="loads">Add Load</button>
+          <button class="primary-btn jump" data-screen="carriers">Add Carrier</button>
+          <button class="primary-btn jump" data-screen="brokers">Add Broker</button>
+          <button class="primary-btn jump" data-screen="invoices">Invoices</button>
+        </div>
+      </div>
+
+      <div class="card warning-card">
+        <h2>Important</h2>
+        <p>This is a lightweight dispatch tracker. It is not a replacement for accounting, ELD, compliance, insurance, tax, or legal systems.</p>
+      </div>
+    </section>
+
+    <section class="screen" id="loads">
+      <div class="section-title"><h2>Load Board</h2><button id="addLoad" class="small-btn">Save load</button></div>
+      <div class="card">
+        <div class="form-grid">
+          <label>Carrier<select id="loadCarrier"></select></label>
+          <label>Broker<select id="loadBroker"></select></label>
+          <label>Pickup city/state<input id="pickup" placeholder="Miami, FL"></label>
+          <label>Delivery city/state<input id="delivery" placeholder="Atlanta, GA"></label>
+          <label>Pickup date<input id="pickupDate" type="date"></label>
+          <label>Delivery date<input id="deliveryDate" type="date"></label>
+          <label>Equipment<select id="equipment"><option>Reefer</option><option>Dry Van</option><option>Flatbed</option><option>Step Deck</option><option>Hotshot</option></select></label>
+          <label>Status<select id="loadStatus"><option>Booked</option><option>Dispatched</option><option>Picked Up</option><option>Delivered</option><option>Invoiced</option><option>Paid</option><option>Cancelled</option></select></label>
+          <label>Rate $<input id="rate" type="number" step="0.01"></label>
+          <label>Dispatcher %<input id="commissionPct" type="number" step="0.1" value="8"></label>
+          <label>Load #<input id="loadNumber" placeholder="Broker load #"></label>
+          <label>Notes<input id="loadNotes" placeholder="Temp, appt, lumper, etc."></label>
+        </div>
+      </div>
+      <div id="loadsList" class="list"></div>
+    </section>
+
+    <section class="screen" id="carriers">
+      <div class="section-title"><h2>Carriers</h2><button id="addCarrier" class="small-btn">Save carrier</button></div>
+      <div class="card">
+        <div class="form-grid">
+          <label>Carrier name<input id="carrierName" placeholder="ABC Transport LLC"></label>
+          <label>MC / DOT<input id="mcDot" placeholder="MC / DOT"></label>
+          <label>Contact<input id="carrierContact" placeholder="Driver or owner"></label>
+          <label>Phone<input id="carrierPhone" placeholder="Phone"></label>
+          <label>Email<input id="carrierEmail" placeholder="Email"></label>
+          <label>Equipment<select id="carrierEquipment"><option>Reefer</option><option>Dry Van</option><option>Flatbed</option><option>Step Deck</option><option>Hotshot</option></select></label>
+          <label>Trucks<input id="carrierTrucks" type="number" value="1"></label>
+          <label>Default commission %<input id="carrierCommission" type="number" step="0.1" value="8"></label>
+        </div>
+      </div>
+      <div id="carriersList" class="list"></div>
+    </section>
+
+    <section class="screen" id="brokers">
+      <div class="section-title"><h2>Brokers</h2><button id="addBroker" class="small-btn">Save broker</button></div>
+      <div class="card">
+        <div class="form-grid">
+          <label>Broker company<input id="brokerName" placeholder="Broker name"></label>
+          <label>Contact<input id="brokerContact" placeholder="Rep name"></label>
+          <label>Phone<input id="brokerPhone" placeholder="Phone"></label>
+          <label>Email<input id="brokerEmail" placeholder="Email"></label>
+          <label>Loadboard / Source<input id="brokerSource" placeholder="DAT, Truckstop, referral"></label>
+          <label>Notes<input id="brokerNotes" placeholder="Payment terms, rating, etc."></label>
+        </div>
+      </div>
+      <div id="brokersList" class="list"></div>
+    </section>
+
+    <section class="screen" id="expenses">
+      <div class="section-title"><h2>Expenses</h2><button id="addExpense" class="small-btn">Save expense</button></div>
+      <div class="card">
+        <div class="form-grid">
+          <label>Date<input id="expenseDate" type="date"></label>
+          <label>Carrier<select id="expenseCarrier"></select></label>
+          <label>Category<select id="expenseCategory"><option>Fuel</option><option>Lumper</option><option>Tolls</option><option>Detention</option><option>Repair</option><option>Other</option></select></label>
+          <label>Amount $<input id="expenseAmount" type="number" step="0.01"></label>
+          <label>Notes<input id="expenseNotes" placeholder="Receipt / description"></label>
+        </div>
+      </div>
+      <div id="expensesList" class="list"></div>
+    </section>
+
+    <section class="screen" id="invoices">
+      <div class="section-title"><h2>Invoices / Payments</h2></div>
+      <div class="card">
+        <p class="muted">Use this section to track loads that are delivered, invoiced, and paid. Change load status inside Load Board.</p>
+      </div>
+      <div id="invoiceList" class="list"></div>
+    </section>
+
+    <section class="screen" id="settings">
+      <div class="section-title"><h2>Settings</h2><button id="saveSettings" class="small-btn">Save</button></div>
+      <div class="card">
+        <div class="form-grid">
+          <label>Company name<input id="companyName" value="Zap Dispatch"></label>
+          <label>Default commission %<input id="defaultCommission" type="number" step="0.1" value="8"></label>
+          <label>Email<input id="companyEmail" placeholder="dispatch@zapdispatch.com"></label>
+          <label>Phone<input id="companyPhone" placeholder="Phone"></label>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Export / Backup</h2>
+        <p class="muted">Export your data as JSON. Keep a backup because this app stores data locally on this browser/device.</p>
+        <button id="exportData" class="primary-btn">Export JSON backup</button>
+        <textarea id="backupBox" rows="8" placeholder="Backup will appear here."></textarea>
+      </div>
+      <div class="card">
+        <h2>Reset</h2>
+        <button id="resetAll" class="danger-btn">Delete all local data</button>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-screen="dashboard">🏠<span>Home</span></button>
+    <button class="nav-btn" data-screen="loads">🚚<span>Loads</span></button>
+    <button class="nav-btn" data-screen="carriers">👥<span>Carriers</span></button>
+    <button class="nav-btn" data-screen="brokers">🏢<span>Brokers</span></button>
+    <button class="nav-btn" data-screen="expenses">⛽<span>Costs</span></button>
+    <button class="nav-btn" data-screen="invoices">🧾<span>Pay</span></button>
+    <button class="nav-btn" data-screen="settings">⚙️<span>Settings</span></button>
+  </nav>
+</div>
+<script src="app.js"></script>
+</body>
+</html>
