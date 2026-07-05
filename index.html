@@ -9,14 +9,38 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div class="app-shell">
+<div class="auth-shell" id="authShell">
+  <div class="auth-card">
+    <p class="eyebrow">Zap Dispatch</p>
+    <h1>Mini TMS Login</h1>
+    <p class="muted">Sign in to save carriers, loads, brokers, and expenses in the cloud.</p>
+    <div class="auth-tabs">
+      <button id="showLogin" class="small-btn active-tab">Login</button>
+      <button id="showSignup" class="small-btn">Create user</button>
+    </div>
+    <div id="authMessage" class="auth-message"></div>
+    <div class="form-grid auth-form">
+      <label>Email<input id="authEmail" type="email" placeholder="you@email.com" autocomplete="email"></label>
+      <label>Password<input id="authPassword" type="password" placeholder="Password" autocomplete="current-password"></label>
+    </div>
+    <button id="loginBtn" class="primary-btn">Login</button>
+    <button id="signupBtn" class="primary-btn hidden">Create user</button>
+    <p class="muted small-copy">Use the same login on iPhone, PC, or tablet to see the same TMS data.</p>
+  </div>
+</div>
+
+<div class="app-shell hidden" id="appShell">
   <header class="topbar">
     <div>
       <p class="eyebrow">Zap Dispatch</p>
       <h1>Mini TMS</h1>
       <p class="muted">Carrier • Load • Broker • Revenue Tracker</p>
+      <p class="muted" id="userEmail"></p>
     </div>
-    <button id="themeToggle" class="icon-btn">◐</button>
+    <div class="top-actions">
+      <button id="themeToggle" class="icon-btn">◐</button>
+      <button id="logoutBtn" class="small-btn">Logout</button>
+    </div>
   </header>
 
   <main>
@@ -48,8 +72,8 @@
       </div>
 
       <div class="card warning-card">
-        <h2>Important</h2>
-        <p>This is a lightweight dispatch tracker. It is not a replacement for accounting, ELD, compliance, insurance, tax, or legal systems.</p>
+        <h2>Cloud backup active</h2>
+        <p>Your TMS data saves to Supabase when you are logged in. Use Export JSON as an extra backup.</p>
       </div>
     </section>
 
@@ -140,13 +164,13 @@
       </div>
       <div class="card">
         <h2>Export / Backup</h2>
-        <p class="muted">Export your data as JSON. Keep a backup because this app stores data locally on this browser/device.</p>
+        <p class="muted">Export your cloud data as JSON. Keep a backup before major changes.</p>
         <button id="exportData" class="primary-btn">Export JSON backup</button>
         <textarea id="backupBox" rows="8" placeholder="Backup will appear here."></textarea>
       </div>
       <div class="card">
-        <h2>Reset</h2>
-        <button id="resetAll" class="danger-btn">Delete all local data</button>
+        <h2>Refresh</h2>
+        <button id="syncNow" class="primary-btn">Sync from cloud</button>
       </div>
     </section>
   </main>
@@ -161,6 +185,7 @@
     <button class="nav-btn" data-screen="settings">⚙️<span>Settings</span></button>
   </nav>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="app.js"></script>
 </body>
 </html>
