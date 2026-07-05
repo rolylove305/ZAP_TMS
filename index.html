@@ -13,19 +13,18 @@
   <div class="auth-card">
     <p class="eyebrow">Zap Dispatch</p>
     <h1>Mini TMS Login</h1>
-    <p class="muted">Sign in to save carriers, loads, brokers, and expenses in the cloud.</p>
+    <p class="muted">Sign in to save carriers, loads, brokers, and expenses in Supabase cloud.</p>
     <div class="auth-tabs">
       <button id="showLogin" class="small-btn active-tab">Login</button>
       <button id="showSignup" class="small-btn">Create user</button>
     </div>
     <div id="authMessage" class="auth-message"></div>
-    <div class="form-grid auth-form">
+    <div class="form-grid auth-form single">
       <label>Email<input id="authEmail" type="email" placeholder="you@email.com" autocomplete="email"></label>
-      <label>Password<input id="authPassword" type="password" placeholder="Password" autocomplete="current-password"></label>
     </div>
-    <button id="loginBtn" class="primary-btn">Login</button>
-    <button id="signupBtn" class="primary-btn hidden">Create user</button>
-    <p class="muted small-copy">Use the same login on iPhone, PC, or tablet to see the same TMS data.</p>
+    <button id="loginBtn" class="primary-btn">Send login link</button>
+    <button id="signupBtn" class="primary-btn">Create user / send link</button>
+    <p class="muted small-copy">Open the email link on this same device. After that, the session stays logged in.</p>
   </div>
 </div>
 
@@ -154,24 +153,19 @@
 
     <section class="screen" id="settings">
       <div class="section-title"><h2>Settings</h2><button id="saveSettings" class="small-btn">Save</button></div>
-      <div class="card">
-        <div class="form-grid">
-          <label>Company name<input id="companyName" value="Zap Dispatch"></label>
-          <label>Default commission %<input id="defaultCommission" type="number" step="0.1" value="8"></label>
-          <label>Email<input id="companyEmail" placeholder="dispatch@zapdispatch.com"></label>
-          <label>Phone<input id="companyPhone" placeholder="Phone"></label>
-        </div>
-      </div>
+      <div class="card"><div class="form-grid">
+        <label>Company name<input id="companyName" value="Zap Dispatch"></label>
+        <label>Default commission %<input id="defaultCommission" type="number" step="0.1" value="8"></label>
+        <label>Email<input id="companyEmail" placeholder="dispatch@zapdispatch.com"></label>
+        <label>Phone<input id="companyPhone" placeholder="Phone"></label>
+      </div></div>
       <div class="card">
         <h2>Export / Backup</h2>
         <p class="muted">Export your cloud data as JSON. Keep a backup before major changes.</p>
         <button id="exportData" class="primary-btn">Export JSON backup</button>
         <textarea id="backupBox" rows="8" placeholder="Backup will appear here."></textarea>
       </div>
-      <div class="card">
-        <h2>Refresh</h2>
-        <button id="syncNow" class="primary-btn">Sync from cloud</button>
-      </div>
+      <div class="card"><h2>Refresh</h2><button id="syncNow" class="primary-btn">Sync from cloud</button></div>
     </section>
   </main>
 
@@ -185,6 +179,7 @@
     <button class="nav-btn" data-screen="settings">⚙️<span>Settings</span></button>
   </nav>
 </div>
+<script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="app.js"></script>
 </body>
