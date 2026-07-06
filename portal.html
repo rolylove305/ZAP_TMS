@@ -1,2 +1,37 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover"><title>Zap Dispatch Driver Portal</title><link rel="stylesheet" href="styles.css"><style>body{min-height:100vh;padding:18px;display:flex;justify-content:center;align-items:flex-start}.driver-shell{width:min(760px,100%);padding:24px 0 90px}.driver-logo{display:block;width:250px;max-width:82vw;margin:0 auto 18px;border-radius:18px;box-shadow:0 14px 30px rgba(0,0,0,.3)}.driver-card{background:var(--card);border:1px solid var(--line);border-radius:24px;padding:22px;margin:14px 0;box-shadow:var(--shadow)}.driver-route{font-size:26px;line-height:1.2;margin:8px 0 12px;font-weight:900}.driver-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.driver-grid div{background:var(--card2);border-radius:16px;padding:14px;border:1px solid var(--line)}.driver-actions{display:grid;gap:12px;margin-top:16px}.driver-actions button{font-size:16px;padding:16px}input[type=file]{width:100%;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--card2);color:var(--text);margin:12px 0}@media(max-width:640px){.driver-grid{grid-template-columns:1fr}.driver-route{font-size:22px}}</style></head><body><div class="driver-shell"><img class="driver-logo" src="zap-logo.svg" alt="Zap Dispatch"><div class="driver-card"><p class="eyebrow">Driver Portal</p><h1>Load Details</h1><p id="driverMsg" class="muted">Loading load...</p><div id="loadBox" class="hidden"><div class="driver-route"><span id="pickupText"></span> → <span id="deliveryText"></span></div><div class="pill-row"><span class="pill" id="statusText"></span><span class="pill" id="equipmentText"></span><span class="pill" id="loadNumberText"></span></div><div class="driver-grid"><div><p class="muted">Pickup date</p><h3 id="pickupDateText">-</h3></div><div><p class="muted">Delivery date</p><h3 id="deliveryDateText">-</h3></div></div><div class="driver-card" style="box-shadow:none;margin-bottom:0"><p class="muted">Notes</p><p id="notesText">-</p></div><div class="driver-actions"><button class="primary-btn" id="pickedBtn">Mark Picked Up</button><button class="primary-btn" id="deliveredBtn">Mark Delivered</button></div></div></div><div class="driver-card"><h2>BOL / POD</h2><p class="muted">Choose a photo or PDF. Smaller photos upload faster.</p><input id="docFile" type="file" accept="image/*,.pdf"><button class="primary-btn" id="uploadBtn">Upload document</button></div></div><script src="config.js"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="driver-test.js?v=2200"></script></body></html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>Zap Dispatch Driver Portal</title>
+<link rel="stylesheet" href="/styles.css">
+<style>
+body{min-height:100vh;padding:18px;display:flex;justify-content:center;align-items:flex-start;background:#061827;color:#eaf6ff;font-family:Arial,sans-serif}.driver-shell{width:min(760px,100%);padding:24px 0 90px}.driver-logo{display:block;width:250px;max-width:82vw;margin:0 auto 18px;border-radius:18px;box-shadow:0 14px 30px rgba(0,0,0,.3)}.driver-card{background:rgba(15,40,61,.92);border:1px solid rgba(255,255,255,.14);border-radius:24px;padding:22px;margin:14px 0;box-shadow:0 18px 40px rgba(0,0,0,.28)}.driver-route{font-size:26px;line-height:1.2;margin:8px 0 12px;font-weight:900}.driver-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.driver-grid div{background:rgba(255,255,255,.06);border-radius:16px;padding:14px;border:1px solid rgba(255,255,255,.14)}.driver-actions{display:grid;gap:12px;margin-top:16px}.driver-actions button{font-size:16px;padding:16px}input[type=file]{width:100%;padding:14px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#eaf6ff;margin:12px 0}.hidden{display:none}.muted{color:#b8d6ea}.bad{color:#ffb4b4}.pill{display:inline-block;margin:5px 6px 5px 0;padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.1)}@media(max-width:640px){.driver-grid{grid-template-columns:1fr}.driver-route{font-size:22px}}
+</style>
+</head>
+<body>
+<div class="driver-shell">
+<img class="driver-logo" src="/zap-logo.svg" alt="Zap Dispatch">
+<div class="driver-card">
+<p class="eyebrow">Driver Portal</p>
+<h1>Load Details</h1>
+<p id="driverMsg" class="muted">Loading load...</p>
+<div id="loadBox" class="hidden">
+<div class="driver-route"><span id="pickupText"></span> → <span id="deliveryText"></span></div>
+<div class="pill-row"><span class="pill" id="statusText"></span><span class="pill" id="equipmentText"></span><span class="pill" id="loadNumberText"></span></div>
+<div class="driver-grid"><div><p class="muted">Pickup date</p><h3 id="pickupDateText">-</h3></div><div><p class="muted">Delivery date</p><h3 id="deliveryDateText">-</h3></div></div>
+<div class="driver-card" style="box-shadow:none;margin-bottom:0"><p class="muted">Notes</p><p id="notesText">-</p></div>
+<div class="driver-actions"><button class="primary-btn" id="pickedBtn">Mark Picked Up</button><button class="primary-btn" id="deliveredBtn">Mark Delivered</button></div>
+</div>
+</div>
+<div class="driver-card"><h2>BOL / POD</h2><p class="muted">Choose a photo or PDF. Smaller photos upload faster.</p><input id="docFile" type="file" accept="image/*,.pdf"><button class="primary-btn" id="uploadBtn">Upload document</button></div>
+</div>
+<script>
+window.addEventListener('error',function(e){var m=document.getElementById('driverMsg');if(m){m.textContent='Driver portal loading error. Please refresh or ask dispatch for a new link.';m.classList.add('bad')}});
+setTimeout(function(){var m=document.getElementById('driverMsg');if(m&&m.textContent==='Loading load...'){m.textContent='Still loading... If this stays here, refresh once or ask dispatch for a new link.'}},6000);
+</script>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="/driver-test.js?v=2300"></script>
+</body>
+</html>
