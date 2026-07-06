@@ -4,11 +4,12 @@ const el=id=>document.getElementById(id);
 const link=new URLSearchParams(location.search).get('t')||'';
 function say(t,b=false){const x=el('driverMsg');x.textContent=t;x.classList.toggle('bad',!!b)}
 function dt(d,t){return (d||'-')+(t?' '+t:'')}
-function fill(x){el('pickupText').textContent=x.pickup||'Pickup';el('deliveryText').textContent=x.delivery||'Delivery';el('statusText').textContent=x.status||'Booked';el('equipmentText').textContent=x.equipment||'Equipment';el('loadNumberText').textContent='Load # '+(x.load_number||'-');el('pickupDateText').textContent=dt(x.pickup_date,x.pickup_time);el('deliveryDateText').textContent=dt(x.delivery_date,x.delivery_time);el('notesText').textContent=x.notes||'-';el('loadBox').classList.remove('hidden')}
+function driverInfo(x){let box=document.getElementById('driverInfoBox');if(!box){box=document.createElement('div');box.id='driverInfoBox';box.className='mini-card';box.style.marginTop='12px';el('notesText').closest('.mini-card')?.after(box)}box.innerHTML='<h3>Driver / Equipment</h3><p><b>Driver:</b> '+(x.driver_name||'-')+'</p><p><b>Cell:</b> '+(x.driver_phone||'-')+'</p><p><b>Truck #:</b> '+(x.truck_number||'-')+'</p><p><b>Trailer #:</b> '+(x.trailer_number||'-')+'</p>'}
+function fill(x){el('pickupText').textContent=x.pickup||'Pickup';el('deliveryText').textContent=x.delivery||'Delivery';el('statusText').textContent=x.status||'Booked';el('equipmentText').textContent=x.equipment||'Equipment';el('loadNumberText').textContent='Load # '+(x.load_number||'-');el('pickupDateText').textContent=dt(x.pickup_date,x.pickup_time);el('deliveryDateText').textContent=dt(x.delivery_date,x.delivery_time);el('notesText').textContent=x.notes||'-';el('loadBox').classList.remove('hidden');driverInfo(x)}
 async function start(){if(!link)return say('Missing link.',true);let a={};a['p_'+'token']=link;const r=await client.rpc('driver_get_load',a);if(r.error)return say(r.error.message,true);if(!r.data||!r.data.length)return say('Invalid link.',true);fill(r.data[0]);say('Load ready.')}
 async function status(s){say('Sending update...');let a={};a['p_'+'token']=link;a.p_status=s;a.p_lat=null;a.p_lng=null;a.p_note='Driver portal update';const r=await client.rpc('driver_update_status',a);if(r.error)return say(r.error.message,true);say(s+' saved.');start()}
 el('pickedBtn').onclick=()=>status('Picked Up');
 el('deliveredBtn').onclick=()=>status('Delivered');
 el('uploadBtn').onclick=()=>say('Choose file support is loading. Refresh once if needed.');
 start();
-setTimeout(()=>{const s=document.createElement('script');s.src='pod.js?v=1';document.body.appendChild(s)},300);
+setTimeout(()=>{const s=document.createElement('script');s.src='pod.js?v=2';document.body.appendChild(s)},300);
