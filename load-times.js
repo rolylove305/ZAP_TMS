@@ -15,7 +15,7 @@ function addArea(afterId,id,label,ph=''){
   const x=document.createElement('textarea');x.id=id;x.rows=3;x.placeholder=ph;
   l.appendChild(x);anchor.closest('label')?.after(l);
 }
-function loadZapUpgrades(){if(by('zapUpgradesHelper'))return;const s=document.createElement('script');s.id='zapUpgradesHelper';s.src='zap-upgrades.js?v=4300';document.body.appendChild(s)}
+function loadZapUpgrades(){if(!by('zapUpgradesHelper')){const s=document.createElement('script');s.id='zapUpgradesHelper';s.src='zap-upgrades.js?v=4300';document.body.appendChild(s)}if(!by('dashboardLabelsHelper')){const d=document.createElement('script');d.id='dashboardLabelsHelper';d.src='dashboard-labels.js?v=4600';document.body.appendChild(d)}}
 function injectFields(){
   loadZapUpgrades();
   addField('pickupDate','pickupTime','Pickup time','time');
