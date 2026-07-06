@@ -15,7 +15,9 @@ function addArea(afterId,id,label,ph=''){
   const x=document.createElement('textarea');x.id=id;x.rows=3;x.placeholder=ph;
   l.appendChild(x);anchor.closest('label')?.after(l);
 }
+function loadZapUpgrades(){if(by('zapUpgradesHelper'))return;const s=document.createElement('script');s.id='zapUpgradesHelper';s.src='zap-upgrades.js?v=4300';document.body.appendChild(s)}
 function injectFields(){
+  loadZapUpgrades();
   addField('pickupDate','pickupTime','Pickup time','time');
   addField('deliveryDate','deliveryTime','Delivery time','time');
   addField('pickup','pickupAddress','Full pickup address','text','Street, city, state, zip');
