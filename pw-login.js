@@ -12,7 +12,7 @@
     let secret=by('authSecret');
     if(!secret){
       const label=document.createElement('label');
-      label.textContent='Clave';
+      label.textContent='Password';
       secret=document.createElement('input');
       secret.id='authSecret';
       secret.setAttribute('type',secretKey);
@@ -23,25 +23,25 @@
     }
     const say=(m,bad=false)=>{if(box){box.textContent=m;box.classList.toggle('bad',bad)}};
     const strong=s=>s.length>=10 && /[A-Z]/.test(s) && /[a-z]/.test(s) && /[0-9]/.test(s);
-    login.textContent='Login con clave';
-    signup.textContent='Crear usuario con clave';
-    document.querySelectorAll('.small-copy').forEach(p=>p.textContent='Usa una clave fuerte: mínimo 10 caracteres, mayúscula, minúscula y número.');
+    login.textContent='Login with password';
+    signup.textContent='Create user with password';
+    document.querySelectorAll('.small-copy').forEach(p=>p.textContent='Use a strong password: minimum 10 characters, one uppercase letter, one lowercase letter, and one number.');
     async function run(create){
       const e=(email.value||'').trim();
       const s=secret.value||'';
-      if(!e||!s){say('Escribe email y clave.',true);return}
-      if(create&&!strong(s)){say('Para crear usuario usa mínimo 10 caracteres con mayúscula, minúscula y número.',true);return}
-      if(!create&&s.length<6){say('Escribe tu clave completa.',true);return}
-      login.disabled=true;signup.disabled=true;say(create?'Creando usuario...':'Entrando...');
+      if(!e||!s){say('Enter your email and password.',true);return}
+      if(create&&!strong(s)){say('To create a user, use at least 10 characters with one uppercase letter, one lowercase letter, and one number.',true);return}
+      if(!create&&s.length<6){say('Enter your full password.',true);return}
+      login.disabled=true;signup.disabled=true;say(create?'Creating user...':'Logging in...');
       const payload={email:e};payload[secretKey]=s;
       const res=create?await client.auth.signUp(payload):await client.auth[method](payload);
       login.disabled=false;signup.disabled=false;
-      if(res.error){say(create?'No se pudo crear el usuario. Revisa email y clave.':'No se pudo entrar. Revisa email y clave.',true);return}
-      say('Listo. Abriendo TMS...');
+      if(res.error){say(create?'Could not create the user. Check the email and password.':'Could not log in. Check the email and password.',true);return}
+      say('Done. Opening TMS...');
       setTimeout(()=>location.replace(location.origin+location.pathname+'?ok='+Date.now()),500);
     }
     login.onclick=e=>{e.preventDefault();run(false)};
     signup.onclick=e=>{e.preventDefault();run(true)};
-    say('Login por email + clave activado.');
+    say('Email and password login is active.');
   });
 })();
