@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 275" role="img" aria-label="Zap Dispatch logo">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff1a8"/>
+      <stop offset="0.45" stop-color="#d7a526"/>
+      <stop offset="1" stop-color="#8a5a08"/>
+    </linearGradient>
+  </defs>
+  <rect width="900" height="275" rx="34" fill="#071827"/>
+  <circle cx="128" cy="138" r="91" fill="#070707" stroke="url(#gold)" stroke-width="8"/>
+  <path d="M42 128h76L43 211l30-64H40z" fill="url(#gold)"/>
+  <text x="101" y="142" font-size="55" font-family="Arial Black, Impact, sans-serif" font-weight="900" fill="#fff" stroke="#c79522" stroke-width="1">ZAP</text>
+  <path d="M181 100c32 4 54 25 61 56h-35c-6-13-16-22-30-25z" fill="#fff"/>
+  <path d="M207 143h45v32h-45zM215 176h29v14h-29z" fill="#fff"/>
+  <circle cx="210" cy="205" r="11" fill="#071827" stroke="#fff" stroke-width="5"/>
+  <circle cx="253" cy="205" r="11" fill="#071827" stroke="#fff" stroke-width="5"/>
+  <text x="278" y="121" font-size="72" font-family="Arial Black, Impact, sans-serif" font-weight="900" fill="#ffffff">ZAP</text>
+  <text x="278" y="196" font-size="72" font-family="Arial Black, Impact, sans-serif" font-weight="900" fill="url(#gold)" letter-spacing="2">DISPATCH</text>
+  <path d="M282 218h520" stroke="url(#gold)" stroke-width="6" stroke-linecap="round"/>
+</svg>
