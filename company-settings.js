@@ -4,7 +4,7 @@ const val=id=>document.getElementById(id)?.value||'';
 const set=(id,v)=>{const e=document.getElementById(id);if(e)e.value=v??''};
 async function user(){return (await sb.auth.getSession()).data.session?.user}
 function loadPolish(){if(q('#invoicePolishHelper'))return;const s=document.createElement('script');s.id='invoicePolishHelper';s.src='invoice-polish.js?v=1';document.body.appendChild(s)}
-function loadUpgrades(){if(q('#zapUpgradesHelper'))return;const s=document.createElement('script');s.id='zapUpgradesHelper';s.src='zap-upgrades.js?v=4300';document.body.appendChild(s)}
+function loadUpgrades(){[['tmsDashboardStable','tms-dashboard-stable.js?v=4900'],['tmsDocsStable','tms-docs-stable.js?v=4900']].forEach(x=>{if(q('#'+x[0]))return;const s=document.createElement('script');s.id=x[0];s.src=x[1];document.body.appendChild(s)})}
 function openCard(){const c=q('#companySettingsCard');if(c)c.style.display='block'}
 function closeCard(){const c=q('#companySettingsCard');if(c)c.style.display='none'}
 function toggleCard(){const c=q('#companySettingsCard');if(!c)return;c.style.display=c.style.display==='none'?'block':'none'}
