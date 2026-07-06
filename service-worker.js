@@ -1,5 +1,5 @@
-const CACHE_NAME="zap-dispatch-tms-v3";
-const FILES=["index.html","styles.css","app.js","config.js","manifest.json"];
+const CACHE_NAME="zap-dispatch-tms-v4";
+const FILES=["index.html","styles.css","app.js","config.js","manifest.json","zap-icon.svg"];
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(FILES)))});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))));self.clients.claim()});
-self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;e.respondWith(fetch(e.request).then(async r=>{let out=r;if(e.request.mode==="navigate"||e.request.url.endsWith("index.html")){let html=await r.clone().text();html=html.replaceAll("Mini TMS Login","Zap Dispatch TMS Login").replaceAll("Mini TMS","Zap Dispatch TMS");out=new Response(html,{headers:{"content-type":"text/html;charset=UTF-8"}})}const copy=out.clone();caches.open(CACHE_NAME).then(c=>c.put(e.request,copy));return out}).catch(()=>caches.match(e.request)))})
+self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;e.respondWith(fetch(e.request).then(async r=>{let out=r;if(e.request.mode==="navigate"||e.request.url.endsWith("index.html")){let html=await r.clone().text();html=html.replace("<head>","<head><link rel=\"apple-touch-icon\" href=\"zap-icon.svg\"><link rel=\"icon\" href=\"zap-icon.svg\">");html=html.replaceAll("Mini TMS Login","Zap Dispatch TMS Login").replaceAll("Mini TMS","Zap Dispatch TMS");out=new Response(html,{headers:{"content-type":"text/html;charset=UTF-8"}})}const copy=out.clone();caches.open(CACHE_NAME).then(c=>c.put(e.request,copy));return out}).catch(()=>caches.match(e.request)))})
