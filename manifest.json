@@ -5,5 +5,11 @@
   "display": "standalone",
   "background_color": "#061827",
   "theme_color": "#061827",
-  "icons": []
+  "icons": [
+    {
+      "src": "zap-icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
 }
