@@ -1,0 +1,1 @@
+(()=>{setInterval(()=>{try{if(typeof loadCloud==='function')loadCloud()}catch(e){}},20000)})();
