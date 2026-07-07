@@ -1,0 +1,12 @@
+(()=>{
+const L=()=>{try{return JSON.parse(localStorage.getItem('loads')||'[]')}catch{return[]}};
+const B=(t,f)=>{const b=document.createElement('button');b.className='small-btn';b.textContent=t;b.onclick=f;return b};
+function find(card,i){const a=L();let x=card.dataset.loadId&&a.find(v=>v.id===card.dataset.loadId);if(!x){const txt=(card.textContent||'').toLowerCase();x=a.find(v=>v.loadNumber&&txt.includes(String(v.loadNumber).toLowerCase()))||a[i]}if(x?.id)card.dataset.loadId=x.id;return x}
+async function reload(){if(typeof loadCloud==='function')await loadCloud();setTimeout(run,250)}
+async function st(id,s){if(s==='Paid'&&!confirm('Move this load to Paid?'))return;const r=await sb.from('loads').update({status:s}).eq('id',id);if(r.error)return alert(r.error.message);reload()}
+async function arc(id,on){if(!confirm(on?'Archive this load?':'Restore this load to Paid?'))return;const r=await sb.from('loads').update({status:on?'Archived':'Paid'}).eq('id',id);if(r.error)return alert(r.error.message);reload()}
+async function link(id){const r=await sb.rpc('create_driver_link',{p_load_id:id});if(r.error)return alert(r.error.message);const u=location.origin+location.pathname.replace(/index\.html$/,'').replace(/\/$/,'/')+'portal.html?t='+r.data;try{await navigator.clipboard.writeText(u);alert('Copied:\n'+u)}catch{prompt('Copy:',u)}}
+function run(){document.querySelectorAll('#loadsList .list-card').forEach((c,i)=>{const x=find(c,i);if(!x?.id)return;let a=c.querySelector('.card-actions');if(!a){a=document.createElement('div');a.className='card-actions';c.appendChild(a)}if(!c.querySelector('.load-link-btn')){const b=B('Driver Link',()=>link(x.id));b.classList.add('load-link-btn');a.prepend(b)}if(!c.querySelector('.archive-load-btn')){const is=String(x.status||'').toLowerCase()==='archived';const b=B(is?'Restore':'Archive',()=>arc(x.id,!is));b.classList.add('archive-load-btn');a.appendChild(b)}if(!c.querySelector('.status-row')){const r=document.createElement('div');r.className='status-row';r.style.cssText='display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px';[['Picked','Picked Up'],['Delivered','Delivered'],['Invoiced','Invoiced'],['Paid','Paid']].forEach(p=>r.appendChild(B(p[0],()=>st(x.id,p[1]))));c.appendChild(r)}})}
+let tm=null;new MutationObserver(()=>{clearTimeout(tm);tm=setTimeout(run,120)}).observe(document.getElementById('loadsList')||document.body,{childList:true,subtree:true});
+setTimeout(run,800);setTimeout(run,2500);
+})();
