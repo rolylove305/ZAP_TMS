@@ -1,7 +1,8 @@
 (()=>{
 const getLoads=()=>{try{return JSON.parse(localStorage.getItem('loads')||'[]')}catch{return[]}};
-async function uploadStorage(i){
-  const l=getLoads()[i]; if(!l||!l.id)return alert('Sync first.');
+function findLoad(card,i){const arr=getLoads();const id=card?.dataset?.loadId;if(id){const hit=arr.find(x=>x.id===id);if(hit)return hit}return arr[i]}
+async function uploadStorage(card,i){
+  const l=findLoad(card,i); if(!l||!l.id)return alert('Sync first.');
   const input=document.createElement('input'); input.type='file'; input.accept='image/*,.pdf';
   input.onchange=async()=>{
     const file=input.files&&input.files[0]; if(!file)return;
@@ -18,6 +19,6 @@ async function uploadStorage(i){
   };
   input.click();
 }
-function hook(){document.querySelectorAll('#loadsList .list-card').forEach((card,i)=>{const b=card.querySelector('.zap-upload-doc-btn');if(b&&!b.dataset.storage){b.dataset.storage='1';b.onclick=()=>uploadStorage(i);b.textContent='Upload Doc';}})}
+function hook(){document.querySelectorAll('#loadsList .list-card').forEach((card,i)=>{const b=card.querySelector('.zap-upload-doc-btn');if(b){b.dataset.storage='1';b.onclick=()=>uploadStorage(card,i);b.textContent='Upload Doc';}})}
 setInterval(hook,1000);
 })();
