@@ -4,6 +4,7 @@ function css(id,href){if(document.getElementById(id))return;const l=document.cre
 function run(){
   css('mobileFixCss','mobile-fix.css?v=5200');
   load('rollbackHelpers','rollback-helpers.js?v=6100');
+  load('actionsKeeper','actions-keeper.js?v=6300');
   load('tmsDashboardStable','tms-dashboard-stable.js?v=5200');
 }
 setTimeout(run,300);
