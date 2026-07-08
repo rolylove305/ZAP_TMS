@@ -23,25 +23,32 @@
     }
     const say=(m,bad=false)=>{if(box){box.textContent=m;box.classList.toggle('bad',bad)}};
     const strong=s=>s.length>=10 && /[A-Z]/.test(s) && /[a-z]/.test(s) && /[0-9]/.test(s);
+    async function allowed(e){
+      const r=await client.from('app_invites').select('email,active').eq('email',e).eq('active',true).maybeSingle();
+      return !r.error && !!r.data;
+    }
     login.textContent='Login with password';
-    signup.textContent='Create user with password';
-    document.querySelectorAll('.small-copy').forEach(p=>p.textContent='Use a strong password: minimum 10 characters, one uppercase letter, one lowercase letter, and one number.');
+    signup.textContent='Create invited user';
+    document.querySelectorAll('.small-copy').forEach(p=>p.textContent='Invite-only access. Use your invited email and a strong password: minimum 10 characters, one uppercase letter, one lowercase letter, and one number.');
     async function run(create){
-      const e=(email.value||'').trim();
+      const e=(email.value||'').trim().toLowerCase();
       const s=secret.value||'';
-      if(!e||!s){say('Enter your email and password.',true);return}
-      if(create&&!strong(s)){say('To create a user, use at least 10 characters with one uppercase letter, one lowercase letter, and one number.',true);return}
-      if(!create&&s.length<6){say('Enter your full password.',true);return}
-      login.disabled=true;signup.disabled=true;say(create?'Creating user...':'Logging in...');
+      if(!e||!s){say('Enter your invited email and password.',true);return}
+      login.disabled=true;signup.disabled=true;say('Checking invitation...');
+      const ok=await allowed(e);
+      if(!ok){login.disabled=false;signup.disabled=false;say('This email is not invited yet. Ask Zap Dispatch for an invitation before creating an account.',true);return}
+      if(create&&!strong(s)){login.disabled=false;signup.disabled=false;say('To create a user, use at least 10 characters with one uppercase letter, one lowercase letter, and one number.',true);return}
+      if(!create&&s.length<6){login.disabled=false;signup.disabled=false;say('Enter your full password.',true);return}
+      say(create?'Creating invited user...':'Logging in...');
       const payload={email:e};payload[secretKey]=s;
       const res=create?await client.auth.signUp(payload):await client.auth[method](payload);
       login.disabled=false;signup.disabled=false;
-      if(res.error){say(create?'Could not create the user. Check the email and password.':'Could not log in. Check the email and password.',true);return}
+      if(res.error){say(create?'Could not create the user. Check the invited email and password.':'Could not log in. Check the email and password.',true);return}
       say('Done. Opening TMS...');
       setTimeout(()=>location.replace(location.origin+location.pathname+'?ok='+Date.now()),500);
     }
     login.onclick=e=>{e.preventDefault();run(false)};
     signup.onclick=e=>{e.preventDefault();run(true)};
-    say('Email and password login is active.');
+    say('Invite-only login is active.');
   });
 })();
