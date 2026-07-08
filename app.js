@@ -71,8 +71,32 @@ function renderLoads(){
   list.appendChild(frag);
 }
 function portalUrl(token){const base=location.origin+location.pathname.replace(/index\.html$/,"").replace(/\/$/,"/");return base+"portal.html?t="+token}
-async function copyText(t){try{await navigator.clipboard.writeText(t);alert("Copied:\n"+t)}catch{prompt("Copy:",t)}}
-async function actionDriverLink(l){const r=await sb.rpc("create_driver_link",{p_load_id:l.id});if(r.error)return alert(r.error.message);copyText(portalUrl(r.data))}
+function extractToken(d){let t=d;if(Array.isArray(t))t=t[0];if(t&&typeof t==="object")t=t.token??t.t??Object.values(t)[0];return (typeof t==="string"&&t)?t:""}
+function showDriverLinkModal(l,url){
+  let m=document.getElementById("zapLinkModal");
+  if(!m){m=document.createElement("div");m.id="zapLinkModal";m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px";document.body.appendChild(m)}
+  m.innerHTML='<div class="card" style="width:min(560px,96vw)"><div class="section-title"><h2>Driver Link</h2><button class="small-btn" id="zlClose">Close</button></div>'
+    +'<p class="muted">'+esc((l.pickup||"Pickup")+" \u2192 "+(l.delivery||"Delivery"))+' \u2022 Load # '+esc(l.loadNumber||"-")+'</p>'
+    +'<input id="zlUrl" readonly value="'+esc(url)+'" style="width:100%;margin:8px 0">'
+    +'<div class="card-actions"><button class="small-btn" id="zlCopy">Copy link</button><a class="small-btn" id="zlOpen" href="'+esc(url)+'" target="_blank" rel="noopener">Open portal</a></div>'
+    +'<p class="muted">Send this link to the driver. Use Revoke Link on the load card to disable it later.</p></div>';
+  m.querySelector("#zlClose").onclick=()=>m.remove();
+  const inp=m.querySelector("#zlUrl");inp.onclick=()=>inp.select();
+  m.querySelector("#zlCopy").onclick=async()=>{
+    inp.focus();inp.select();
+    let ok=false;
+    try{await navigator.clipboard.writeText(url);ok=true}
+    catch{try{ok=document.execCommand("copy")}catch{ok=false}}
+    alert(ok?"Link copied.":"Copy failed \u2014 tap the link box and copy it manually.");
+  };
+}
+async function actionDriverLink(l){
+  const r=await sb.rpc("create_driver_link",{p_load_id:l.id});
+  if(r.error)return alert("Driver link error: "+r.error.message);
+  const token=extractToken(r.data);
+  if(!token)return alert("Driver link error: the server returned an empty token.");
+  showDriverLinkModal(l,portalUrl(token));
+}
 async function actionRevokeLink(l){if(!confirm("Revoke driver link for this load? The driver portal link will stop working."))return;const r=await sb.rpc("revoke_driver_link",{p_load_id:l.id});if(r.error)return alert(r.error.message);alert("Driver link revoked. Generate a new Driver Link if needed.")}
 async function actionLocation(l){const r=await sb.from("load_events").select("latitude,longitude,created_at,event_type").eq("load_id",l.id).not("latitude","is",null).not("longitude","is",null).order("created_at",{ascending:false}).limit(1);if(r.error)return alert(r.error.message);if(!r.data||!r.data.length)return alert("No location received yet.");const x=r.data[0];window.open("https://www.google.com/maps?q="+x.latitude+","+x.longitude,"_blank")}
 async function actionSetStatus(l,status){if(status===l.status)return;if(status==="Paid"&&!confirm("Move this load to Paid?"))return;await updateRow("loads",{...l,status})}
