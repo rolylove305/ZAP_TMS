@@ -1,4 +1,4 @@
-const CACHE_NAME="zap-dispatch-tms-v8-step2c";
+const CACHE_NAME="zap-dispatch-tms-v9-step2e";
 const FILES=["styles.css","config.js","manifest.json","zap-icon.svg","zap-logo.svg"];
 const STYLE='<style>.zap-logo-login{display:block;width:min(280px,80vw);height:auto;margin:0 auto 16px;border-radius:18px;box-shadow:0 12px 28px rgba(0,0,0,.35)}.zap-logo-head{display:block;width:220px;max-width:62vw;height:auto;margin:0 0 12px;border-radius:14px;box-shadow:0 10px 24px rgba(0,0,0,.28)}@media(max-width:640px){.zap-logo-login{width:min(245px,82vw)}.zap-logo-head{width:185px}}</style>';
 
@@ -22,15 +22,22 @@ function decorateHtml(html){
 self.addEventListener("fetch",e=>{
   if(e.request.method!=="GET")return;
   const url=new URL(e.request.url);
-  const isNavigate=e.request.mode==="navigate"||url.pathname.endsWith("/index.html")||url.pathname==="/";
+
+  // Step 2E: never intercept driver portal or driver scripts.
+  // The portal must load directly from network so driver links are not affected by old app cache.
+  if(url.pathname.endsWith("/portal.html")||url.pathname.endsWith("/driver-test.js")||url.pathname.endsWith("/pod.js")){
+    e.respondWith(fetch(e.request,{cache:"no-store"}));
+    return;
+  }
+
+  const isAppNavigate=e.request.mode==="navigate"&&(url.pathname==="/"||url.pathname.endsWith("/index.html"));
   const isScript=url.pathname.endsWith(".js");
 
-  if(isNavigate){
+  if(isAppNavigate){
     e.respondWith(fetch(e.request,{cache:"no-store"}).then(async r=>{
       const html=decorateHtml(await r.clone().text());
-      const out=new Response(html,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
-      return out;
-    }).catch(()=>caches.match("index.html")));
+      return new Response(html,{headers:{"content-type":"text/html;charset=UTF-8","cache-control":"no-store"}});
+    }).catch(()=>fetch("/index.html",{cache:"no-store"})));
     return;
   }
 
