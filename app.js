@@ -5,7 +5,7 @@ const store={get(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch{re
 let currentUser=null;
 let appData={settings:store.get("settings",{companyName:"Zap Dispatch",defaultCommission:8,companyEmail:"",companyPhone:""}),carriers:[],brokers:[],loads:[],expenses:[]};
 const tables=["carriers","brokers","loads","expenses"];
-const map={carriers:{toDb:x=>({name:x.name||"",mc_dot:x.mcDot||"",contact:x.contact||"",phone:x.phone||"",email:x.email||"",equipment:x.equipment||"",trucks:num(x.trucks,0),commission:num(x.commission,8),user_id:currentUser.id}),fromDb:x=>({id:x.id,name:x.name,mcDot:x.mc_dot,contact:x.contact,phone:x.phone,email:x.email,equipment:x.equipment,trucks:x.trucks,commission:x.commission})},brokers:{toDb:x=>({name:x.name||"",contact:x.contact||"",phone:x.phone||"",email:x.email||"",source:x.source||"",notes:x.notes||"",user_id:currentUser.id}),fromDb:x=>({id:x.id,name:x.name,contact:x.contact,phone:x.phone,email:x.email,source:x.source,notes:x.notes})},loads:{toDb:x=>({carrier:x.carrier||"",broker:x.broker||"",pickup:x.pickup||"",delivery:x.delivery||"",pickup_date:emptyDate(x.pickupDate),delivery_date:emptyDate(x.deliveryDate),equipment:x.equipment||"",status:x.status||"Booked",rate:num(x.rate,0),commission_pct:num(x.commissionPct,8),load_number:x.loadNumber||"",notes:x.notes||"",user_id:currentUser.id}),fromDb:x=>({id:x.id,carrier:x.carrier,broker:x.broker,pickup:x.pickup,delivery:x.delivery,pickupDate:x.pickup_date,deliveryDate:x.delivery_date,equipment:x.equipment,status:x.status,rate:x.rate,commissionPct:x.commission_pct,loadNumber:x.load_number,notes:x.notes})},expenses:{toDb:x=>({carrier:x.carrier||"",category:x.category||"Other",amount:num(x.amount,0),expense_date:emptyDate(x.date),notes:x.notes||"",user_id:currentUser.id}),fromDb:x=>({id:x.id,carrier:x.carrier,category:x.category,amount:x.amount,date:x.expense_date,notes:x.notes})}};
+const map={carriers:{toDb:x=>({name:x.name||"",mc_dot:x.mcDot||"",contact:x.contact||"",phone:x.phone||"",email:x.email||"",equipment:x.equipment||"",trucks:num(x.trucks,0),commission:num(x.commission,8),user_id:currentUser.id}),fromDb:x=>({id:x.id,name:x.name,mcDot:x.mc_dot,contact:x.contact,phone:x.phone,email:x.email,equipment:x.equipment,trucks:x.trucks,commission:x.commission})},brokers:{toDb:x=>({name:x.name||"",contact:x.contact||"",phone:x.phone||"",email:x.email||"",source:x.source||"",notes:x.notes||"",user_id:currentUser.id}),fromDb:x=>({id:x.id,name:x.name,contact:x.contact,phone:x.phone,email:x.email,source:x.source,notes:x.notes})},loads:{toDb:x=>({carrier:x.carrier||"",broker:x.broker||"",pickup:x.pickup||"",delivery:x.delivery||"",pickup_date:emptyDate(x.pickupDate),delivery_date:emptyDate(x.deliveryDate),equipment:x.equipment||"",status:x.status||"Booked",rate:num(x.rate,0),commission_pct:num(x.commissionPct,8),load_number:x.loadNumber||"",notes:x.notes||"",pickup_address:x.pickupAddress||"",delivery_address:x.deliveryAddress||"",miles:(x.miles===""||x.miles==null)?null:num(x.miles,0),pickup_time:x.pickupTime||null,delivery_time:x.deliveryTime||null,driver_name:x.driverName||"",driver_phone:x.driverPhone||"",truck_number:x.truckNumber||"",trailer_number:x.trailerNumber||"",additional_stops:x.additionalStops||"",user_id:currentUser.id}),fromDb:x=>({id:x.id,carrier:x.carrier,broker:x.broker,pickup:x.pickup,delivery:x.delivery,pickupDate:x.pickup_date,deliveryDate:x.delivery_date,equipment:x.equipment,status:x.status,rate:x.rate,commissionPct:x.commission_pct,loadNumber:x.load_number,notes:x.notes,pickupAddress:x.pickup_address,deliveryAddress:x.delivery_address,miles:x.miles,pickupTime:x.pickup_time,deliveryTime:x.delivery_time,driverName:x.driver_name,driverPhone:x.driver_phone,truckNumber:x.truck_number,trailerNumber:x.trailer_number,additionalStops:x.additional_stops})},expenses:{toDb:x=>({carrier:x.carrier||"",category:x.category||"Other",amount:num(x.amount,0),expense_date:emptyDate(x.date),notes:x.notes||"",user_id:currentUser.id}),fromDb:x=>({id:x.id,carrier:x.carrier,category:x.category,amount:x.amount,date:x.expense_date,notes:x.notes})}};
 function num(v,d=0){const n=Number(v);return Number.isFinite(n)?n:d}function emptyDate(v){return v||null}function money(n){return "$"+(Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2})}function msg(t,bad=false){const el=$("authMessage");if(el){el.textContent=t||"";el.classList.toggle("bad",!!bad)}}function setBusy(b){["loginBtn","signupBtn","addCarrier","addBroker","addLoad","addExpense","syncNow"].forEach(id=>{const el=$(id);if(el)el.disabled=b})}
 function data(){return appData}function cache(){tables.forEach(t=>store.set(t,appData[t]));store.set("settings",appData.settings)}
 async function loadCloud(){if(!currentUser)return;setBusy(true);try{for(const t of tables){const {data,error}=await sb.from(t).select("*").order("created_at",{ascending:false});if(error)throw error;appData[t]=(data||[]).map(map[t].fromDb)}cache();refresh()}catch(e){alert("Cloud sync error: "+e.message)}finally{setBusy(false)}}
@@ -18,7 +18,139 @@ function renderSelects(){const d=data();["loadCarrier","expenseCarrier"].forEach
 function esc(v){return String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]))}function card(title,body,pills="",actions=""){return `<div class="list-card"><h3>${esc(title)}</h3><p class="muted">${esc(body)}</p><div class="pill-row">${pills}</div>${actions}</div>`}
 function renderCarriers(){const list=$("carriersList"),arr=data().carriers;list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No carriers yet.</p></div>";arr.forEach((c,i)=>list.innerHTML+=card(c.name||"Unnamed carrier",`${c.equipment||""} • ${c.trucks||0} truck(s) • ${c.contact||""} ${c.phone||""}`,`<span class="pill">MC/DOT: ${esc(c.mcDot||"-")}</span><span class="pill green">${esc(c.commission||8)}%</span>`,`<div class="card-actions"><button class="small-btn" onclick="removeItem('carriers',${i})">Delete</button></div>`))}
 function renderBrokers(){const list=$("brokersList"),arr=data().brokers;list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No brokers yet.</p></div>";arr.forEach((b,i)=>list.innerHTML+=card(b.name||"Unnamed broker",`${b.contact||""} • ${b.phone||""} • ${b.email||""}`,`<span class="pill">${esc(b.source||"Source")}</span>`,`<div class="card-actions"><button class="small-btn" onclick="removeItem('brokers',${i})">Delete</button></div>`))}
-function renderLoads(){const list=$("loadsList"),arr=data().loads;list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No loads yet.</p></div>";arr.forEach((l,i)=>{const color=l.status==="Paid"?"green":l.status==="Cancelled"?"red":l.status==="Delivered"||l.status==="Invoiced"?"yellow":"orange";const comm=num(l.rate)*num(l.commissionPct)/100;list.innerHTML+=card(`${l.pickup||"Pickup"} → ${l.delivery||"Delivery"}`,`${l.carrier||"Carrier"} • ${l.broker||"Broker"} • Load # ${l.loadNumber||"-"} • ${l.pickupDate||""}`,`<span class="pill ${color}">${esc(l.status||"Booked")}</span><span class="pill">${money(l.rate)}</span><span class="pill green">Comm ${money(comm)}</span><span class="pill">${esc(l.equipment||"")}</span>`,`<div class="card-actions"><button class="small-btn" onclick="cycleLoad(${i})">Next status</button><button class="small-btn" onclick="removeItem('loads',${i})">Delete</button></div>`)})}
+/* ===== Load Board v2 (Step 1): stable cards, data-load-id, native actions, one delegated listener ===== */
+const LOAD_STATUSES=["Booked","Dispatched","Picked Up","Delivered","Invoiced","Paid"];
+function loadById(id){return appData.loads.find(x=>x.id===id)}
+function buildLoadCard(l){
+  const status=String(l.status||"Booked");
+  const color=status==="Paid"?"green":status==="Cancelled"?"red":(status==="Delivered"||status==="Invoiced")?"yellow":"orange";
+  const comm=num(l.rate)*num(l.commissionPct)/100;
+  const canInvoice=["Delivered","Invoiced","Paid"].includes(status);
+  const isArchived=status==="Archived";
+  const extra=[
+    l.driverName?("Driver: "+l.driverName+(l.driverPhone?" ("+l.driverPhone+")":"")):"",
+    l.truckNumber?("Truck "+l.truckNumber):"",
+    l.trailerNumber?("Trailer "+l.trailerNumber):"",
+    (l.miles!=null&&l.miles!=="")?(l.miles+" mi"):""
+  ].filter(Boolean).join(" • ");
+  const el=document.createElement("div");
+  el.className="list-card";
+  if(l.id)el.dataset.loadId=l.id;
+  el.innerHTML=
+    (canInvoice&&l.id?`<label class="invoice-select-box" style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800;color:#86efac"><input type="checkbox" class="invoice-select" data-id="${esc(l.id)}"> Select for invoice</label>`:"")+
+    `<h3>${esc((l.pickup||"Pickup")+" → "+(l.delivery||"Delivery"))}</h3>`+
+    `<p class="muted">${esc((l.carrier||"Carrier")+" • "+(l.broker||"Broker")+" • Load # "+(l.loadNumber||"-")+" • "+(l.pickupDate||""))}</p>`+
+    (extra?`<p class="muted">${esc(extra)}</p>`:"")+
+    `<div class="pill-row"><span class="pill ${color}">${esc(status)}</span><span class="pill">${money(l.rate)}</span><span class="pill green">Comm ${money(comm)}</span><span class="pill">${esc(l.equipment||"")}</span></div>`+
+    `<div class="card-actions">`+
+      `<button class="small-btn load-link-btn" data-action="driver-link">Driver Link</button>`+
+      `<button class="small-btn revoke-link-btn" data-action="revoke-link">Revoke Link</button>`+
+      `<button class="small-btn load-loc-btn" data-action="location">Location</button>`+
+      `<button class="small-btn zap-edit-btn" data-action="edit">Edit</button>`+
+      `<button class="small-btn" data-action="next-status">Next status</button>`+
+      `<button class="small-btn zap-upload-doc-btn" data-action="upload-doc">Upload Doc</button>`+
+      `<button class="small-btn zap-manage-docs-btn" data-action="manage-docs">Manage Docs</button>`+
+      `<button class="small-btn archive-load-btn" data-action="archive">${isArchived?"Restore":"Archive"}</button>`+
+      `<button class="small-btn" data-action="delete">Delete</button>`+
+    `</div>`+
+    `<div class="status-row" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px">`+
+      `<button class="small-btn" data-action="set-status" data-status="Picked Up">Picked</button>`+
+      `<button class="small-btn" data-action="set-status" data-status="Delivered">Delivered</button>`+
+      `<button class="small-btn" data-action="set-status" data-status="Invoiced">Invoiced</button>`+
+      `<button class="small-btn" data-action="set-status" data-status="Paid">Paid</button>`+
+    `</div>`;
+  return el;
+}
+function renderLoads(){
+  const list=$("loadsList");if(!list)return;
+  const arr=data().loads;
+  list.textContent="";
+  if(!arr.length){list.innerHTML="<div class='card'><p class='muted'>No loads yet.</p></div>";return}
+  const frag=document.createDocumentFragment();
+  arr.forEach(l=>frag.appendChild(buildLoadCard(l)));
+  list.appendChild(frag);
+}
+function portalUrl(token){const base=location.origin+location.pathname.replace(/index\.html$/,"").replace(/\/$/,"/");return base+"portal.html?t="+token}
+async function copyText(t){try{await navigator.clipboard.writeText(t);alert("Copied:\n"+t)}catch{prompt("Copy:",t)}}
+async function actionDriverLink(l){const r=await sb.rpc("create_driver_link",{p_load_id:l.id});if(r.error)return alert(r.error.message);copyText(portalUrl(r.data))}
+async function actionRevokeLink(l){if(!confirm("Revoke driver link for this load? The driver portal link will stop working."))return;const r=await sb.rpc("revoke_driver_link",{p_load_id:l.id});if(r.error)return alert(r.error.message);alert("Driver link revoked. Generate a new Driver Link if needed.")}
+async function actionLocation(l){const r=await sb.from("load_events").select("latitude,longitude,created_at,event_type").eq("load_id",l.id).not("latitude","is",null).not("longitude","is",null).order("created_at",{ascending:false}).limit(1);if(r.error)return alert(r.error.message);if(!r.data||!r.data.length)return alert("No location received yet.");const x=r.data[0];window.open("https://www.google.com/maps?q="+x.latitude+","+x.longitude,"_blank")}
+async function actionSetStatus(l,status){if(status===l.status)return;if(status==="Paid"&&!confirm("Move this load to Paid?"))return;await updateRow("loads",{...l,status})}
+async function actionNextStatus(l){const i=LOAD_STATUSES.indexOf(l.status);await updateRow("loads",{...l,status:LOAD_STATUSES[(i+1)%LOAD_STATUSES.length]})}
+async function actionArchive(l){const on=String(l.status||"").toLowerCase()!=="archived";if(!confirm(on?"Archive this load?":"Restore this load to Paid?"))return;localStorage.setItem("zapFolder",on?"archive":"paid");await updateRow("loads",{...l,status:on?"Archived":"Paid"})}
+function actionUploadDoc(l){
+  const input=document.createElement("input");input.type="file";input.accept="image/*,.pdf";
+  input.onchange=async()=>{
+    const file=input.files&&input.files[0];if(!file)return;
+    if(file.size>10*1024*1024)return alert("File is too large. Keep it under 10 MB.");
+    const kind=prompt("Document type: Rate Confirmation, BOL, POD, Lumper Receipt, Invoice Copy, Other","Rate Confirmation")||"Document";
+    const user=(await sb.auth.getSession()).data.session?.user;if(!user)return alert("Login again first.");
+    const safe=(file.name||"document").replace(/[^a-zA-Z0-9._-]/g,"_");
+    const path=user.id+"/"+l.id+"/"+Date.now()+"_"+safe;
+    const up=await sb.storage.from("load-documents").upload(path,file,{contentType:file.type||"application/octet-stream"});
+    if(up.error)return alert("Storage upload error: "+up.error.message);
+    const r=await sb.from("load_documents").insert({user_id:user.id,load_id:l.id,file_name:"["+kind+"] "+file.name,file_type:file.type||"application/octet-stream",storage_bucket:"load-documents",storage_path:path,uploaded_by:"dispatcher"});
+    if(r.error)return alert("File uploaded, but TMS record failed: "+r.error.message);
+    alert("Document uploaded to Storage.");
+  };
+  input.click();
+}
+async function actionManageDocs(l){
+  const r=await sb.from("load_documents").select("id,file_name,file_data,storage_path,created_at").eq("load_id",l.id).order("created_at",{ascending:false});
+  if(r.error)return alert(r.error.message);
+  let modal=document.getElementById("zapDocsModal");
+  if(!modal){modal=document.createElement("div");modal.id="zapDocsModal";modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px";document.body.appendChild(modal)}
+  const docs=r.data||[];const parts=[];
+  for(const d of docs){
+    let u=d.file_data||"";
+    if(d.storage_path){const s=await sb.storage.from("load-documents").createSignedUrl(d.storage_path,3600);u=s.error?"":s.data.signedUrl}
+    parts.push('<div class="card" style="margin:10px 0;padding:12px"><b>'+esc(d.file_name||"Document")+'</b><p class="muted">'+esc(new Date(d.created_at).toLocaleString())+(d.storage_path?" • Storage":" • Legacy")+'</p><div style="display:flex;gap:8px;flex-wrap:wrap">'+(u?'<a class="small-btn" href="'+u+'" target="_blank" download="'+esc(d.file_name||"document")+'">Open / Download</a>':"")+'<button class="small-btn zap-delete-doc" data-id="'+esc(d.id)+'">Delete</button></div></div>');
+  }
+  modal.innerHTML='<div class="card" style="width:min(760px,96vw);max-height:88vh;overflow:auto"><div class="section-title"><h2>Load Documents</h2><button class="small-btn" id="zapCloseDocs">Close</button></div><p class="muted">Storage links expire after 1 hour for security. Reopen Manage Docs for a fresh link.</p>'+(parts.length?parts.join(""):'<p class="muted">No documents saved for this load yet.</p>')+"</div>";
+  document.getElementById("zapCloseDocs").onclick=()=>modal.remove();
+  modal.querySelectorAll(".zap-delete-doc").forEach(b=>b.onclick=async()=>{if(!confirm("Delete this document from the TMS list?"))return;const del=await sb.from("load_documents").delete().eq("id",b.dataset.id);if(del.error)return alert(del.error.message);alert("Document deleted.");actionManageDocs(l)});
+}
+function actionEdit(l){
+  const F=[["Pickup city/state","pickup","text"],["Delivery city/state","delivery","text"],["Pickup date","pickupDate","date"],["Delivery date","deliveryDate","date"],["Pickup time","pickupTime","time"],["Delivery time","deliveryTime","time"],["Full pickup address","pickupAddress","text"],["Full delivery address","deliveryAddress","text"],["Miles","miles","number"],["Equipment","equipment","text"],["Rate $","rate","number"],["Dispatcher %","commissionPct","number"],["Load #","loadNumber","text"],["Driver name","driverName","text"],["Driver phone","driverPhone","text"],["Truck #","truckNumber","text"],["Trailer #","trailerNumber","text"],["Additional stops","additionalStops","text"],["Notes","notes","text"]];
+  const ALL=[...LOAD_STATUSES,"Archived","Cancelled"];
+  let modal=document.getElementById("zapEditModal");
+  if(!modal){modal=document.createElement("div");modal.id="zapEditModal";modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px";document.body.appendChild(modal)}
+  modal.innerHTML='<div class="card" style="width:min(760px,96vw);max-height:88vh;overflow:auto"><div class="section-title"><h2>Edit Load</h2><button class="small-btn" id="zeClose">Close</button></div><div class="form-grid">'
+    +'<label>Status<select id="ze_status">'+ALL.map(s=>'<option'+(s===l.status?" selected":"")+">"+esc(s)+"</option>").join("")+"</select></label>"
+    +F.map(f=>'<label>'+esc(f[0])+'<input id="ze_'+f[1]+'" type="'+f[2]+'"'+(f[2]==="number"?' step="0.01"':"")+' value="'+esc(l[f[1]]??"")+'"></label>').join("")
+    +'</div><div class="card-actions" style="margin-top:12px"><button class="small-btn" id="zeSave">Save changes</button></div></div>';
+  modal.querySelector("#zeClose").onclick=()=>modal.remove();
+  modal.querySelector("#zeSave").onclick=async()=>{
+    const upd={...l,status:modal.querySelector("#ze_status").value};
+    F.forEach(f=>{upd[f[1]]=modal.querySelector("#ze_"+f[1]).value});
+    modal.remove();
+    await updateRow("loads",upd);
+  };
+}
+function onLoadBoardClick(e){
+  const btn=e.target.closest("[data-action]");
+  if(!btn||btn.onclick)return; /* if a legacy helper re-bound this button, let the helper own the click (no double-fire) */
+  const cardEl=btn.closest(".list-card");if(!cardEl)return;
+  const id=cardEl.dataset.loadId||"";
+  const l=id&&loadById(id);
+  const a=btn.dataset.action;
+  if(!l){
+    if(a==="delete"){const i=[...cardEl.parentNode.children].indexOf(cardEl);if(i>-1&&appData.loads[i])removeItem("loads",i);return}
+    return alert("Sync first.");
+  }
+  if(a==="driver-link")return actionDriverLink(l);
+  if(a==="revoke-link")return actionRevokeLink(l);
+  if(a==="location")return actionLocation(l);
+  if(a==="edit")return actionEdit(l);
+  if(a==="next-status")return actionNextStatus(l);
+  if(a==="set-status")return actionSetStatus(l,btn.dataset.status);
+  if(a==="upload-doc")return actionUploadDoc(l);
+  if(a==="manage-docs")return actionManageDocs(l);
+  if(a==="archive")return actionArchive(l);
+  if(a==="delete"){const i=appData.loads.findIndex(x=>x.id===id);if(i>-1)return removeItem("loads",i)}
+}
+(()=>{const el=$("loadsList");if(el&&!el.dataset.delegated){el.dataset.delegated="1";el.addEventListener("click",onLoadBoardClick)}})();
+/* ===== end Load Board v2 ===== */
 async function cycleLoad(i){const statuses=["Booked","Dispatched","Picked Up","Delivered","Invoiced","Paid"];const l=appData.loads[i];if(!l)return;let idx=statuses.indexOf(l.status);l.status=statuses[(idx+1)%statuses.length];await updateRow("loads",l)}window.cycleLoad=cycleLoad;
 function renderExpenses(){const list=$("expensesList"),arr=data().expenses;list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No expenses yet.</p></div>";arr.forEach((e,i)=>list.innerHTML+=card(`${e.category||"Other"} • ${money(e.amount)}`,`${e.date||""} • ${e.carrier||""} • ${e.notes||""}`,`<span class="pill red">Cost</span>`,`<div class="card-actions"><button class="small-btn" onclick="removeItem('expenses',${i})">Delete</button></div>`))}
 function renderInvoices(){const list=$("invoiceList"),arr=data().loads.filter(l=>["Delivered","Invoiced","Paid"].includes(l.status));list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No delivered/invoiced loads yet.</p></div>";arr.forEach(l=>{const comm=num(l.rate)*num(l.commissionPct)/100;list.innerHTML+=card(`${l.carrier||"Carrier"} • ${money(l.rate)}`,`${l.pickup||""} → ${l.delivery||""} • Broker: ${l.broker||""}`,`<span class="pill">${esc(l.status)}</span><span class="pill green">Dispatch fee ${money(comm)}</span>`)})}
@@ -28,7 +160,7 @@ document.querySelectorAll(".nav-btn,.jump").forEach(btn=>btn.onclick=()=>{if(btn
 $("themeToggle").onclick=()=>{document.body.classList.toggle("light");store.set("light",document.body.classList.contains("light"))};
 $("addCarrier").onclick=()=>insertRow("carriers",{name:$("carrierName").value,mcDot:$("mcDot").value,contact:$("carrierContact").value,phone:$("carrierPhone").value,email:$("carrierEmail").value,equipment:$("carrierEquipment").value,trucks:$("carrierTrucks").value,commission:$("carrierCommission").value}).then(()=>clearInputs(["carrierName","mcDot","carrierContact","carrierPhone","carrierEmail"]));
 $("addBroker").onclick=()=>insertRow("brokers",{name:$("brokerName").value,contact:$("brokerContact").value,phone:$("brokerPhone").value,email:$("brokerEmail").value,source:$("brokerSource").value,notes:$("brokerNotes").value}).then(()=>clearInputs(["brokerName","brokerContact","brokerPhone","brokerEmail","brokerSource","brokerNotes"]));
-$("addLoad").onclick=()=>insertRow("loads",{carrier:$("loadCarrier").value,broker:$("loadBroker").value,pickup:$("pickup").value,delivery:$("delivery").value,pickupDate:$("pickupDate").value,deliveryDate:$("deliveryDate").value,equipment:$("equipment").value,status:$("loadStatus").value,rate:$("rate").value,commissionPct:$("commissionPct").value,loadNumber:$("loadNumber").value,notes:$("loadNotes").value}).then(()=>clearInputs(["pickup","delivery","pickupDate","deliveryDate","rate","loadNumber","loadNotes"]));
+$("addLoad").onclick=()=>insertRow("loads",{carrier:$("loadCarrier").value,broker:$("loadBroker").value,pickup:$("pickup").value,delivery:$("delivery").value,pickupDate:$("pickupDate").value,deliveryDate:$("deliveryDate").value,equipment:$("equipment").value,status:$("loadStatus").value,rate:$("rate").value,commissionPct:$("commissionPct").value,loadNumber:$("loadNumber").value,notes:$("loadNotes").value,pickupAddress:$("pickupAddress")?.value,deliveryAddress:$("deliveryAddress")?.value,miles:$("loadMiles")?.value,pickupTime:$("pickupTime")?.value,deliveryTime:$("deliveryTime")?.value,driverName:$("driverName")?.value,driverPhone:$("driverPhone")?.value,truckNumber:$("truckNumber")?.value,trailerNumber:$("trailerNumber")?.value,additionalStops:$("additionalStops")?.value}).then(()=>clearInputs(["pickup","delivery","pickupDate","deliveryDate","rate","loadNumber","loadNotes","pickupAddress","deliveryAddress","loadMiles","pickupTime","deliveryTime","driverName","driverPhone","truckNumber","trailerNumber","additionalStops"]));
 $("addExpense").onclick=()=>insertRow("expenses",{date:$("expenseDate").value,carrier:$("expenseCarrier").value,category:$("expenseCategory").value,amount:$("expenseAmount").value,notes:$("expenseNotes").value}).then(()=>clearInputs(["expenseAmount","expenseNotes"]));
 $("saveSettings").onclick=()=>{appData.settings={companyName:$("companyName").value,defaultCommission:$("defaultCommission").value,companyEmail:$("companyEmail").value,companyPhone:$("companyPhone").value};cache();alert("Settings saved on this device.");refresh()};
 $("exportData").onclick=()=>{$("backupBox").value=JSON.stringify(data(),null,2)};$("syncNow").onclick=loadCloud;$("logoutBtn").onclick=async()=>{await sb.auth.signOut();location.reload()};
