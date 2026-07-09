@@ -7,12 +7,11 @@ async function currentUser(){return (await sb.auth.getSession()).data.session?.u
 async function settings(){const u=await currentUser();if(!u)return {};const r=await sb.from('company_settings').select('*').eq('user_id',u.id).maybeSingle();return r.data||{company_name:'Zap Dispatch'}}
 function addTop(){if(q('#invoiceSelectedBtn'))return;const bar=q('#folderBar')||q('#loads .section-title');if(!bar)return;const b=document.createElement('button');b.id='invoiceSelectedBtn';b.className='primary-btn';b.textContent='Invoice selected';b.style.marginTop='10px';b.onclick=invoiceSelected;bar.appendChild(b)}
 async function carrierEmail(carrier){const r=await sb.from('carriers').select('email').eq('name',carrier).maybeSingle();return r.data?.email||''}
-function gmailUrl(to,subject,body){return 'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(to||'')+'&su='+encodeURIComponent(subject||'')+'&body='+encodeURIComponent(body||'')}
 function modal(ctx){
  let m=document.getElementById('ziModal');
  if(!m){m=document.createElement('div');m.id='ziModal';m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';document.body.appendChild(m)}
  const rows=ctx.items.map(x=>'<p class="muted" style="margin:4px 0">Load # '+esc(x.load_number||'-')+' • '+esc((x.pickup||'')+' to '+(x.delivery||''))+' • '+money(x.__due)+'</p>').join('');
- m.innerHTML='<div class="card" style="width:min(560px,96vw);max-height:88vh;overflow:auto"><div class="section-title"><h2>Invoice '+esc(ctx.invoiceNumber)+'</h2><button class="small-btn" id="ziClose">Close</button></div><p class="muted">'+esc(ctx.carrier)+' • '+ctx.items.length+' load(s)'+(ctx.email?'':' • no carrier email on file')+'</p>'+rows+'<p style="font-weight:800;font-size:18px;margin:10px 0">Total Due: '+money(ctx.total)+'</p><div class="card-actions" style="flex-wrap:wrap"><a class="small-btn" href="'+esc(ctx.gUrl)+'" target="_blank" rel="noopener">Open Gmail draft</a><button class="small-btn" id="ziCopy">Copy email text</button><button class="small-btn" id="ziMark">Mark selected loads as Invoiced</button></div><p class="muted">Invoice record is saved. Use Gmail or Copy from your phone. Printable PDF will be cleaned in the next patch.</p></div>';
+ m.innerHTML='<div class="card" style="width:min(560px,96vw);max-height:88vh;overflow:auto"><div class="section-title"><h2>Invoice '+esc(ctx.invoiceNumber)+'</h2><button class="small-btn" id="ziClose">Close</button></div><p class="muted">'+esc(ctx.carrier)+' • '+ctx.items.length+' load(s)'+(ctx.email?'':' • no carrier email on file')+'</p>'+rows+'<p style="font-weight:800;font-size:18px;margin:10px 0">Total Due: '+money(ctx.total)+'</p><div class="card-actions" style="flex-wrap:wrap"><button class="small-btn" id="ziCopy">Copy email text</button><button class="small-btn" id="ziMark">Mark selected loads as Invoiced</button></div><p class="muted">Invoice record is saved. Copy the email text and paste it in Gmail app. Printable PDF will be cleaned in the next patch.</p></div>';
  m.querySelector('#ziClose').onclick=()=>m.remove();
  m.querySelector('#ziCopy').onclick=async()=>{const text='Subject: '+ctx.subject+'\n\n'+ctx.body;try{await navigator.clipboard.writeText(text);alert('Email text copied.')}catch{prompt('Copy email text:',text)}};
  m.querySelector('#ziMark').onclick=async()=>{const b=m.querySelector('#ziMark');b.disabled=true;const up=await sb.from('loads').update({status:'Invoiced'}).in('id',ctx.ids);if(up.error){b.disabled=false;return alert(up.error.message)}b.textContent='Marked as Invoiced ✓';qa('.invoice-select:checked').forEach(x=>x.checked=false);if(typeof loadCloud==='function')await loadCloud()};
@@ -42,7 +41,7 @@ async function invoiceSelected(){
  const lineText=items.map(x=>'Load # '+(x.load_number||'-')+' | '+(x.pickup||'')+' to '+(x.delivery||'')+' | Dispatch fee: '+money(x.__due)).join('\n');
  const subject='Invoice '+invoiceNumber+' - '+carrier;
  const body='Hello,\n\nPlease see invoice details below. I will attach the PDF invoice before sending.\n\nInvoice: '+invoiceNumber+'\nCarrier: '+carrier+'\n\n'+lineText+'\n\nTotal Due: '+money(total)+'\n\nPayment Info:\n'+(st.zelle_info||'')+'\n\nThank you,\n'+(st.company_name||'Zap Dispatch');
- modal({ids,items,carrier,email,total,invoiceNumber,subject,body,gUrl:gmailUrl(email,subject,body)});
+ modal({ids,items,carrier,email,total,invoiceNumber,subject,body});
 }
 setInterval(()=>{addTop()},1500);
 })();
