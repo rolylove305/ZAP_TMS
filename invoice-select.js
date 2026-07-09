@@ -6,11 +6,11 @@
      rendered ONLY when !isIOS. iOS never gets a Gmail/mailto/window.open
      email path — Copy email text (always plain, no encoding) is its
      equivalent there.
-   - "Open printable invoice" is a real <a href target="_blank"> anchor to
-     invoice-print.html?invoice_id=<id>, not a JS window.open() button —
-     window.open() did not reliably open on the user's device. A second
-     "Open in this tab" anchor (no target) is the fallback if the new-tab
-     link doesn't work either.
+   - "View / Print invoice" renders an in-app printable overlay using the
+     invoice data already in the modal context — it does NOT navigate to
+     invoice-print.html. That standalone page rendered a blank page in
+     production for reasons not yet solved; the overlay avoids the whole
+     separate-page/separate-script-load path entirely.
    - markCards()/revokeLink() are KEPT from main as-is: this release does
      not include the app.js Load Board v2 rewrite, so checkbox and Revoke
      Link rendering still needs to be injected here, index-based, same as
@@ -29,15 +29,55 @@ async function revokeLink(id){if(!confirm('Revoke driver link for this load? The
 function markCards(){const arr=loads();qa('#loadsList .list-card').forEach((card,i)=>{const l=arr[i];if(!l)return;if(ok(l.status)){let box=card.querySelector('.invoice-select-box');if(!box){box=document.createElement('label');box.className='invoice-select-box';box.style.cssText='display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800;color:#86efac';box.innerHTML='<input type="checkbox" class="invoice-select"> Select for invoice';card.prepend(box)}box.querySelector('input').dataset.id=l.id}let acts=card.querySelector('.card-actions');if(!acts){acts=document.createElement('div');acts.className='card-actions';card.appendChild(acts)}if(!card.querySelector('.revoke-link-btn')){const b=document.createElement('button');b.className='small-btn revoke-link-btn';b.textContent='Revoke Link';b.onclick=()=>revokeLink(l.id);acts.appendChild(b)}})}
 async function carrierEmail(carrier){const r=await sb.from('carriers').select('email').eq('name',carrier).maybeSingle();return r.data?.email||''}
 function gmailUrl(to,subject,body){return 'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(to||'')+'&su='+encodeURIComponent(subject||'')+'&body='+encodeURIComponent(body||'')}
-function printableUrl(invoiceId){return 'invoice-print.html?invoice_id='+encodeURIComponent(invoiceId)}
+function ensurePrintStyle(){
+  if(document.getElementById('zpPrintStyle'))return;
+  const s=document.createElement('style');
+  s.id='zpPrintStyle';
+  s.textContent='@media print{body>*:not(#zpInvoiceOverlay){display:none!important}#zpInvoiceOverlay{position:static!important;background:#fff!important;padding:0!important}#zpInvoiceCard{box-shadow:none!important;max-height:none!important;overflow:visible!important;width:100%!important}.zp-noprint{display:none!important}}';
+  document.head.appendChild(s);
+}
+function showPrintableOverlay(ctx){
+  ensurePrintStyle();
+  let o=document.getElementById('zpInvoiceOverlay');
+  if(!o){o=document.createElement('div');o.id='zpInvoiceOverlay';o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:18px;overflow:auto';document.body.appendChild(o)}
+  const rows=ctx.rows.map(r=>'<tr><td>'+esc(r.loadNumber)+'</td><td>'+esc(r.lane)+'</td><td>'+esc(r.date)+'</td><td>'+money(r.rate)+'</td><td>'+esc(r.pctLabel)+'</td><td>'+money(r.due)+'</td></tr>').join('');
+  const grossTotal=ctx.rows.reduce((s,r)=>s+Number(r.rate||0),0);
+  const logo=ctx.st.logo_url?'<img src="'+esc(ctx.st.logo_url)+'" style="max-height:65px;max-width:180px;margin-bottom:10px">':'';
+  const contact=[ctx.st.email,ctx.st.phone].filter(Boolean).map(esc).join('<br>');
+  const pay=ctx.st.zelle_info?esc(ctx.st.zelle_info):'Zelle payment details not set.';
+  o.innerHTML='<div id="zpInvoiceCard" style="width:min(800px,96vw);max-height:92vh;overflow:auto;background:#fff;color:#111;padding:30px;border-radius:10px">'
+    +'<div class="zp-noprint" style="margin:0 0 18px;display:flex;gap:8px;flex-wrap:wrap">'
+      +'<button id="zpPrint" style="background:#0f766e;color:#fff;border:0;padding:10px 14px;border-radius:8px;cursor:pointer;font-size:14px">Print / Save as PDF</button>'
+      +'<button id="zpClose" style="padding:10px 14px;border-radius:8px;cursor:pointer;font-size:14px">Close</button>'
+    +'</div>'
+    +'<div style="display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap">'
+      +'<div>'+logo+'<h1 style="margin:0">'+esc(ctx.st.company_name||'Zap Dispatch')+'</h1><p style="color:#555">'+contact+'</p></div>'
+      +'<div><h2 style="margin:0 0 6px">INVOICE</h2><b>Invoice #:</b> '+esc(ctx.invoiceNumber||'-')+'<br><b>Date:</b> '+esc(ctx.createdAt||new Date().toLocaleDateString())+'<br><b>Carrier:</b> '+esc(ctx.carrier||'-')+'</div>'
+    +'</div>'
+    +'<table style="width:100%;border-collapse:collapse;margin-top:22px"><thead><tr>'
+      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Load #</th>'
+      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Lane</th>'
+      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Date</th>'
+      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Rate</th>'
+      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Dispatch %</th>'
+      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Amount Due</th>'
+    +'</tr></thead><tbody style="font-size:13px">'+rows+'</tbody></table>'
+    +'<div style="text-align:right;font-size:18px;font-weight:800;margin-top:18px">Total Load Rates: '+money(grossTotal)+'</div>'
+    +'<div style="text-align:right;font-size:22px;font-weight:800;margin-top:6px">Total Due: '+money(ctx.total)+'</div>'
+    +'<div style="margin-top:28px;padding:14px;border:1px solid #ddd;background:#fafafa;border-radius:6px"><b>Payment Info:</b><br>'+pay+'</div>'
+    +'<p style="color:#555">'+esc(ctx.st.invoice_footer||'Thank you for your business.')+'</p>'
+    +'</div>';
+  o.querySelector('#zpClose').onclick=()=>o.remove();
+  o.querySelector('#zpPrint').onclick=()=>window.print(); /* user-tap only, never automatic */
+  o.onclick=e=>{if(e.target===o)o.remove()};
+}
 function showInvoiceModal(ctx){
   let m=document.getElementById('ziModal');
   if(!m){m=document.createElement('div');m.id='ziModal';m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';document.body.appendChild(m)}
   const lines=ctx.items.map(x=>'<p class="muted" style="margin:4px 0">Load # '+esc(x.load_number||'-')+' • '+esc((x.pickup||'')+' → '+(x.delivery||''))+' • '+money(x.__due)+'</p>').join('');
   const note=isIOS
-    ? 'On iPhone: use Copy email text and paste it into the Gmail app, or tap Open printable invoice for the PDF.'
-    : 'Use Open Gmail draft to prefill an email, Open printable invoice for the PDF, or Copy email text to paste it elsewhere.';
-  const printUrl=printableUrl(ctx.invoiceId);
+    ? 'On iPhone: use Copy email text and paste it into the Gmail app, or tap View / Print invoice for the PDF.'
+    : 'Use Open Gmail draft to prefill an email, View / Print invoice for the PDF, or Copy email text to paste it elsewhere.';
   m.innerHTML='<div class="card" style="width:min(560px,96vw);max-height:88vh;overflow:auto">'
     +'<div class="section-title"><h2>Invoice '+esc(ctx.invoiceNumber)+'</h2><button class="small-btn" id="ziClose">Close</button></div>'
     +'<p class="muted">'+esc(ctx.carrier)+' • '+ctx.items.length+' load(s)'+(ctx.email?' • Carrier email: '+esc(ctx.email):' • No carrier email on file')+'</p>'
@@ -45,14 +85,14 @@ function showInvoiceModal(ctx){
     +'<p style="font-weight:800;font-size:18px;margin:10px 0">Total Due: '+money(ctx.total)+'</p>'
     +'<div class="card-actions" style="flex-wrap:wrap">'
       +(isIOS?'':'<a class="small-btn" id="ziGmail" href="'+esc(ctx.gUrl)+'" target="_blank" rel="noopener">Open Gmail draft</a>')
-      +'<a class="small-btn" id="ziPrint" href="'+esc(printUrl)+'" target="_blank" rel="noopener">Open printable invoice</a>'
-      +'<a class="small-btn" id="ziPrintSame" href="'+esc(printUrl)+'">Open in this tab</a>'
+      +'<button class="small-btn" id="ziView">View / Print invoice</button>'
       +'<button class="small-btn" id="ziCopy">Copy email text</button>'
       +'<button class="small-btn" id="ziMark">Mark selected loads as Invoiced</button>'
     +'</div>'
     +'<p class="muted">'+esc(note)+'</p></div>';
   const unselect=()=>qa('.invoice-select:checked').forEach(x=>x.checked=false);
   m.querySelector('#ziClose').onclick=()=>{m.remove()};
+  m.querySelector('#ziView').onclick=()=>showPrintableOverlay({invoiceNumber:ctx.invoiceNumber,carrier:ctx.carrier,createdAt:new Date().toLocaleDateString(),rows:ctx.rows,total:ctx.total,st:ctx.st});
   m.querySelector('#ziCopy').onclick=async()=>{
     /* plain text only — no encodeURIComponent, no mailto:, no Gmail URL */
     const text='Subject: '+ctx.subject+'\n\n'+ctx.body;
@@ -97,7 +137,8 @@ async function invoiceSelected(){
  const subject='Invoice '+invoiceNumber+' - '+carrier;
  const body='Hello,\n\nPlease see invoice details below. I will attach the PDF invoice before sending.\n\nInvoice: '+invoiceNumber+'\nCarrier: '+carrier+'\n\n'+lineText+'\n\nTotal Due: '+money(total)+'\n\nPayment Info:\n'+(st.zelle_info||'')+'\n\nThank you,\n'+(st.company_name||'Zap Dispatch');
  const gUrl=gmailUrl(email,subject,body); /* only linked from the modal when !isIOS */
- showInvoiceModal({ids,items,carrier,email,total,invoiceNumber,invoiceId,subject,body,gUrl});
+ const rows=items.map(x=>{const rate=Number(x.rate||0),due=x.__due;const pct=rate>0?((due/rate)*100).toFixed(1).replace(/\.0$/,'')+'%':'-';return{loadNumber:x.load_number||'-',lane:(x.pickup||'')+' → '+(x.delivery||''),date:x.delivery_date||x.pickup_date||'',rate,pctLabel:pct,due}});
+ showInvoiceModal({ids,items,carrier,email,total,invoiceNumber,invoiceId,subject,body,gUrl,rows,st});
 }
 setInterval(()=>{loadCompanySettings();addTop();markCards()},1500);
 })();
