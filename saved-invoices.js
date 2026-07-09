@@ -1,9 +1,7 @@
 (()=>{
-/* Step 5 saved invoices (stabilize-load-board).
-   Adds a real saved-invoices list to the Invoices / Payments tab without
-   changing app.js, Load Board, Driver Link, invoice creation, or Supabase schema.
-   Reads the existing invoices table directly and opens the existing printable
-   page: invoice-print.html?invoice_id=<id>. */
+/* Step 6 saved invoice deletion (stabilize-load-board).
+   Uses DELETE on invoices only; invoice_loads are removed by the existing
+   ON DELETE CASCADE foreign key. Does not delete loads or change statuses. */
 const q=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const money=n=>'$'+(Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2});
@@ -29,10 +27,9 @@ async function deleteSavedInvoice(inv,btn){
   if(!confirm('Delete invoice '+label+'? This removes it from Saved Invoices only. It will NOT delete the load or change the load status.'))return;
   btn.disabled=true;
   btn.textContent='Deleting…';
-  const lines=await sb.from('invoice_loads').delete().eq('invoice_id',inv.id);
-  if(lines.error){btn.disabled=false;btn.textContent='Delete invoice';alert('Could not delete invoice lines: '+lines.error.message);return}
-  const invoice=await sb.from('invoices').delete().eq('id',inv.id);
-  if(invoice.error){btn.disabled=false;btn.textContent='Delete invoice';alert('Could not delete invoice: '+invoice.error.message);return}
+  const res=await sb.from('invoices').delete({count:'exact'}).eq('id',inv.id);
+  if(res.error){btn.disabled=false;btn.textContent='Delete invoice';alert('Could not delete invoice: '+res.error.message);return}
+  if(!res.count){btn.disabled=false;btn.textContent='Delete invoice';alert('Invoice was not deleted. Permission or row match failed. Please refresh and try again.');return}
   loadedOnce=false;
   await renderSavedInvoices(true);
 }
