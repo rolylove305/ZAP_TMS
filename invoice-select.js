@@ -30,7 +30,9 @@ function gmailUrl(to,subject,body){return 'https://mail.google.com/mail/?view=cm
 function openPrintable(invoiceId){
   const url='invoice-print.html?invoice_id='+encodeURIComponent(invoiceId);
   const w=window.open(url,'_blank'); /* synchronous, direct tap = valid on iOS Safari */
-  if(!w)return alert('Popup blocked. Allow popups for this site in your browser settings, then tap "Open printable invoice" again.');
+  /* some browsers return a truthy "phantom" window even when the popup is
+     blocked, leaving a blank about:blank tab — w.closed catches that case */
+  if(!w||w.closed||typeof w.closed==='undefined')return alert('Popup blocked. Allow popups for this site in your browser settings, then tap "Open printable invoice" again.');
 }
 function showInvoiceModal(ctx){
   let m=document.getElementById('ziModal');

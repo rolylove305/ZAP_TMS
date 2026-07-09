@@ -7,13 +7,16 @@
    "Open Gmail draft" only renders on desktop — same iOS Gmail-app encoding
    issue as the modal, so it's hidden entirely on iOS rather than opened. */
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const cfg=window.ZAP_TMS_CONFIG;
-const sb=window.supabase.createClient(cfg.url,cfg.token);
 const root=document.getElementById("root");
+if(!root)return alert('This page failed to load correctly (missing content area). Please reload.');
 const esc=v=>String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
 const money=n=>"$"+Number(n||0).toFixed(2);
 
 function showState(html){root.innerHTML='<div class="state">'+html+'</div>'}
+if(!window.ZAP_TMS_CONFIG)return showState('<p class="muted">Configuration failed to load. Please reload this page. If the problem continues, contact support.</p>');
+if(!window.supabase||typeof window.supabase.createClient!=='function')return showState('<p class="muted">Could not load required libraries. Check your connection and reload this page.</p>');
+const cfg=window.ZAP_TMS_CONFIG;
+const sb=window.supabase.createClient(cfg.url,cfg.token);
 
 function gmailUrl(to,subject,body){return 'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(to||'')+'&su='+encodeURIComponent(subject||'')+'&body='+encodeURIComponent(body||'')}
 
