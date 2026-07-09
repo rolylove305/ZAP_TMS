@@ -1,4 +1,19 @@
 (()=>{
+/* release/invoices-safe: device-aware invoicing, manually merged.
+   - invoice record creation (get_next_invoice_number, invoices, invoice_loads) unchanged
+   - Gmail compose (mail.google.com, built with encodeURIComponent) works fine
+     on desktop but showed raw %20/%0A in the iOS Gmail app, so it's now
+     rendered ONLY when !isIOS. iOS never gets a Gmail/mailto/window.open
+     email path — Copy email text (always plain, no encoding) is its
+     equivalent there.
+   - "Open printable invoice" links to invoice-print.html?invoice_id=<id>
+     via a synchronous window.open() called directly from the tap (works
+     on iOS Safari); alerts clearly if the popup is blocked.
+   - markCards()/revokeLink() are KEPT from main as-is: this release does
+     not include the app.js Load Board v2 rewrite, so checkbox and Revoke
+     Link rendering still needs to be injected here, index-based, same as
+     it works on main today. */
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)];
 const loads=()=>{try{return JSON.parse(localStorage.getItem('loads')||'[]')}catch{return[]}};
 const ok=s=>['delivered','invoiced','paid'].includes(String(s||'').toLowerCase());
@@ -12,6 +27,50 @@ async function revokeLink(id){if(!confirm('Revoke driver link for this load? The
 function markCards(){const arr=loads();qa('#loadsList .list-card').forEach((card,i)=>{const l=arr[i];if(!l)return;if(ok(l.status)){let box=card.querySelector('.invoice-select-box');if(!box){box=document.createElement('label');box.className='invoice-select-box';box.style.cssText='display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800;color:#86efac';box.innerHTML='<input type="checkbox" class="invoice-select"> Select for invoice';card.prepend(box)}box.querySelector('input').dataset.id=l.id}let acts=card.querySelector('.card-actions');if(!acts){acts=document.createElement('div');acts.className='card-actions';card.appendChild(acts)}if(!card.querySelector('.revoke-link-btn')){const b=document.createElement('button');b.className='small-btn revoke-link-btn';b.textContent='Revoke Link';b.onclick=()=>revokeLink(l.id);acts.appendChild(b)}})}
 async function carrierEmail(carrier){const r=await sb.from('carriers').select('email').eq('name',carrier).maybeSingle();return r.data?.email||''}
 function gmailUrl(to,subject,body){return 'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(to||'')+'&su='+encodeURIComponent(subject||'')+'&body='+encodeURIComponent(body||'')}
+function openPrintable(invoiceId){
+  const url='invoice-print.html?invoice_id='+encodeURIComponent(invoiceId);
+  const w=window.open(url,'_blank'); /* synchronous, direct tap = valid on iOS Safari */
+  if(!w)return alert('Popup blocked. Allow popups for this site in your browser settings, then tap "Open printable invoice" again.');
+}
+function showInvoiceModal(ctx){
+  let m=document.getElementById('ziModal');
+  if(!m){m=document.createElement('div');m.id='ziModal';m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';document.body.appendChild(m)}
+  const lines=ctx.items.map(x=>'<p class="muted" style="margin:4px 0">Load # '+esc(x.load_number||'-')+' • '+esc((x.pickup||'')+' → '+(x.delivery||''))+' • '+money(x.__due)+'</p>').join('');
+  const note=isIOS
+    ? 'On iPhone: use Copy email text and paste it into the Gmail app, or tap Open printable invoice for the PDF.'
+    : 'Use Open Gmail draft to prefill an email, Open printable invoice for the PDF, or Copy email text to paste it elsewhere.';
+  m.innerHTML='<div class="card" style="width:min(560px,96vw);max-height:88vh;overflow:auto">'
+    +'<div class="section-title"><h2>Invoice '+esc(ctx.invoiceNumber)+'</h2><button class="small-btn" id="ziClose">Close</button></div>'
+    +'<p class="muted">'+esc(ctx.carrier)+' • '+ctx.items.length+' load(s)'+(ctx.email?' • Carrier email: '+esc(ctx.email):' • No carrier email on file')+'</p>'
+    +lines
+    +'<p style="font-weight:800;font-size:18px;margin:10px 0">Total Due: '+money(ctx.total)+'</p>'
+    +'<div class="card-actions" style="flex-wrap:wrap">'
+      +(isIOS?'':'<a class="small-btn" id="ziGmail" href="'+esc(ctx.gUrl)+'" target="_blank" rel="noopener">Open Gmail draft</a>')
+      +'<button class="small-btn" id="ziPrint">Open printable invoice</button>'
+      +'<button class="small-btn" id="ziCopy">Copy email text</button>'
+      +'<button class="small-btn" id="ziMark">Mark selected loads as Invoiced</button>'
+    +'</div>'
+    +'<p class="muted">'+esc(note)+'</p></div>';
+  const unselect=()=>qa('.invoice-select:checked').forEach(x=>x.checked=false);
+  m.querySelector('#ziClose').onclick=()=>{m.remove()};
+  m.querySelector('#ziPrint').onclick=()=>openPrintable(ctx.invoiceId);
+  m.querySelector('#ziCopy').onclick=async()=>{
+    /* plain text only — no encodeURIComponent, no mailto:, no Gmail URL */
+    const text='Subject: '+ctx.subject+'\n\n'+ctx.body;
+    let done=false;
+    try{await navigator.clipboard.writeText(text);done=true}
+    catch{try{const t=document.createElement('textarea');t.value=text;m.appendChild(t);t.select();done=document.execCommand('copy');t.remove()}catch{done=false}}
+    alert(done?'Email text copied.':'Copy failed — tap and hold the text areas above to copy manually.');
+  };
+  m.querySelector('#ziMark').onclick=async()=>{
+    const b=m.querySelector('#ziMark');b.disabled=true;
+    const up=await sb.from('loads').update({status:'Invoiced'}).in('id',ctx.ids);
+    if(up.error){b.disabled=false;return alert(up.error.message)}
+    b.textContent='Marked as Invoiced ✓';
+    unselect();
+    if(typeof loadCloud==='function')await loadCloud();
+  };
+}
 async function invoiceSelected(){
  const ids=qa('.invoice-select:checked').map(x=>x.dataset.id).filter(Boolean);
  if(!ids.length)return alert('Select at least one load.');
@@ -19,6 +78,8 @@ async function invoiceSelected(){
  const r=await sb.from('loads').select('*').in('id',ids).order('delivery_date',{ascending:true});
  if(r.error)return alert(r.error.message);
  const items=r.data||[];if(!items.length)return alert('No loads found.');
+ const bad=items.filter(x=>!ok(x.status));
+ if(bad.length)return alert('Only Delivered, Invoiced, or Paid loads can be invoiced.');
  const carriers=[...new Set(items.map(x=>x.carrier||''))];
  if(carriers.length>1)return alert('Select loads from only one carrier.');
  const st=await settings();
@@ -26,26 +87,18 @@ async function invoiceSelected(){
  if(num.error)return alert(num.error.message);
  const invoiceNumber=num.data;
  let total=0;
- const rows=items.map(x=>{const rate=Number(x.rate||0),pct=Number(x.commission_pct||st.default_commission_pct||0),due=rate*pct/100;total+=due;return '<tr><td>'+esc(x.load_number||'-')+'</td><td>'+esc((x.pickup||'')+' → '+(x.delivery||''))+'</td><td>'+esc(x.delivery_date||x.pickup_date||'')+'</td><td>'+money(rate)+'</td><td>'+pct+'%</td><td>'+money(due)+'</td></tr>'}).join('');
+ items.forEach(x=>{const rate=Number(x.rate||0),pct=Number(x.commission_pct||st.default_commission_pct||0);x.__due=rate*pct/100;total+=x.__due});
  const carrier=carriers[0]||'Carrier';
  const inv=await sb.from('invoices').insert({user_id:u.id,invoice_number:invoiceNumber,carrier,total}).select('id').single();
  if(inv.error)return alert(inv.error.message);
- await sb.from('invoice_loads').insert(items.map(x=>{const rate=Number(x.rate||0),pct=Number(x.commission_pct||st.default_commission_pct||0);return {invoice_id:inv.data.id,load_id:x.id,amount_due:rate*pct/100}}));
+ const invoiceId=inv.data.id;
+ await sb.from('invoice_loads').insert(items.map(x=>({invoice_id:invoiceId,load_id:x.id,amount_due:x.__due})));
  const email=await carrierEmail(carrier);
- const lineText=items.map(x=>{const rate=Number(x.rate||0),pct=Number(x.commission_pct||st.default_commission_pct||0),due=rate*pct/100;return 'Load # '+(x.load_number||'-')+' | '+(x.pickup||'')+' to '+(x.delivery||'')+' | Dispatch fee: '+money(due)}).join('\n');
+ const lineText=items.map(x=>'Load # '+(x.load_number||'-')+' | '+(x.pickup||'')+' to '+(x.delivery||'')+' | Dispatch fee: '+money(x.__due)).join('\n');
  const subject='Invoice '+invoiceNumber+' - '+carrier;
  const body='Hello,\n\nPlease see invoice details below. I will attach the PDF invoice before sending.\n\nInvoice: '+invoiceNumber+'\nCarrier: '+carrier+'\n\n'+lineText+'\n\nTotal Due: '+money(total)+'\n\nPayment Info:\n'+(st.zelle_info||'')+'\n\nThank you,\n'+(st.company_name||'Zap Dispatch');
- const gUrl=gmailUrl(email,subject,body);
- const logo=st.logo_url?'<img src="'+esc(st.logo_url)+'" style="max-height:65px;max-width:180px;margin-bottom:10px">':'';
- const contact=[st.email,st.phone].filter(Boolean).map(esc).join('<br>');
- const pay=st.zelle_info?esc(st.zelle_info):'Zelle payment details not set.';
- const html='<!doctype html><html><head><title>'+esc(invoiceNumber)+' - '+esc(carrier)+'</title><style>body{font-family:Arial,sans-serif;color:#111;padding:30px}h1{margin:0}table{width:100%;border-collapse:collapse;margin-top:22px}td,th{border:1px solid #ccc;padding:9px;font-size:13px;text-align:left}th{background:#f2f2f2}.top{display:flex;justify-content:space-between;gap:20px}.total{text-align:right;font-size:22px;font-weight:800;margin-top:18px}.pay{margin-top:28px;padding:14px;border:1px solid #ddd;background:#fafafa}.btn{display:inline-block;text-decoration:none;margin:18px 8px 18px 0;padding:10px 14px;border:0;background:#0f766e;color:white;border-radius:8px;font-size:14px}.btn2{background:#2563eb}.muted{color:#555}@media print{.btn{display:none}}</style></head><body><button class="btn" onclick="window.print()">Print / Save as PDF</button><a class="btn btn2" href="'+gUrl+'" target="_blank">Email Invoice in Gmail</a><div class="top"><div>'+logo+'<h1>'+esc(st.company_name||'Zap Dispatch')+'</h1><p class="muted">'+contact+'</p></div><div><h2>INVOICE</h2><b>Invoice #:</b> '+esc(invoiceNumber)+'<br><b>Date:</b> '+new Date().toLocaleDateString()+'<br><b>Carrier:</b> '+esc(carrier)+'</div></div><table><thead><tr><th>Load #</th><th>Lane</th><th>Date</th><th>Rate</th><th>Dispatch %</th><th>Amount Due</th></tr></thead><tbody>'+rows+'</tbody></table><div class="total">Total Due: '+money(total)+'</div><div class="pay"><b>Payment Info:</b><br>'+pay+'</div><p class="muted">'+esc(st.invoice_footer||'Thank you for your business.')+'</p><p class="muted"><b>Gmail:</b> If the To field is empty, add the carrier email in Carriers and generate the invoice again, or type it manually in Gmail.</p></body></html>';
- const w=window.open('','_blank');
- if(!w)return alert('Popup blocked. Allow popups for this site.');
- w.document.write(html);w.document.close();
- setTimeout(()=>w.print(),700);
- if(confirm('Invoice '+invoiceNumber+' created. Mark selected loads as Invoiced?')){const up=await sb.from('loads').update({status:'Invoiced'}).in('id',ids);if(up.error)alert(up.error.message);if(typeof loadCloud==='function')await loadCloud()}
- qa('.invoice-select:checked').forEach(x=>x.checked=false)
+ const gUrl=gmailUrl(email,subject,body); /* only linked from the modal when !isIOS */
+ showInvoiceModal({ids,items,carrier,email,total,invoiceNumber,invoiceId,subject,body,gUrl});
 }
 setInterval(()=>{loadCompanySettings();addTop();markCards()},1500);
 })();
