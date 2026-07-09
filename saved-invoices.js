@@ -48,17 +48,13 @@ async function renderSavedInvoices(force=false){
   const frag=document.createDocumentFragment();
   rows.forEach(inv=>{
     const date=inv.created_at?new Date(inv.created_at).toLocaleDateString():'';
+    const printUrl='invoice-print.html?invoice_id='+encodeURIComponent(inv.id);
     const el=document.createElement('div');
     el.className='list-card';
     el.innerHTML='<h3>'+esc(inv.invoice_number||'-')+'</h3>'
       +'<p class="muted">'+esc(inv.carrier||'-')+' • '+esc(date)+'</p>'
       +'<div class="pill-row"><span class="pill green">Total Due '+money(inv.total)+'</span></div>'
-      +'<div class="card-actions"><button class="small-btn" data-saved-invoice-print>Open printable invoice</button><button class="small-btn" data-saved-invoice-delete style="border-color:rgba(251,113,133,.45);color:#fda4af">Delete invoice</button></div>';
-    el.querySelector('[data-saved-invoice-print]').onclick=()=>{
-      const url='invoice-print.html?invoice_id='+encodeURIComponent(inv.id);
-      const w=window.open(url,'_blank');
-      if(!w)alert('Popup blocked. Allow popups for this site in your browser settings, then tap "Open printable invoice" again.');
-    };
+      +'<div class="card-actions"><a class="small-btn" href="'+esc(printUrl)+'" target="_blank" rel="noopener">Open printable invoice</a><button class="small-btn" data-saved-invoice-delete style="border-color:rgba(251,113,133,.45);color:#fda4af">Delete invoice</button></div>';
     el.querySelector('[data-saved-invoice-delete]').onclick=e=>deleteSavedInvoice(inv,e.currentTarget);
     frag.appendChild(el);
   });

@@ -6,9 +6,11 @@
      rendered ONLY when !isIOS. iOS never gets a Gmail/mailto/window.open
      email path — Copy email text (always plain, no encoding) is its
      equivalent there.
-   - "Open printable invoice" links to invoice-print.html?invoice_id=<id>
-     via a synchronous window.open() called directly from the tap (works
-     on iOS Safari); alerts clearly if the popup is blocked.
+   - "Open printable invoice" is a real <a href target="_blank"> anchor to
+     invoice-print.html?invoice_id=<id>, not a JS window.open() button —
+     window.open() did not reliably open on the user's device. A second
+     "Open in this tab" anchor (no target) is the fallback if the new-tab
+     link doesn't work either.
    - markCards()/revokeLink() are KEPT from main as-is: this release does
      not include the app.js Load Board v2 rewrite, so checkbox and Revoke
      Link rendering still needs to be injected here, index-based, same as
@@ -27,13 +29,7 @@ async function revokeLink(id){if(!confirm('Revoke driver link for this load? The
 function markCards(){const arr=loads();qa('#loadsList .list-card').forEach((card,i)=>{const l=arr[i];if(!l)return;if(ok(l.status)){let box=card.querySelector('.invoice-select-box');if(!box){box=document.createElement('label');box.className='invoice-select-box';box.style.cssText='display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800;color:#86efac';box.innerHTML='<input type="checkbox" class="invoice-select"> Select for invoice';card.prepend(box)}box.querySelector('input').dataset.id=l.id}let acts=card.querySelector('.card-actions');if(!acts){acts=document.createElement('div');acts.className='card-actions';card.appendChild(acts)}if(!card.querySelector('.revoke-link-btn')){const b=document.createElement('button');b.className='small-btn revoke-link-btn';b.textContent='Revoke Link';b.onclick=()=>revokeLink(l.id);acts.appendChild(b)}})}
 async function carrierEmail(carrier){const r=await sb.from('carriers').select('email').eq('name',carrier).maybeSingle();return r.data?.email||''}
 function gmailUrl(to,subject,body){return 'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(to||'')+'&su='+encodeURIComponent(subject||'')+'&body='+encodeURIComponent(body||'')}
-function openPrintable(invoiceId){
-  const url='invoice-print.html?invoice_id='+encodeURIComponent(invoiceId);
-  const w=window.open(url,'_blank'); /* synchronous, direct tap = valid on iOS Safari */
-  /* some browsers return a truthy "phantom" window even when the popup is
-     blocked, leaving a blank about:blank tab — w.closed catches that case */
-  if(!w||w.closed||typeof w.closed==='undefined')return alert('Popup blocked. Allow popups for this site in your browser settings, then tap "Open printable invoice" again.');
-}
+function printableUrl(invoiceId){return 'invoice-print.html?invoice_id='+encodeURIComponent(invoiceId)}
 function showInvoiceModal(ctx){
   let m=document.getElementById('ziModal');
   if(!m){m=document.createElement('div');m.id='ziModal';m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';document.body.appendChild(m)}
@@ -41,6 +37,7 @@ function showInvoiceModal(ctx){
   const note=isIOS
     ? 'On iPhone: use Copy email text and paste it into the Gmail app, or tap Open printable invoice for the PDF.'
     : 'Use Open Gmail draft to prefill an email, Open printable invoice for the PDF, or Copy email text to paste it elsewhere.';
+  const printUrl=printableUrl(ctx.invoiceId);
   m.innerHTML='<div class="card" style="width:min(560px,96vw);max-height:88vh;overflow:auto">'
     +'<div class="section-title"><h2>Invoice '+esc(ctx.invoiceNumber)+'</h2><button class="small-btn" id="ziClose">Close</button></div>'
     +'<p class="muted">'+esc(ctx.carrier)+' • '+ctx.items.length+' load(s)'+(ctx.email?' • Carrier email: '+esc(ctx.email):' • No carrier email on file')+'</p>'
@@ -48,14 +45,14 @@ function showInvoiceModal(ctx){
     +'<p style="font-weight:800;font-size:18px;margin:10px 0">Total Due: '+money(ctx.total)+'</p>'
     +'<div class="card-actions" style="flex-wrap:wrap">'
       +(isIOS?'':'<a class="small-btn" id="ziGmail" href="'+esc(ctx.gUrl)+'" target="_blank" rel="noopener">Open Gmail draft</a>')
-      +'<button class="small-btn" id="ziPrint">Open printable invoice</button>'
+      +'<a class="small-btn" id="ziPrint" href="'+esc(printUrl)+'" target="_blank" rel="noopener">Open printable invoice</a>'
+      +'<a class="small-btn" id="ziPrintSame" href="'+esc(printUrl)+'">Open in this tab</a>'
       +'<button class="small-btn" id="ziCopy">Copy email text</button>'
       +'<button class="small-btn" id="ziMark">Mark selected loads as Invoiced</button>'
     +'</div>'
     +'<p class="muted">'+esc(note)+'</p></div>';
   const unselect=()=>qa('.invoice-select:checked').forEach(x=>x.checked=false);
   m.querySelector('#ziClose').onclick=()=>{m.remove()};
-  m.querySelector('#ziPrint').onclick=()=>openPrintable(ctx.invoiceId);
   m.querySelector('#ziCopy').onclick=async()=>{
     /* plain text only — no encodeURIComponent, no mailto:, no Gmail URL */
     const text='Subject: '+ctx.subject+'\n\n'+ctx.body;
