@@ -1,35 +1,35 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Zap Dispatch Invoice</title>
-  <link rel="stylesheet" href="styles.css" />
-  <style>
-    :root{color-scheme:light}
-    body{margin:0;background:#f4f7fb;color:#0f172a;font-family:Arial,Helvetica,sans-serif}
-    .invoice-page{max-width:920px;margin:0 auto;padding:24px}
-    .invoice-paper{background:#fff;border:1px solid #dbe4ef;border-radius:18px;padding:28px;box-shadow:0 14px 34px rgba(15,23,42,.12)}
-    .invoice-top{display:flex;justify-content:space-between;gap:18px;align-items:flex-start;border-bottom:2px solid #e5edf7;padding-bottom:18px;margin-bottom:20px}
-    .brand h1,.invoice-meta h2{margin:0 0 6px}.brand p,.invoice-meta p,.muted{margin:4px 0;color:#475569}.invoice-meta{text-align:right}
-    .invoice-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:18px 0}.box{border:1px solid #e5edf7;border-radius:14px;padding:14px;background:#f8fafc}.box h3{margin:0 0 8px}
-    table{width:100%;border-collapse:collapse;margin-top:18px}th,td{padding:10px;border-bottom:1px solid #e5edf7;text-align:left;font-size:14px}th{background:#f8fafc;color:#334155}.num{text-align:right;white-space:nowrap}.total-row{display:flex;justify-content:flex-end;margin-top:18px}.total-box{min-width:280px;border:1px solid #dbe4ef;border-radius:14px;padding:14px;background:#f8fafc}.total-line{display:flex;justify-content:space-between;font-size:18px;font-weight:800}.actions{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 18px}.primary-btn,.small-btn{cursor:pointer}.error{background:#fff1f2;border:1px solid #fecdd3;color:#9f1239;border-radius:14px;padding:14px}
-    @media(max-width:700px){.invoice-page{padding:12px}.invoice-paper{padding:18px;border-radius:12px}.invoice-top,.invoice-grid{display:block}.invoice-meta{text-align:left;margin-top:14px}th,td{font-size:12px;padding:8px}.total-box{min-width:0;width:100%}}
-    @media print{body{background:#fff}.invoice-page{max-width:none;padding:0}.actions{display:none!important}.invoice-paper{box-shadow:none;border:0;border-radius:0}.small-btn,.primary-btn{display:none!important}}
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice</title>
+<link rel="icon" href="zap-icon.svg">
+<style>
+  :root{color-scheme:light}
+  *{box-sizing:border-box}
+  body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#f2f2f2;margin:0;padding:24px}
+  #root{max-width:800px;margin:0 auto;background:#fff;padding:30px;border-radius:10px}
+  h1{margin:0}
+  h2{margin:0 0 6px}
+  table{width:100%;border-collapse:collapse;margin-top:22px}
+  td,th{border:1px solid #ccc;padding:9px;font-size:13px;text-align:left}
+  th{background:#f2f2f2}
+  .top{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .total{text-align:right;font-size:22px;font-weight:800;margin-top:18px}
+  .pay{margin-top:28px;padding:14px;border:1px solid #ddd;background:#fafafa;border-radius:6px}
+  .muted{color:#555}
+  .actions{margin:0 0 22px}
+  .btn{display:inline-block;text-decoration:none;margin:0 8px 8px 0;padding:10px 14px;border:0;background:#0f766e;color:#fff;border-radius:8px;font-size:14px;cursor:pointer}
+  .btn2{background:#2563eb}
+  .state{padding:40px 10px;text-align:center}
+  @media print{.actions,.state-actions{display:none}body{background:#fff;padding:0}#root{box-shadow:none;padding:0;max-width:none}}
+</style>
 </head>
 <body>
-  <div class="invoice-page">
-    <div class="actions">
-      <button class="primary-btn" id="printBtn">Print / Save as PDF</button>
-      <button class="small-btn" id="gmailBtn" style="display:none">Open Gmail draft</button>
-      <button class="small-btn" id="backBtn">Back</button>
-    </div>
-    <div id="invoiceStatus" class="box"><p class="muted">Loading invoice...</p></div>
-    <div id="invoiceRoot" class="invoice-paper" style="display:none"></div>
-  </div>
-  <script src="config.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="invoice-print.js?v=step5-invoice-print"></script>
+<div id="root"><div class="state"><p class="muted">Loading invoice…</p></div></div>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="invoice-print.js?v=step4e-devicegmail"></script>
 </body>
 </html>
