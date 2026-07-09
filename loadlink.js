@@ -6,6 +6,6 @@
 // load-board-stable.js), invoice-select.js (Invoice selected), and small
 // additive helpers that do not patch app.js directly.
 function addHelper(id,src){if(!document.getElementById(id)){const s=document.createElement('script');s.id=id;s.src=src;document.body.appendChild(s)}}
-function helpers(){addHelper('phase2Helper','phase2.js?v=step5-archive-visible');addHelper('invoiceSelectHelper','invoice-select.js?v=step4e-devicegmail');addHelper('savedInvoicesHelper','saved-invoices.js?v=step5-delete-invoices')}
+function helpers(){addHelper('phase2Helper','phase2.js?v=step5-archive-visible');addHelper('invoiceSelectHelper','invoice-select.js?v=step4e-devicegmail');addHelper('savedInvoicesHelper','saved-invoices.js?v=step6-delete-direct')}
 setTimeout(helpers,1000);
 })();
