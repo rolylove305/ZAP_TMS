@@ -20,11 +20,27 @@ function showPrintableOverlay(ctx){
   ensurePrintStyle();
   let o=document.getElementById('zpInvoiceOverlay');
   if(!o){o=document.createElement('div');o.id='zpInvoiceOverlay';o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:18px;overflow:auto';document.body.appendChild(o)}
-  const rows=ctx.rows.map(r=>'<tr><td>'+esc(r.loadNumber)+'</td><td>'+esc(r.lane)+'</td><td>'+esc(r.date)+'</td><td>'+money(r.rate)+'</td><td>'+esc(r.pctLabel)+'</td><td>'+money(r.due)+'</td></tr>').join('');
-  const grossTotal=ctx.rows.reduce((s,r)=>s+Number(r.rate||0),0);
+  const hasRows=!!(ctx.rows&&ctx.rows.length);
   const logo=ctx.st.logo_url?'<img src="'+esc(ctx.st.logo_url)+'" style="max-height:65px;max-width:180px;margin-bottom:10px">':'';
   const contact=[ctx.st.email,ctx.st.phone].filter(Boolean).map(esc).join('<br>');
   const pay=ctx.st.zelle_info?esc(ctx.st.zelle_info):'Zelle payment details not set.';
+  const warningHtml=ctx.warning?'<p style="color:#92400e;background:#fffbeb;border:1px solid #fde68a;padding:10px;border-radius:6px;margin:14px 0">'+esc(ctx.warning)+'</p>':'';
+  let bodyHtml;
+  if(hasRows){
+    const rows=ctx.rows.map(r=>'<tr><td>'+esc(r.loadNumber)+'</td><td>'+esc(r.lane)+'</td><td>'+esc(r.date)+'</td><td>'+money(r.rate)+'</td><td>'+esc(r.pctLabel)+'</td><td>'+money(r.due)+'</td></tr>').join('');
+    const grossTotal=ctx.rows.reduce((s,r)=>s+Number(r.rate||0),0);
+    bodyHtml='<table style="width:100%;border-collapse:collapse;margin-top:22px"><thead><tr>'
+      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Load #</th>'
+      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Lane</th>'
+      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Date</th>'
+      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Rate</th>'
+      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Dispatch %</th>'
+      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Amount Due</th>'
+    +'</tr></thead><tbody style="font-size:13px">'+rows+'</tbody></table>'
+    +'<div style="text-align:right;font-size:18px;font-weight:800;margin-top:18px">Total Load Rates: '+money(grossTotal)+'</div>';
+  } else {
+    bodyHtml='<p style="margin-top:22px;padding:14px;border:1px solid #ddd;background:#fafafa;border-radius:6px;color:#555">'+esc(ctx.emptyMessage||'No load details found for this saved invoice.')+'</p>';
+  }
   o.innerHTML='<div id="zpInvoiceCard" style="width:min(800px,96vw);max-height:92vh;overflow:auto;background:#fff;color:#111;padding:30px;border-radius:10px">'
     +'<div class="zp-noprint" style="margin:0 0 18px;display:flex;gap:8px;flex-wrap:wrap">'
       +'<button id="zpPrint" style="background:#0f766e;color:#fff;border:0;padding:10px 14px;border-radius:8px;cursor:pointer;font-size:14px">Print / Save as PDF</button>'
@@ -34,15 +50,8 @@ function showPrintableOverlay(ctx){
       +'<div>'+logo+'<h1 style="margin:0">'+esc(ctx.st.company_name||'Zap Dispatch')+'</h1><p style="color:#555">'+contact+'</p></div>'
       +'<div><h2 style="margin:0 0 6px">INVOICE</h2><b>Invoice #:</b> '+esc(ctx.invoiceNumber||'-')+'<br><b>Date:</b> '+esc(ctx.createdAt||new Date().toLocaleDateString())+'<br><b>Carrier:</b> '+esc(ctx.carrier||'-')+'</div>'
     +'</div>'
-    +'<table style="width:100%;border-collapse:collapse;margin-top:22px"><thead><tr>'
-      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Load #</th>'
-      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Lane</th>'
-      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Date</th>'
-      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Rate</th>'
-      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Dispatch %</th>'
-      +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Amount Due</th>'
-    +'</tr></thead><tbody style="font-size:13px">'+rows+'</tbody></table>'
-    +'<div style="text-align:right;font-size:18px;font-weight:800;margin-top:18px">Total Load Rates: '+money(grossTotal)+'</div>'
+    +warningHtml
+    +bodyHtml
     +'<div style="text-align:right;font-size:22px;font-weight:800;margin-top:6px">Total Due: '+money(ctx.total)+'</div>'
     +'<div style="margin-top:28px;padding:14px;border:1px solid #ddd;background:#fafafa;border-radius:6px"><b>Payment Info:</b><br>'+pay+'</div>'
     +'<p style="color:#555">'+esc(ctx.st.invoice_footer||'Thank you for your business.')+'</p>'
@@ -58,6 +67,15 @@ async function viewPrintableInvoice(inv,btn){
     const ilR=await sb.from('invoice_loads').select('load_id,amount_due').eq('invoice_id',inv.id);
     if(ilR.error)throw new Error(ilR.error.message);
     const invoiceLoads=ilR.data||[];
+    let st={};
+    if(inv.user_id){
+      const sR=await sb.from('company_settings').select('*').eq('user_id',inv.user_id).maybeSingle();
+      st=sR.data||{};
+    }
+    if(!invoiceLoads.length){
+      showPrintableOverlay({invoiceNumber:inv.invoice_number,carrier:inv.carrier,createdAt:inv.created_at?new Date(inv.created_at).toLocaleDateString():'',rows:[],total:inv.total,st,emptyMessage:'No load details found for this saved invoice.'});
+      return;
+    }
     const loadIds=invoiceLoads.map(x=>x.load_id).filter(Boolean);
     let loadsById={};
     if(loadIds.length){
@@ -65,19 +83,22 @@ async function viewPrintableInvoice(inv,btn){
       if(lR.error)throw new Error(lR.error.message);
       (lR.data||[]).forEach(l=>{loadsById[l.id]=l});
     }
+    let missingCount=0;
     const rows=invoiceLoads.map(il=>{
-      const l=loadsById[il.load_id]||{};
-      const rate=Number(l.rate||0);
+      const l=loadsById[il.load_id];
+      if(!l)missingCount++;
+      const rate=l?Number(l.rate||0):0;
       const due=Number(il.amount_due||0);
       const pct=rate>0?((due/rate)*100).toFixed(1).replace(/\.0$/,'')+'%':'-';
-      return{loadNumber:l.load_number||'-',lane:(l.pickup||'')+' → '+(l.delivery||''),date:l.delivery_date||l.pickup_date||'',rate,pctLabel:pct,due};
+      return{
+        loadNumber:l?(l.load_number||'-'):'-',
+        lane:l?((l.pickup||'')+' → '+(l.delivery||'')):'-',
+        date:l?(l.delivery_date||l.pickup_date||''):'',
+        rate,pctLabel:pct,due
+      };
     }).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
-    let st={};
-    if(inv.user_id){
-      const sR=await sb.from('company_settings').select('*').eq('user_id',inv.user_id).maybeSingle();
-      st=sR.data||{};
-    }
-    showPrintableOverlay({invoiceNumber:inv.invoice_number,carrier:inv.carrier,createdAt:inv.created_at?new Date(inv.created_at).toLocaleDateString():'',rows,total:inv.total,st});
+    const warning=missingCount?('Original load details could not be found for '+missingCount+' of '+invoiceLoads.length+' line item(s) on this invoice. Amount Due is still accurate; Rate and load info show as "-".'):'';
+    showPrintableOverlay({invoiceNumber:inv.invoice_number,carrier:inv.carrier,createdAt:inv.created_at?new Date(inv.created_at).toLocaleDateString():'',rows,total:inv.total,st,warning});
   }catch(e){
     alert('Could not load invoice: '+(e.message||String(e)));
   }finally{
