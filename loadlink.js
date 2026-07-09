@@ -8,12 +8,17 @@ function addHelper(id,src){if(!document.getElementById(id)){const s=document.cre
 function helpers(){addHelper('phase2Helper','phase2.js?v=step5-archive-visible');addHelper('invoiceSelectHelper','invoice-select.js?v=release-invoices-safe-fix5');addHelper('savedInvoicesHelper','saved-invoices.js?v=release-invoices-safe-fix5')}
 [800,2000,4000,7000].forEach(t=>setTimeout(add,t));
 setTimeout(helpers,1000);
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',add);
+else add();
+if(document.readyState==='complete')add();
+else window.addEventListener('load',add);
 function observeLoadsList(){
   const list=document.getElementById('loadsList');
   if(!list){setTimeout(observeLoadsList,500);return}
-  new MutationObserver(add).observe(list,{childList:true});
+  new MutationObserver(add).observe(list,{childList:true,subtree:true});
   add();
 }
 observeLoadsList();
-document.addEventListener('click',e=>{if(e.target.closest('[data-screen="loads"]'))setTimeout(add,50)});
+document.addEventListener('click',e=>{if(e.target.closest('[data-screen="loads"]'))[50,300,1000,2000].forEach(t=>setTimeout(add,t))});
+setInterval(()=>{if(document.querySelector('#loads.screen.active'))add()},1500);
 })();
