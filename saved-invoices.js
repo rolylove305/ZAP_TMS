@@ -29,9 +29,9 @@ async function renderSavedInvoices(force=false){
   if(!list)return;
   if(loadedOnce&&!force)return;
   loadedOnce=true;
-  if(!window.sb){list.innerHTML="<p class='muted'>Saved invoices could not load yet.</p>";return}
+  if(typeof sb==='undefined'){list.innerHTML="<p class='muted'>Saved invoices could not load yet.</p>";return}
   list.innerHTML="<p class='muted'>Loading saved invoices…</p>";
-  const r=await window.sb.from('invoices').select('id,invoice_number,carrier,total,created_at').order('created_at',{ascending:false});
+  const r=await sb.from('invoices').select('id,invoice_number,carrier,total,created_at').order('created_at',{ascending:false});
   if(r.error){list.innerHTML="<p class='muted'>Could not load saved invoices: "+esc(r.error.message)+"</p>";return}
   const rows=r.data||[];
   if(!rows.length){list.innerHTML="<div class='card'><p class='muted'>No saved invoices yet. Create one from Load Board → Invoice selected.</p></div>";return}
