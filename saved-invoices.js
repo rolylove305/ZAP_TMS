@@ -24,6 +24,18 @@ function ensureContainer(){
   invoiceList.parentNode.insertBefore(list,invoiceList);
   return list;
 }
+async function deleteSavedInvoice(inv,btn){
+  const label=inv.invoice_number||'this invoice';
+  if(!confirm('Delete invoice '+label+'? This removes it from Saved Invoices only. It will NOT delete the load or change the load status.'))return;
+  btn.disabled=true;
+  btn.textContent='Deleting…';
+  const lines=await sb.from('invoice_loads').delete().eq('invoice_id',inv.id);
+  if(lines.error){btn.disabled=false;btn.textContent='Delete invoice';alert('Could not delete invoice lines: '+lines.error.message);return}
+  const invoice=await sb.from('invoices').delete().eq('id',inv.id);
+  if(invoice.error){btn.disabled=false;btn.textContent='Delete invoice';alert('Could not delete invoice: '+invoice.error.message);return}
+  loadedOnce=false;
+  await renderSavedInvoices(true);
+}
 async function renderSavedInvoices(force=false){
   const list=ensureContainer();
   if(!list)return;
@@ -44,12 +56,13 @@ async function renderSavedInvoices(force=false){
     el.innerHTML='<h3>'+esc(inv.invoice_number||'-')+'</h3>'
       +'<p class="muted">'+esc(inv.carrier||'-')+' • '+esc(date)+'</p>'
       +'<div class="pill-row"><span class="pill green">Total Due '+money(inv.total)+'</span></div>'
-      +'<div class="card-actions"><button class="small-btn" data-saved-invoice-print>Open printable invoice</button></div>';
+      +'<div class="card-actions"><button class="small-btn" data-saved-invoice-print>Open printable invoice</button><button class="small-btn" data-saved-invoice-delete style="border-color:rgba(251,113,133,.45);color:#fda4af">Delete invoice</button></div>';
     el.querySelector('[data-saved-invoice-print]').onclick=()=>{
       const url='invoice-print.html?invoice_id='+encodeURIComponent(inv.id);
       const w=window.open(url,'_blank');
       if(!w)alert('Popup blocked. Allow popups for this site in your browser settings, then tap "Open printable invoice" again.');
     };
+    el.querySelector('[data-saved-invoice-delete]').onclick=e=>deleteSavedInvoice(inv,e.currentTarget);
     frag.appendChild(el);
   });
   list.appendChild(frag);
