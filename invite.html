@@ -39,10 +39,17 @@
     by('who').textContent='Logged in as: '+email;
     if(email!==OWNER){by('who').textContent='Access denied. Only the Zap Dispatch owner can invite users.';return}
     by('inviteBox').style.display='block';
+    async function toggleInvite(em,active){
+      if(active&&!confirm('Turn off access for '+em+'? They will not be able to log in until turned back on.'))return;
+      const r=await sb.from('app_invites').update({active:!active}).eq('email',em);
+      if(r.error){alert(r.error.message);return}
+      list();
+    }
     async function list(){
       const r=await sb.from('app_invites').select('email,active,created_at,note').order('created_at',{ascending:false});
       if(r.error){by('inviteList').textContent=r.error.message;return}
-      by('inviteList').innerHTML='<h3>Invited Emails</h3>'+((r.data||[]).map(x=>'<div style="display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:8px 0"><b>'+x.email+'</b><span>'+(x.active?'Active':'Off')+'</span></div>').join('')||'<p class="muted">No invites yet.</p>');
+      by('inviteList').innerHTML='<h3>Invited Emails</h3>'+((r.data||[]).map(x=>'<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid var(--line);padding:8px 0"><b>'+x.email+'</b><span style="display:flex;align-items:center;gap:8px">'+(x.active?'Active':'Off')+(x.email===OWNER?'':'<button type="button" class="small-btn invite-toggle" data-email="'+x.email+'" data-active="'+(x.active?1:0)+'">'+(x.active?'Turn off':'Turn on')+'</button>')+'</span></div>').join('')||'<p class="muted">No invites yet.</p>');
+      by('inviteList').querySelectorAll('.invite-toggle').forEach(b=>b.onclick=()=>toggleInvite(b.dataset.email,b.dataset.active==='1'));
     }
     by('addInviteBtn').onclick=async()=>{
       const e=(by('inviteEmail').value||'').trim().toLowerCase();
