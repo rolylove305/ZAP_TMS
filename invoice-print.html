@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice</title>
+<link rel="icon" href="zap-icon.svg">
+<style>
+  :root{color-scheme:light}
+  *{box-sizing:border-box}
+  body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#f2f2f2;margin:0;padding:24px}
+  #root{max-width:800px;margin:0 auto;background:#fff;padding:30px;border-radius:10px}
+  h1{margin:0}
+  h2{margin:0 0 6px}
+  table{width:100%;border-collapse:collapse;margin-top:22px}
+  td,th{border:1px solid #ccc;padding:9px;font-size:13px;text-align:left}
+  th{background:#f2f2f2}
+  .top{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}
+  .total{text-align:right;font-size:22px;font-weight:800;margin-top:18px}
+  .pay{margin-top:28px;padding:14px;border:1px solid #ddd;background:#fafafa;border-radius:6px}
+  .muted{color:#555}
+  .actions{margin:0 0 22px}
+  .btn{display:inline-block;text-decoration:none;margin:0 8px 8px 0;padding:10px 14px;border:0;background:#0f766e;color:#fff;border-radius:8px;font-size:14px;cursor:pointer}
+  .btn2{background:#2563eb}
+  .state{padding:40px 10px;text-align:center}
+  @media print{.actions,.state-actions{display:none}body{background:#fff;padding:0}#root{box-shadow:none;padding:0;max-width:none}}
+</style>
+</head>
+<body>
+<div id="root"><div class="state"><p class="muted">Loading invoice…</p></div></div>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="invoice-print.js?v=release-invoices-safe-fix2"></script>
+</body>
+</html>
