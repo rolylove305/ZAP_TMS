@@ -1,4 +1,17 @@
 (()=>{
+/* hotfix/driver-link-first-load: this script now loads before app.js, so
+   nothing at the top level may reference sb/appData/currentUser (those are
+   defined later by app.js) — only the click handler touches sb, and only
+   once a click actually happens, by which time app.js has long since run.
+   The capture-phase listener below is the very first statement executed so
+   it's registered no matter what happens later in this file. */
+document.addEventListener('click',function(e){
+  const btn=e.target.closest('.load-link-btn');
+  if(!btn)return;
+  const card=btn.closest('.list-card');
+  if(!card)return;
+  driverLinkAction(card,e);
+},true);
 const get=()=>{try{return JSON.parse(localStorage.getItem('loads')||'[]')}catch{return[]}};
 function loadFor(card,i){const a=get();const id=card?.dataset?.loadId;if(id){const x=a.find(v=>v.id===id);if(x)return x}return a[i]}
 async function loc(card,i){const l=loadFor(card,i);if(!l||!l.id)return alert('Sync first.');const r=await sb.from('load_events').select('latitude,longitude,created_at,event_type').eq('load_id',l.id).not('latitude','is',null).not('longitude','is',null).order('created_at',{ascending:false}).limit(1);if(r.error)return alert(r.error.message);if(!r.data||!r.data.length)return alert('No location received yet.');const x=r.data[0];window.open('https://www.google.com/maps?q='+x.latitude+','+x.longitude,'_blank')}
@@ -13,14 +26,21 @@ function showDriverLinkModal(url){
   m.querySelector('#llClose').onclick=()=>m.remove();
   const inp=m.querySelector('#llUrl');inp.onclick=()=>inp.select();
 }
+function resolveLoadId(card){
+  const fromDataset=card?.dataset?.loadId;
+  if(fromDataset)return fromDataset;
+  const cards=[...document.querySelectorAll('#loadsList .list-card')];
+  const i=cards.indexOf(card);
+  const l=get()[i];
+  return l&&l.id?l.id:'';
+}
+function wait(ms){return new Promise(res=>setTimeout(res,ms))}
 async function driverLinkAction(card,e){
   if(e){e.preventDefault();e.stopPropagation();if(e.stopImmediatePropagation)e.stopImmediatePropagation()}
-  let loadId=card?.dataset?.loadId;
+  let loadId=resolveLoadId(card);
   if(!loadId){
-    const cards=[...document.querySelectorAll('#loadsList .list-card')];
-    const i=cards.indexOf(card);
-    const l=get()[i];
-    loadId=l&&l.id?l.id:'';
+    await wait(500);
+    loadId=resolveLoadId(card);
   }
   if(!loadId)return alert('Sync first.');
   const r=await sb.rpc('create_driver_link',{p_load_id:loadId});
@@ -58,15 +78,4 @@ function observeLoadsList(){
 observeLoadsList();
 document.addEventListener('click',e=>{if(e.target.closest('[data-screen="loads"]'))[50,300,1000,2000].forEach(t=>setTimeout(runAll,t))});
 setInterval(()=>{if(document.querySelector('#loads.screen.active'))runAll()},1500);
-/* Capture-phase fallback: fires before any bubble-phase listener (including
-   app.js's own delegated onLoadBoardClick), so loadlink.js reliably owns the
-   Driver Link action even if per-button binding above hasn't caught up with
-   the latest render, or if some other handler exists on the button. */
-document.addEventListener('click',function(e){
-  const btn=e.target.closest('.load-link-btn');
-  if(!btn)return;
-  const card=btn.closest('.list-card');
-  if(!card)return;
-  driverLinkAction(card,e);
-},true);
 })();
