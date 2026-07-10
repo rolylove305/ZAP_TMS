@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>Zap Dispatch - Share Location</title>
+<style>
+body{min-height:100vh;margin:0;padding:18px;display:flex;justify-content:center;align-items:flex-start;background:#061827;color:#eaf6ff;font-family:Arial,sans-serif}
+.shell{width:min(520px,100%);padding:24px 0}
+.logo{display:block;width:220px;max-width:78vw;margin:0 auto 18px;border-radius:18px;box-shadow:0 14px 30px rgba(0,0,0,.3)}
+.card{background:rgba(15,40,61,.92);border:1px solid rgba(255,255,255,.14);border-radius:24px;padding:22px;box-shadow:0 18px 40px rgba(0,0,0,.28);text-align:center}
+h1{font-size:24px;margin:0 0 10px}
+.muted{color:#b8d6ea}
+.bad{color:#ffb4b4}
+button{width:100%;margin-top:16px;font-size:17px;font-weight:800;padding:16px;border:0;border-radius:16px;background:#0ea5e9;color:#04121d;cursor:pointer}
+button:disabled{opacity:.6}
+</style>
+</head>
+<body>
+<div class="shell">
+<img class="logo" src="/zap-logo.svg" alt="Zap Dispatch">
+<div class="card">
+<h1>Share your location</h1>
+<p class="muted">Zap Dispatch is requesting your current location. Tap the button and allow location access.</p>
+<button id="shareBtn" type="button">Send My Location</button>
+<p id="msg" class="muted"></p>
+</div>
+</div>
+<script src="/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(()=>{
+  const by=id=>document.getElementById(id);
+  const say=(m,bad=false)=>{const el=by('msg');el.textContent=m;el.classList.toggle('bad',!!bad)};
+  const token=new URLSearchParams(location.search).get('t')||'';
+  if(!window.ZAP_TMS_CONFIG||!window.supabase){say('Could not load. Refresh the page.',true);return}
+  const client=window.supabase.createClient(ZAP_TMS_CONFIG.url,ZAP_TMS_CONFIG.token);
+  if(!token){say('Missing link. Ask dispatch for a new location link.',true);by('shareBtn').disabled=true;return}
+  function geo(){return new Promise(ok=>{if(!navigator.geolocation)return ok(null);navigator.geolocation.getCurrentPosition(p=>ok({lat:p.coords.latitude,lng:p.coords.longitude}),()=>ok(null),{enableHighAccuracy:true,timeout:15000})})}
+  by('shareBtn').onclick=async()=>{
+    const b=by('shareBtn');b.disabled=true;b.textContent='Getting location...';
+    const g=await geo();
+    if(!g){b.disabled=false;b.textContent='Send My Location';say('Location permission denied or unavailable. Please allow location and try again.',true);return}
+    b.textContent='Sending...';
+    const r=await client.rpc('locate_submit',{p_token:token,p_lat:g.lat,p_lng:g.lng});
+    if(r.error){b.disabled=false;b.textContent='Send My Location';say(r.error.message==='Invalid link'?'This link is no longer valid. Ask dispatch for a new one.':r.error.message,true);return}
+    b.textContent='Location Sent ✓';say('Location sent successfully. You can close this page.');
+    setTimeout(()=>{b.disabled=false;b.textContent='Send My Location'},4000);
+  };
+})();
+</script>
+</body>
+</html>

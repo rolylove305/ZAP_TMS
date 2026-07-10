@@ -7,6 +7,7 @@ function run(){
   load('rollbackHelpers','rollback-helpers.js?v=6100');
   load('actionsKeeper','actions-keeper.js?v=6300');
   load('tmsDashboardStable','tms-dashboard-stable.js?v=5200');
+  load('driverLocate','driver-locate.js?v=1');
 }
 setTimeout(run,300);
 setInterval(run,8000);
