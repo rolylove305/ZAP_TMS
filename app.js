@@ -71,8 +71,19 @@ function renderLoads(){
   list.appendChild(frag);
 }
 function portalUrl(token){const base=location.origin+location.pathname.replace(/index\.html$/,"").replace(/\/$/,"/");return base+"portal.html?t="+token}
-async function copyText(t){try{await navigator.clipboard.writeText(t);alert("Copied:\n"+t)}catch{prompt("Copy:",t)}}
-async function actionDriverLink(l){const r=await sb.rpc("create_driver_link",{p_load_id:l.id});if(r.error)return alert(r.error.message);copyText(portalUrl(r.data))}
+function escAttr(v){return String(v??"").replace(/"/g,"&quot;").replace(/</g,"&lt;")}
+function showDriverLinkModal(url){
+  let m=document.getElementById("zapDriverLinkModal");
+  if(!m){m=document.createElement("div");m.id="zapDriverLinkModal";m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px";document.body.appendChild(m)}
+  m.innerHTML='<div class="card" style="width:min(480px,96vw)"><div class="section-title"><h2>Driver Link</h2><button class="small-btn" id="zdlClose">Close</button></div>'
+    +'<input id="zdlUrl" readonly value="'+escAttr(url)+'" style="width:100%;margin:8px 0">'
+    +'<div class="card-actions"><a class="small-btn" href="'+escAttr(url)+'" target="_blank" rel="noopener">Open Driver Portal</a></div>'
+    +'<p class="muted">Link copied to clipboard. Send it to the driver.</p></div>';
+  m.querySelector("#zdlClose").onclick=()=>m.remove();
+  const inp=m.querySelector("#zdlUrl");inp.onclick=()=>inp.select();
+}
+async function copyText(t){try{await navigator.clipboard.writeText(t)}catch{}}
+async function actionDriverLink(l){const r=await sb.rpc("create_driver_link",{p_load_id:l.id});if(r.error)return alert(r.error.message);const url=portalUrl(r.data);await copyText(url);showDriverLinkModal(url)}
 async function actionRevokeLink(l){if(!confirm("Revoke driver link for this load? The driver portal link will stop working."))return;const r=await sb.rpc("revoke_driver_link",{p_load_id:l.id});if(r.error)return alert(r.error.message);alert("Driver link revoked. Generate a new Driver Link if needed.")}
 async function actionLocation(l){const r=await sb.from("load_events").select("latitude,longitude,created_at,event_type").eq("load_id",l.id).not("latitude","is",null).not("longitude","is",null).order("created_at",{ascending:false}).limit(1);if(r.error)return alert(r.error.message);if(!r.data||!r.data.length)return alert("No location received yet.");const x=r.data[0];window.open("https://www.google.com/maps?q="+x.latitude+","+x.longitude,"_blank")}
 async function actionSetStatus(l,status){if(status===l.status)return;if(status==="Paid"&&!confirm("Move this load to Paid?"))return;await updateRow("loads",{...l,status})}
