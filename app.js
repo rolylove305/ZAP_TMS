@@ -1,5 +1,5 @@
 const cfg=window.ZAP_TMS_CONFIG;
-const sb=window.supabase.createClient(cfg.url,cfg.token);
+const sb=window.supabase.createClient(cfg.url,cfg.token);window.sb=sb; /* helpers (invite-admin, dashboard-fix, tms-dashboard-stable) gate on window.sb, which a top-level const never sets */
 const $=id=>document.getElementById(id);
 const store={get(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}},set(k,v){localStorage.setItem(k,JSON.stringify(v))}};
 let currentUser=null;
