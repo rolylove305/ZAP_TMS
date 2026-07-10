@@ -24,8 +24,9 @@
     const say=(m,bad=false)=>{if(box){box.textContent=m;box.classList.toggle('bad',bad)}};
     const strong=s=>s.length>=10 && /[A-Z]/.test(s) && /[a-z]/.test(s) && /[0-9]/.test(s);
     async function allowed(e){
-      const r=await client.from('app_invites').select('email,active').eq('email',e).eq('active',true).maybeSingle();
-      return !r.error && !!r.data;
+      /* is_email_invited only returns true/false, so the invite list itself is never exposed to anonymous clients */
+      const r=await client.rpc('is_email_invited',{p_email:e});
+      return !r.error && r.data===true;
     }
     login.textContent='Login with password';
     signup.textContent='Create invited user';
