@@ -43,7 +43,7 @@ function buildLoadCard(l){
     (extra?`<p class="muted">${esc(extra)}</p>`:"")+
     `<div class="pill-row"><span class="pill ${color}">${esc(status)}</span><span class="pill">${money(l.rate)}</span><span class="pill green">Comm ${money(comm)}</span><span class="pill">${esc(l.equipment||"")}</span></div>`+
     `<div class="card-actions">`+
-      `<button class="small-btn load-link-btn" data-action="driver-link">Driver Link</button>`+
+      `<button type="button" class="small-btn load-link-btn" data-action="driver-link">Driver Link</button>`+
       `<button class="small-btn revoke-link-btn" data-action="revoke-link">Revoke Link</button>`+
       `<button class="small-btn load-loc-btn" data-action="location">Location</button>`+
       `<button class="small-btn zap-edit-btn" data-action="edit">Edit</button>`+
@@ -59,6 +59,14 @@ function buildLoadCard(l){
       `<button class="small-btn" data-action="set-status" data-status="Invoiced">Invoiced</button>`+
       `<button class="small-btn" data-action="set-status" data-status="Paid">Paid</button>`+
     `</div>`;
+  /* Driver Link is bound directly so it works on first load regardless of delegated-handler timing; stopImmediatePropagation keeps onLoadBoardClick from double-firing it */
+  const driverBtn=el.querySelector('[data-action="driver-link"]');
+  if(driverBtn)driverBtn.addEventListener("click",function(e){
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    actionDriverLink(l);
+  });
   return el;
 }
 function renderLoads(){
