@@ -31,9 +31,17 @@ async function viewLoc(d){
 function rows(listEl){
   const ds=drivers();
   listEl.dataset.count=ds.length;
-  listEl.innerHTML=ds.map((d,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:6px 0"><span><b>${esc(d.name)}</b>${d.phone?' <span class="muted">'+esc(d.phone)+'</span>':''}</span><span style="display:flex;gap:6px"><button type="button" class="small-btn" data-locate-req="${i}">Request location</button><button type="button" class="small-btn" data-locate-view="${i}">View location</button></span></div>`).join('')||'<p class="muted">No drivers found yet. Drivers appear here after you add them to a load.</p>';
-  listEl.querySelectorAll('[data-locate-req]').forEach(b=>b.onclick=()=>requestLoc(ds[+b.dataset.locateReq]));
-  listEl.querySelectorAll('[data-locate-view]').forEach(b=>b.onclick=()=>viewLoc(ds[+b.dataset.locateView]));
+  if(!ds.length){listEl.innerHTML='<p class="muted">No drivers found yet. Drivers appear here after you add them to a load.</p>';return}
+  const prev=listEl.querySelector('#driverLocateSelect')?.value;
+  listEl.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+    +'<select id="driverLocateSelect" style="flex:1;min-width:200px">'+ds.map((d,i)=>`<option value="${i}">${esc(d.name)}${d.phone?' ('+esc(d.phone)+')':''}</option>`).join('')+'</select>'
+    +'<button type="button" class="small-btn" id="driverLocateReq">Request location</button>'
+    +'<button type="button" class="small-btn" id="driverLocateView">View location</button>'
+    +'</div>';
+  const sel=listEl.querySelector('#driverLocateSelect');
+  if(prev&&+prev<ds.length)sel.value=prev;
+  listEl.querySelector('#driverLocateReq').onclick=()=>requestLoc(ds[+sel.value]);
+  listEl.querySelector('#driverLocateView').onclick=()=>viewLoc(ds[+sel.value]);
 }
 async function panel(){
   if(!window.sb)return;
