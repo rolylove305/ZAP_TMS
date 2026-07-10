@@ -1,4 +1,4 @@
-const CACHE_NAME="zap-dispatch-tms-v17";
+const CACHE_NAME="zap-dispatch-tms-v18";
 const FILES=["index.html","styles.css","app.js?v=window-sb-1","config.js","manifest.json","zap-icon.svg","zap-logo.svg","loadlink.js?v=driver-link-native-fix-1"];
 const STYLE='<style>.zap-logo-login{display:block;width:min(280px,80vw);height:auto;margin:0 auto 16px;border-radius:18px;box-shadow:0 12px 28px rgba(0,0,0,.35)}.zap-logo-head{display:block;width:220px;max-width:62vw;height:auto;margin:0 0 12px;border-radius:14px;box-shadow:0 10px 24px rgba(0,0,0,.28)}@media(max-width:640px){.zap-logo-login{width:min(245px,82vw)}.zap-logo-head{width:185px}}</style>';
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(FILES)))});
