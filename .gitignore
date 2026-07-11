@@ -1,0 +1,11 @@
+# Local tooling / scratch — never commit
+.claude/
+node_modules/
+
+# Secrets — must never be committed
+*.pem
+*.key
+.env
+.env.*
+supabase-token*
+service-role*
