@@ -1,4 +1,4 @@
-const CACHE_NAME="zap-dispatch-tms-v21";
+const CACHE_NAME="zap-dispatch-tms-v26";
 const FILES=["index.html","styles.css","app.js?v=window-sb-1","config.js","manifest.json","zap-icon.svg","zap-logo.svg","loadlink.js?v=driver-link-native-fix-1"];
 /* Security headers, kept in sync with /_headers. The SW rewrites index.html into a fresh
    Response that would otherwise drop the edge headers, so we re-add them here for the shell. */

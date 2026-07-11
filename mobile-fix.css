@@ -1,6 +1,6 @@
 html,body{max-width:100%;overflow-x:hidden!important}
 .app-shell,.screen,.card,.hero-card,.list-card{max-width:100%;overflow-x:hidden}
-#zapDashGrid{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:10px!important}
+#zapDashGrid{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(150px,190px))!important;justify-content:start!important;gap:10px!important}
 #zapDashGrid>div{min-width:0!important}
 #zapDashGrid h3{font-size:22px!important;overflow-wrap:anywhere}
 .section-title{align-items:flex-start;gap:8px}
@@ -8,5 +8,7 @@ html,body{max-width:100%;overflow-x:hidden!important}
 .card-actions{display:flex!important;flex-wrap:wrap!important}
 .card-actions button,.card-actions a{min-width:86px!important;flex:1 1 86px!important}
 .bottom-nav{max-width:100vw!important}
-.list{grid-template-columns:1fr!important}
+/* All list cards (loads, carriers, brokers, expenses, invoices) span the full screen width, side to side */
+.list{grid-template-columns:1fr!important;max-width:100%!important}
+.list-card{max-width:100%!important;margin-left:0!important;margin-right:0!important}
 @media(max-width:480px){.app-shell{padding-left:8px!important;padding-right:8px!important}.card,.list-card{padding:14px!important;border-radius:22px!important}#zapDashGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}.form-grid{grid-template-columns:1fr!important}h2{font-size:18px!important}.muted{font-size:12px!important}.primary-btn{font-size:12px}.small-btn{font-size:11px}.status-row{grid-template-columns:1fr 1fr!important}.bottom-nav{left:0!important;right:0!important;transform:none!important;width:100vw!important}.nav-btn{min-width:70px!important}}
