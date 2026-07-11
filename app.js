@@ -172,7 +172,10 @@ function onLoadBoardClick(e){
 /* ===== end Load Board v2 ===== */
 async function cycleLoad(i){const statuses=["Booked","Dispatched","Picked Up","Delivered","Invoiced","Paid"];const l=appData.loads[i];if(!l)return;let idx=statuses.indexOf(l.status);l.status=statuses[(idx+1)%statuses.length];await updateRow("loads",l)}window.cycleLoad=cycleLoad;
 function renderExpenses(){const list=$("expensesList"),arr=data().expenses;list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No expenses yet.</p></div>";arr.forEach((e,i)=>list.innerHTML+=card(`${e.category||"Other"} • ${money(e.amount)}`,`${e.date||""} • ${e.carrier||""} • ${e.notes||""}`,`<span class="pill red">Cost</span>`,`<div class="card-actions"><button class="small-btn" onclick="removeItem('expenses',${i})">Delete</button></div>`))}
-function renderInvoices(){const list=$("invoiceList"),arr=data().loads.filter(l=>["Delivered","Invoiced","Paid"].includes(l.status));list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No delivered/invoiced loads yet.</p></div>";arr.forEach(l=>{const comm=num(l.rate)*num(l.commissionPct)/100;list.innerHTML+=card(`${l.carrier||"Carrier"} • ${money(l.rate)}`,`${l.pickup||""} → ${l.delivery||""} • Broker: ${l.broker||""}`,`<span class="pill">${esc(l.status)}</span><span class="pill green">Dispatch fee ${money(comm)}</span>`)})}
+/* #invoiceList used to show a read-only list of delivered/invoiced/paid loads (no actions),
+   which duplicated the Load Board and confused users. It's kept empty because saved-invoices.js
+   uses it as an anchor for the real Saved Invoices list. */
+function renderInvoices(){const list=$("invoiceList");if(list)list.innerHTML=""}
 function renderSettings(){const s=data().settings;$("companyName").value=s.companyName||"";$("defaultCommission").value=s.defaultCommission||8;$("companyEmail").value=s.companyEmail||"";$("companyPhone").value=s.companyPhone||""}
 function clearInputs(ids){ids.forEach(id=>{const el=$(id);if(el)el.value=""})}function navTo(target){document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.screen===target));document.querySelectorAll(".screen").forEach(s=>s.classList.toggle("active",s.id===target))}
 document.querySelectorAll(".nav-btn,.jump").forEach(btn=>btn.onclick=()=>{if(btn.dataset.screen)navTo(btn.dataset.screen)});
