@@ -21,22 +21,35 @@ async function roster(userId){
   return{list:Object.values(cloud).filter(d=>d.name&&d.anyActive).sort((a,b)=>a.name.localeCompare(b.name))};
 }
 function locateUrl(token){const base=location.origin+location.pathname.replace(/index\.html$/,'').replace(/\/$/,'/');return base+'locate.html?t='+token}
-function modal(url){
+function telDigits(p){let d=String(p||'').replace(/\D/g,'');if(d.length===10)d='1'+d;return d}
+function sendButtons(phone,text){
+  if(!phone)return '';
+  const d=telDigits(phone),body=encodeURIComponent(text);
+  return '<div class="card-actions">'
+    +'<a class="small-btn zlm-send" href="sms:+'+d+'?&body='+body+'">Text (SMS)</a>'
+    +'<a class="small-btn zlm-send" href="https://wa.me/'+d+'?text='+body+'" target="_blank" rel="noopener">WhatsApp</a>'
+    +'</div>';
+}
+function modal(url,d){
   let m=document.getElementById('zapLocateModal');
   if(!m){m=document.createElement('div');m.id='zapLocateModal';m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';document.body.appendChild(m)}
+  const name=d&&d.name?String(d.name).trim():'',phone=d&&d.phone;
+  const text=(name?name+', ':'')+'please tap this link to share your current location with Zap Dispatch: '+url;
   m.innerHTML='<div class="card" style="width:min(480px,96vw)"><div class="section-title"><h2>Location Request</h2><button type="button" class="small-btn" id="zlmClose">Close</button></div>'
     +'<input id="zlmUrl" readonly value="'+esc(url)+'" style="width:100%;margin:8px 0">'
-    +'<p class="muted">Link copied to clipboard. Send it to the driver by text or WhatsApp; when they open it and tap the button, their location appears under View location.</p></div>';
+    +sendButtons(phone,text)
+    +'<p class="muted">Send this link to the driver by text or WhatsApp; when they open it and tap the button, their location appears under View location.</p></div>';
   m.style.display='flex';
   m.querySelector('#zlmClose').onclick=()=>m.remove();
   const inp=m.querySelector('#zlmUrl');inp.onclick=()=>inp.select();
+  m.querySelectorAll('.zlm-send').forEach(b=>b.addEventListener('click',()=>{try{navigator.clipboard.writeText(text)}catch(e){}}));
 }
 async function requestLoc(d){
   const r=await sb.rpc('locate_request',{p_driver_name:d.name,p_driver_phone:d.phone});
   if(r.error)return alert(r.error.message);
   const url=locateUrl(r.data);
   try{await navigator.clipboard.writeText(url)}catch{}
-  modal(url);
+  modal(url,d);
 }
 async function viewLoc(d){
   const r=await sb.from('driver_locates').select('latitude,longitude,located_at').eq('driver_name',d.name).eq('driver_phone',d.phone).not('located_at','is',null).order('located_at',{ascending:false}).limit(1);

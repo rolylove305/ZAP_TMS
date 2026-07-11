@@ -80,18 +80,35 @@ function renderLoads(){
 }
 function portalUrl(token){const base=location.origin+location.pathname.replace(/index\.html$/,"").replace(/\/$/,"/");return base+"portal.html?t="+token}
 function escAttr(v){return String(v??"").replace(/"/g,"&quot;").replace(/</g,"&lt;")}
-function showDriverLinkModal(url){
+/* US phone -> digits with country code, for sms: and wa.me links */
+function telDigits(p){let d=String(p||"").replace(/\D/g,"");if(d.length===10)d="1"+d;return d}
+/* Text (SMS) + WhatsApp buttons that open the phone's messaging app with the link prefilled.
+   Both also copy the message to the clipboard so a desktop that doesn't prefill can just paste. */
+function sendLinkButtons(phone,text){
+  if(!phone)return '<p class="muted" style="margin:8px 0 0">Add a Driver cell to this load to text the link with one tap.</p>';
+  const d=telDigits(phone),body=encodeURIComponent(text);
+  return '<div class="card-actions">'
+    +'<a class="small-btn zap-send-copy" href="sms:+'+d+'?&body='+body+'">Text (SMS)</a>'
+    +'<a class="small-btn zap-send-copy" href="https://wa.me/'+d+'?text='+body+'" target="_blank" rel="noopener">WhatsApp</a>'
+    +'</div>';
+}
+function wireSendCopy(m,text){m.querySelectorAll(".zap-send-copy").forEach(b=>b.addEventListener("click",()=>copyText(text)))}
+function showDriverLinkModal(url,phone,name){
   let m=document.getElementById("zapDriverLinkModal");
   if(!m){m=document.createElement("div");m.id="zapDriverLinkModal";m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px";document.body.appendChild(m)}
+  const text=(name?String(name).trim()+", ":"")+"here is your load from Zap Dispatch. Open the link to see the details and share your location: "+url;
   m.innerHTML='<div class="card" style="width:min(480px,96vw)"><div class="section-title"><h2>Driver Link</h2><button class="small-btn" id="zdlClose">Close</button></div>'
     +'<input id="zdlUrl" readonly value="'+escAttr(url)+'" style="width:100%;margin:8px 0">'
-    +'<div class="card-actions"><a class="small-btn" href="'+escAttr(url)+'" target="_blank" rel="noopener">Open Driver Portal</a></div>'
-    +'<p class="muted">Link copied to clipboard. Send it to the driver.</p></div>';
+    +sendLinkButtons(phone,text)
+    +'<div class="card-actions"><a class="small-btn" href="'+escAttr(url)+'" target="_blank" rel="noopener">Open Portal</a><button class="small-btn" id="zdlCopy">Copy link</button></div>'
+    +'<p class="muted">Send this link to the driver by text or WhatsApp.</p></div>';
   m.querySelector("#zdlClose").onclick=()=>m.remove();
   const inp=m.querySelector("#zdlUrl");inp.onclick=()=>inp.select();
+  const cp=m.querySelector("#zdlCopy");if(cp)cp.onclick=()=>{copyText(url);cp.textContent="Copied ✓";setTimeout(()=>cp.textContent="Copy link",1500)};
+  wireSendCopy(m,text);
 }
 async function copyText(t){try{await navigator.clipboard.writeText(t)}catch{}}
-async function actionDriverLink(l){const r=await sb.rpc("create_driver_link",{p_load_id:l.id});if(r.error)return alert(r.error.message);const url=portalUrl(r.data);await copyText(url);showDriverLinkModal(url)}
+async function actionDriverLink(l){const r=await sb.rpc("create_driver_link",{p_load_id:l.id});if(r.error)return alert(r.error.message);const url=portalUrl(r.data);await copyText(url);showDriverLinkModal(url,l.driverPhone,l.driverName)}
 async function actionRevokeLink(l){if(!confirm("Revoke driver link for this load? The driver portal link will stop working."))return;const r=await sb.rpc("revoke_driver_link",{p_load_id:l.id});if(r.error)return alert(r.error.message);alert("Driver link revoked. Generate a new Driver Link if needed.")}
 async function actionLocation(l){const r=await sb.from("load_events").select("latitude,longitude,created_at,event_type").eq("load_id",l.id).not("latitude","is",null).not("longitude","is",null).order("created_at",{ascending:false}).limit(1);if(r.error)return alert(r.error.message);if(!r.data||!r.data.length)return alert("No location received yet.");const x=r.data[0];window.open("https://www.google.com/maps?q="+x.latitude+","+x.longitude,"_blank")}
 async function actionSetStatus(l,status){if(status===l.status)return;if(status==="Paid"&&!confirm("Move this load to Paid?"))return;await updateRow("loads",{...l,status})}
