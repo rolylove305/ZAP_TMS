@@ -6,7 +6,7 @@ function run(){
   load('loginInvitePatch','login-invite-patch.js?v=6600');
   load('rollbackHelpers','rollback-helpers.js?v=6100');
   load('actionsKeeper','actions-keeper.js?v=6300');
-  load('tmsDashboardStable','tms-dashboard-stable.js?v=5200');
+  load('tmsDashboardStable','tms-dashboard-stable.js?v=5300');
   load('driverLocate','driver-locate.js?v=3');
   load('driverPicker','driver-picker.js?v=1');
 }
