@@ -1,8 +1,8 @@
-const CACHE_NAME="zap-dispatch-tms-v19";
+const CACHE_NAME="zap-dispatch-tms-v20";
 const FILES=["index.html","styles.css","app.js?v=window-sb-1","config.js","manifest.json","zap-icon.svg","zap-logo.svg","loadlink.js?v=driver-link-native-fix-1"];
 /* Security headers, kept in sync with /_headers. The SW rewrites index.html into a fresh
    Response that would otherwise drop the edge headers, so we re-add them here for the shell. */
-const SEC_HEADERS={"content-type":"text/html;charset=UTF-8","X-Frame-Options":"DENY","X-Content-Type-Options":"nosniff","Referrer-Policy":"strict-origin-when-cross-origin","Content-Security-Policy":"default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"};
+const SEC_HEADERS={"content-type":"text/html;charset=UTF-8","X-Frame-Options":"DENY","X-Content-Type-Options":"nosniff","Referrer-Policy":"strict-origin-when-cross-origin","Content-Security-Policy":"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"};
 const STYLE='<style>.zap-logo-login{display:block;width:min(280px,80vw);height:auto;margin:0 auto 16px;border-radius:18px;box-shadow:0 12px 28px rgba(0,0,0,.35)}.zap-logo-head{display:block;width:220px;max-width:62vw;height:auto;margin:0 0 12px;border-radius:14px;box-shadow:0 10px 24px rgba(0,0,0,.28)}@media(max-width:640px){.zap-logo-login{width:min(245px,82vw)}.zap-logo-head{width:185px}}</style>';
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE_NAME).then(c=>c.addAll(FILES)))});
 self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE_NAME).map(k=>caches.delete(k)))));self.clients.claim()});
