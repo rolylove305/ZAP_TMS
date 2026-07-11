@@ -134,14 +134,13 @@
     </section>
 
     <section class="screen" id="expenses">
-      <div class="section-title"><h2>Expenses</h2><button id="addExpense" class="small-btn">Save expense</button></div>
+      <div class="section-title"><h2>My Business Costs</h2><button id="addExpense" class="small-btn">Save cost</button></div>
       <div class="card">
         <div class="form-grid">
           <label>Date<input id="expenseDate" type="date"></label>
-          <label>Carrier<select id="expenseCarrier"></select></label>
-          <label>Category<select id="expenseCategory"><option>Fuel</option><option>Lumper</option><option>Tolls</option><option>Detention</option><option>Repair</option><option>Other</option></select></label>
+          <label>Category<select id="expenseCategory"><option>Loadboard / DAT</option><option>Software</option><option>Phone / Internet</option><option>Insurance</option><option>Office</option><option>Marketing</option><option>Fees</option><option>Other</option></select></label>
           <label>Amount $<input id="expenseAmount" type="number" step="0.01"></label>
-          <label>Notes<input id="expenseNotes" placeholder="Receipt / description"></label>
+          <label>Notes<input id="expenseNotes" placeholder="Vendor / description"></label>
         </div>
       </div>
       <div id="expensesList" class="list"></div>
@@ -187,7 +186,7 @@
 </div>
 <script src="config.js"></script>
 <script src="/vendor/supabase-js-2.110.2.js"></script>
-<script src="app.js?v=invoices-cleanup-1"></script>
+<script src="app.js?v=my-costs-1"></script>
 <script src="pw-login.js"></script>
 <script src="loadlink.js?v=driver-link-native-fix-1"></script>
 <script src="refresh.js"></script>
