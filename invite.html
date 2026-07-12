@@ -46,6 +46,12 @@
       if(r.error){alert(r.error.message);return}
       list();
     }
+    async function deleteInvite(em){
+      if(!confirm('Delete the invitation for '+em+'? They will no longer be able to log in or create an account. This removes the invitation permanently.'))return;
+      const r=await sb.from('app_invites').delete().eq('email',em);
+      if(r.error){alert(r.error.message);return}
+      list();
+    }
     async function list(){
       const r=await sb.from('app_invites').select('email,active,created_at,note').order('created_at',{ascending:false});
       if(r.error){by('inviteList').textContent=r.error.message;return}
@@ -54,11 +60,13 @@
       by('inviteList').innerHTML='<h3>Invited Emails</h3><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
         +'<select id="inviteSelect" style="flex:1;min-width:220px">'+inv.map((x,i)=>'<option value="'+i+'">'+escI(x.email)+' — '+(x.active?'Active':'Off')+'</option>').join('')+'</select>'
         +'<button type="button" class="small-btn" id="inviteToggleBtn"></button>'
+        +'<button type="button" class="small-btn" id="inviteDeleteBtn" style="border-color:rgba(251,113,133,.4);color:#fda4af">Delete</button>'
         +'</div>';
-      const sel=by('inviteSelect'),btn=by('inviteToggleBtn');
-      const sync=()=>{const x=inv[+sel.value];const isOwner=String(x.email).toLowerCase()===OWNER;btn.textContent=x.active?'Turn off':'Turn on';btn.disabled=isOwner;btn.title=isOwner?'The owner account cannot be turned off':''};
+      const sel=by('inviteSelect'),btn=by('inviteToggleBtn'),del=by('inviteDeleteBtn');
+      const sync=()=>{const x=inv[+sel.value];const isOwner=String(x.email).toLowerCase()===OWNER;btn.textContent=x.active?'Turn off':'Turn on';btn.disabled=isOwner;del.disabled=isOwner;btn.title=del.title=isOwner?'The owner account cannot be changed':''};
       sel.onchange=sync;sync();
       btn.onclick=()=>{const x=inv[+sel.value];toggleInvite(x.email,x.active)};
+      del.onclick=()=>{const x=inv[+sel.value];deleteInvite(x.email)};
     }
     by('addInviteBtn').onclick=async()=>{
       const e=(by('inviteEmail').value||'').trim().toLowerCase();
