@@ -23,7 +23,10 @@ const CORS = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-1.5-pro";
+// "flash-latest" always points to Google's current Flash model (free-tier available),
+// avoiding "no longer available" 404s from pinned/older versions. With billing enabled
+// you can switch to a Pro model (e.g. gemini-pro-latest) via the GEMINI_MODEL secret.
+const MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-flash-latest";
 
 const SYSTEM_INSTRUCTION =
   "Eres un extractor de datos experto en logística y transporte en EE.UU. Tu única tarea es " +
@@ -106,6 +109,9 @@ Deno.serve(async (req) => {
     const { data: { user }, error: userErr } = await userClient.auth.getUser();
     if (userErr || !user) return json({ error: "Invalid session" }, 401);
 
+    const apiKey = Deno.env.get("GEMINI_API_KEY");
+    if (!apiKey) return json({ error: "AI is not configured (missing GEMINI_API_KEY)" }, 500);
+
     // 2) Read the storage_path from the body.
     const body = await req.json().catch(() => ({}));
     const storagePath: string | undefined = body?.storage_path;
@@ -127,9 +133,6 @@ Deno.serve(async (req) => {
     const base64 = encodeBase64(new Uint8Array(await file.arrayBuffer()));
 
     // 4) Ask Gemini to extract the structured load data.
-    const apiKey = Deno.env.get("GEMINI_API_KEY");
-    if (!apiKey) return json({ error: "AI is not configured (missing GEMINI_API_KEY)" }, 500);
-
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: MODEL,
