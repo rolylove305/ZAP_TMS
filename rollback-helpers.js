@@ -3,7 +3,7 @@
 function load(id,src){if(document.getElementById(id))return;const s=document.createElement('script');s.id=id;s.src=src;document.body.appendChild(s)}
 setTimeout(()=>{
  load('tmsDocsStable','tms-docs-stable.js?v=5200');
- load('storageUploadHelper','storage-upload.js?v=5600');
+ load('storageUploadHelper','storage-upload.js?v=5700');
  load('storageManageHelper','storage-manage.js?v=5500');
  load('cardStabilizerHelper','card-stabilizer.js?v=5600');
  load('invoiceSelectHelper','invoice-select.js?v=4300');
