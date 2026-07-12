@@ -87,6 +87,10 @@
           <label>Delivery city/state<input id="delivery" placeholder="Atlanta, GA"></label>
           <label>Pickup date<input id="pickupDate" type="date"></label>
           <label>Delivery date<input id="deliveryDate" type="date"></label>
+          <label>Pickup time<input id="pickupTime" type="time"></label>
+          <label>Delivery time<input id="deliveryTime" type="time"></label>
+          <label>Pickup #<input id="pickupNumber" placeholder="PU / confirmation #"></label>
+          <label>Delivery #<input id="deliveryNumber" placeholder="Delivery / PO #"></label>
           <label>Equipment<select id="equipment"><option>Reefer</option><option>Dry Van</option><option>Flatbed</option><option>Step Deck</option><option>Hotshot</option></select></label>
           <label>Status<select id="loadStatus"><option>Booked</option><option>Dispatched</option><option>Picked Up</option><option>Delivered</option><option>Invoiced</option><option>Paid</option><option>Cancelled</option></select></label>
           <label>Rate $<input id="rate" type="number" step="0.01"></label>
@@ -94,8 +98,14 @@
           <label>Saved driver<select id="driverPick"><option value="">— New driver / type below —</option></select></label>
           <label>Driver name<input id="driverName" placeholder="Driver on this load"></label>
           <label>Driver cell<input id="driverPhone" type="tel" placeholder="(555) 555-5555"></label>
+          <label>Truck #<input id="truckNumber" placeholder="Truck #"></label>
+          <label>Trailer #<input id="trailerNumber" placeholder="Trailer #"></label>
           <label>Load #<input id="loadNumber" placeholder="Broker load #"></label>
           <label>Notes<input id="loadNotes" placeholder="Temp, appt, lumper, etc."></label>
+        </div>
+        <div style="margin-top:12px">
+          <div class="section-title" style="margin-bottom:6px"><h3 style="margin:0;font-size:15px">Additional stops (optional)</h3><button type="button" class="small-btn" id="addStopBtn">+ Add stop</button></div>
+          <div id="newLoadStops"></div>
         </div>
       </div>
       <div id="loadsList" class="list"></div>
@@ -186,7 +196,7 @@
 </div>
 <script src="config.js"></script>
 <script src="/vendor/supabase-js-2.110.2.js"></script>
-<script src="app.js?v=send-buttons-1"></script>
+<script src="app.js?v=stops-1"></script>
 <script src="pw-login.js"></script>
 <script src="loadlink.js?v=driver-link-native-fix-1"></script>
 <script src="refresh.js"></script>
