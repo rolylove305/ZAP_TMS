@@ -755,10 +755,22 @@ async function callGemini(
   config: EnvConfig,
   pdfBase64: string,
 ): Promise<Record<string, unknown>> {
-  const endpoint =
-    "https://generativelanguage.googleapis.com/" +
-    `v1beta/models/${encodeURIComponent(config.geminiModel)}` +
-    `:generateContent?key=${encodeURIComponent(config.geminiApiKey)}`;
+  // Cadena de modelos: probamos el configurado y, si está saturado (503) o
+  // retirado (404), caemos automáticamente al siguiente. Cada modelo tiene su
+  // propio pool de capacidad, así que cuando uno está congestionado otro suele
+  // responder — la app se auto-repara sin depender de un único modelo.
+  const FALLBACK_MODELS = [
+    "gemini-flash-latest",
+    "gemini-3.5-flash-lite",
+    "gemini-flash-lite-latest",
+  ];
+  const models = [
+    config.geminiModel,
+    ...FALLBACK_MODELS,
+  ].filter(
+    (m, i, arr) =>
+      Boolean(m) && arr.indexOf(m) === i,
+  );
 
   const requestBody = {
     contents: [
@@ -802,139 +814,161 @@ async function callGemini(
     },
   };
 
-  // Presupuesto de tiempo acotado: cada llamada se corta a los 30s y hacemos
-  // hasta 5 intentos para empujar a través de los picos temporales de 503
-  // ("high demand"). Un guard de presupuesto TOTAL evita que la suma de
-  // reintentos rebase el límite de la Edge Function (nunca volvemos al 546).
+  // Presupuesto de tiempo acotado: cada llamada se corta a los 30s y hay un
+  // presupuesto TOTAL para TODA la cascada (modelos × intentos), de modo que la
+  // suma nunca rebase el límite de la Edge Function (nunca volvemos al 546).
   const PER_CALL_TIMEOUT_MS = 30000;
   const TOTAL_BUDGET_MS = 100000;
-  const MAX_ATTEMPTS = 5;
+  const ATTEMPTS_PER_MODEL = 2;
   const startedAt = Date.now();
 
   let lastStatus = 502;
   let lastMessage =
     "Gemini request failed.";
 
-  for (
-    let attempt = 0;
-    attempt < MAX_ATTEMPTS;
-    attempt += 1
-  ) {
-    // No arrancar otro intento si ya casi agotamos el presupuesto total:
-    // así, aunque reintentemos varias veces, el tiempo total siempre cabe.
+  for (const model of models) {
+    // Si ya casi agotamos el presupuesto total, no arrancamos otro modelo.
     if (
-      attempt > 0 &&
       Date.now() - startedAt >
         TOTAL_BUDGET_MS
     ) {
       break;
     }
 
-    let response: Response;
+    const endpoint =
+      "https://generativelanguage.googleapis.com/" +
+      `v1beta/models/${encodeURIComponent(model)}` +
+      `:generateContent?key=${encodeURIComponent(config.geminiApiKey)}`;
 
-    try {
-      response = await fetch(
-        endpoint,
-        {
-          method: "POST",
+    for (
+      let attempt = 0;
+      attempt < ATTEMPTS_PER_MODEL;
+      attempt += 1
+    ) {
+      if (
+        attempt > 0 &&
+        Date.now() - startedAt >
+          TOTAL_BUDGET_MS
+      ) {
+        break;
+      }
 
-          headers: {
-            "Content-Type":
-              "application/json",
+      let response: Response;
+
+      try {
+        response = await fetch(
+          endpoint,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify(requestBody),
+
+            // AbortSignal.timeout aborta el fetch si Gemini se cuelga o va lento,
+            // en vez de dejar el worker esperando hasta que la plataforma lo mate.
+            signal:
+              AbortSignal.timeout(
+                PER_CALL_TIMEOUT_MS,
+              ),
           },
+        );
+      } catch (fetchErr) {
+        // Timeout (AbortSignal) o fallo de red: reintento acotado; si persiste,
+        // pasamos al siguiente modelo de la cascada.
+        lastStatus = 504;
+        lastMessage =
+          (fetchErr as Error)?.name ===
+            "TimeoutError"
+            ? "The document took too long for the AI to read. Please try again."
+            : `Network error contacting the AI: ${
+              (fetchErr as Error)?.message ??
+                String(fetchErr)
+            }`;
 
-          body:
-            JSON.stringify(requestBody),
+        if (attempt === ATTEMPTS_PER_MODEL - 1) {
+          break;
+        }
 
-          // AbortSignal.timeout aborta el fetch si Gemini se cuelga o va lento,
-          // en vez de dejar el worker esperando hasta que la plataforma lo mate.
-          signal:
-            AbortSignal.timeout(
-              PER_CALL_TIMEOUT_MS,
-            ),
-        },
-      );
-    } catch (fetchErr) {
-      // Timeout (AbortSignal) o fallo de red: reintento acotado, nunca cuelga.
-      lastStatus = 504;
-      lastMessage =
-        (fetchErr as Error)?.name ===
-          "TimeoutError"
-          ? "The document took too long for the AI to read. Please try again."
-          : `Network error contacting the AI: ${
-            (fetchErr as Error)?.message ??
-              String(fetchErr)
-          }`;
+        await sleep(
+          500 * (2 ** attempt),
+        );
+        continue;
+      }
 
-      if (attempt === MAX_ATTEMPTS - 1) {
+      const responseText =
+        await response.text();
+
+      if (response.ok) {
+        try {
+          return JSON.parse(
+            responseText,
+          ) as Record<string, unknown>;
+        } catch {
+          throw new AppError(
+            502,
+            "Gemini returned an unreadable response envelope.",
+          );
+        }
+      }
+
+      lastStatus = response.status;
+
+      try {
+        const errorPayload =
+          asRecord(
+            JSON.parse(responseText),
+          );
+
+        const nestedError =
+          asRecord(
+            errorPayload["error"],
+          );
+
+        lastMessage =
+          stringValue(
+            nestedError["message"],
+          ) ||
+          responseText.slice(0, 800);
+      } catch {
+        lastMessage =
+          responseText.slice(0, 800) ||
+          `HTTP ${response.status}`;
+      }
+
+      // 429 (cuota) no se resuelve cambiando de modelo: comparten la cuota del
+      // proyecto. Fallamos rápido para que el frontend muestre "AI limit reached".
+      if (response.status === 429) {
+        throw new AppError(
+          429,
+          `Gemini API error: ${lastMessage}`,
+        );
+      }
+
+      // 5xx transitorio (503 "high demand", etc.): un reintento corto en el mismo
+      // modelo; si persiste, salimos para probar el SIGUIENTE modelo. 404/400
+      // (modelo retirado/no válido) no son retryables -> siguiente modelo directo.
+      const shouldRetrySameModel =
+        RETRYABLE_GEMINI_STATUSES.has(
+          response.status,
+        ) &&
+        response.status !== 429;
+
+      if (
+        !shouldRetrySameModel ||
+        attempt === ATTEMPTS_PER_MODEL - 1
+      ) {
         break;
       }
 
       await sleep(
-        600 * (2 ** attempt),
+        500 * (2 ** attempt),
       );
-      continue;
     }
-
-    const responseText =
-      await response.text();
-
-    if (response.ok) {
-      try {
-        return JSON.parse(
-          responseText,
-        ) as Record<string, unknown>;
-      } catch {
-        throw new AppError(
-          502,
-          "Gemini returned an unreadable response envelope.",
-        );
-      }
-    }
-
-    lastStatus = response.status;
-
-    try {
-      const errorPayload =
-        asRecord(
-          JSON.parse(responseText),
-        );
-
-      const nestedError =
-        asRecord(
-          errorPayload["error"],
-        );
-
-      lastMessage =
-        stringValue(
-          nestedError["message"],
-        ) ||
-        responseText.slice(0, 800);
-    } catch {
-      lastMessage =
-        responseText.slice(0, 800) ||
-        `HTTP ${response.status}`;
-    }
-
-    // 429 (cuota) no se recupera dentro de la misma petición: reintentarlo solo
-    // quema el reloj (era una de las causas del 546). Fallamos rápido y el
-    // frontend muestra el mensaje amigable de "AI limit reached".
-    const shouldRetry =
-      RETRYABLE_GEMINI_STATUSES.has(
-        response.status,
-      ) &&
-      response.status !== 429;
-
-    if (
-      !shouldRetry ||
-      attempt === MAX_ATTEMPTS - 1
-    ) {
-      break;
-    }
-
-    await sleep(
-      600 * (2 ** attempt),
-    );
   }
 
   throw new AppError(
