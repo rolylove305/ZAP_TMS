@@ -102,9 +102,13 @@
             "or fill the load manually."
           );
         }else{
+          const noBody=!ai||!ai.error;
+          const diag="[HTTP "+res.status+
+            (res.statusText?" "+res.statusText:"")+
+            (noBody?" · no JSON body → likely timeout/gateway":"")+"]";
           alert(
-            "AI could not read this Rate Con"+
-            (rawErr?": "+rawErr:".")+
+            "AI could not read this Rate Con "+diag+
+            (rawErr?":\n"+rawErr:".")+
             "\nYou can still fill the load manually."
           );
         }
