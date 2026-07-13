@@ -788,6 +788,13 @@ async function callGemini(
 
       maxOutputTokens: 4096,
 
+      // La extracción es una tarea de salida estructurada, no de razonamiento.
+      // Desactivar el "thinking" hace que Gemini responda mucho más rápido y
+      // evita que la Edge Function exceda su límite de tiempo (error 546 WORKER_LIMIT).
+      thinkingConfig: {
+        thinkingBudget: 0,
+      },
+
       responseMimeType:
         "application/json",
 
@@ -795,29 +802,66 @@ async function callGemini(
     },
   };
 
+  // Presupuesto de tiempo acotado: cada llamada se corta a los 40s y hacemos
+  // como máximo 2 intentos. Así el tiempo total (2×40s + backoff) siempre cabe
+  // bajo el límite de la Edge Function y nunca volvemos a morir por 546.
+  const PER_CALL_TIMEOUT_MS = 40000;
+  const MAX_ATTEMPTS = 2;
+
   let lastStatus = 502;
   let lastMessage =
     "Gemini request failed.";
 
   for (
     let attempt = 0;
-    attempt < 3;
+    attempt < MAX_ATTEMPTS;
     attempt += 1
   ) {
-    const response = await fetch(
-      endpoint,
-      {
-        method: "POST",
+    let response: Response;
 
-        headers: {
-          "Content-Type":
-            "application/json",
+    try {
+      response = await fetch(
+        endpoint,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+
+          body:
+            JSON.stringify(requestBody),
+
+          // AbortSignal.timeout aborta el fetch si Gemini se cuelga o va lento,
+          // en vez de dejar el worker esperando hasta que la plataforma lo mate.
+          signal:
+            AbortSignal.timeout(
+              PER_CALL_TIMEOUT_MS,
+            ),
         },
+      );
+    } catch (fetchErr) {
+      // Timeout (AbortSignal) o fallo de red: reintento acotado, nunca cuelga.
+      lastStatus = 504;
+      lastMessage =
+        (fetchErr as Error)?.name ===
+          "TimeoutError"
+          ? "The document took too long for the AI to read. Please try again."
+          : `Network error contacting the AI: ${
+            (fetchErr as Error)?.message ??
+              String(fetchErr)
+          }`;
 
-        body:
-          JSON.stringify(requestBody),
-      },
-    );
+      if (attempt === MAX_ATTEMPTS - 1) {
+        break;
+      }
+
+      await sleep(
+        600 * (2 ** attempt),
+      );
+      continue;
+    }
 
     const responseText =
       await response.text();
@@ -859,14 +903,18 @@ async function callGemini(
         `HTTP ${response.status}`;
     }
 
+    // 429 (cuota) no se recupera dentro de la misma petición: reintentarlo solo
+    // quema el reloj (era una de las causas del 546). Fallamos rápido y el
+    // frontend muestra el mensaje amigable de "AI limit reached".
     const shouldRetry =
       RETRYABLE_GEMINI_STATUSES.has(
         response.status,
-      );
+      ) &&
+      response.status !== 429;
 
     if (
       !shouldRetry ||
-      attempt === 2
+      attempt === MAX_ATTEMPTS - 1
     ) {
       break;
     }
