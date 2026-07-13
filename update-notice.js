@@ -1,4 +1,14 @@
 (()=>{
+/* Load the defensive Rate Confirmation overlay after app.js.
+   Keeping it separate makes the change easy to test and roll back. */
+if(!document.querySelector('script[data-zap-ai-ratecon-safe]')){
+  const s=document.createElement('script');
+  s.src='ai-ratecon-safe.js?v=1';
+  s.async=false;
+  s.dataset.zapAiRateconSafe='1';
+  document.head.appendChild(s);
+}
+
 /* When a new service worker version is deployed, show a small "New version available"
    banner with an Update button instead of making users hard-refresh. Only fires for
    real updates (there is already a controlling SW), never on the first install. */
