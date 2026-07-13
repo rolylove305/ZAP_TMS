@@ -202,6 +202,9 @@ const responseSchema = {
         "contact",
         "phone",
         "email",
+        "location",
+        "fax",
+        "mc_number",
       ],
 
       properties: {
@@ -220,6 +223,18 @@ const responseSchema = {
         email: {
           type: "STRING",
         },
+
+        location: {
+          type: "STRING",
+        },
+
+        fax: {
+          type: "STRING",
+        },
+
+        mc_number: {
+          type: "STRING",
+        },
       },
 
       required: [
@@ -227,6 +242,9 @@ const responseSchema = {
         "contact",
         "phone",
         "email",
+        "location",
+        "fax",
+        "mc_number",
       ],
     },
   },
@@ -289,8 +307,15 @@ Rules:
   ambiguous, inconsistent, or confidence is below 0.85.
 - broker_details.company is the brokerage company issuing the Rate
   Confirmation (not the shipper or consignee).
-- broker_details.contact, phone, and email are the broker agent's name,
-  phone number, and email address.
+- broker_details.contact and phone are the broker agent's name and phone.
+- broker_details.email is the broker agent's email if present. If there is
+  no direct broker email, fall back to the brokerage's billing / accounting /
+  "remit to" / "send invoices to" email anywhere in the document.
+- broker_details.location is the brokerage's own city and state (e.g.
+  "Lakewood, CO"), taken from the broker/brokerage address in the header —
+  NOT the pickup or delivery location.
+- broker_details.fax is the brokerage's fax number if present.
+- broker_details.mc_number is the brokerage's MC or DOT number if present.
 - Use an empty string for any broker detail that is not present.
 `.trim();
 
@@ -566,6 +591,15 @@ function normalizeResult(
 
       email:
         stringValue(rawBroker["email"]),
+
+      location:
+        stringValue(rawBroker["location"]),
+
+      fax:
+        stringValue(rawBroker["fax"]),
+
+      mc_number:
+        stringValue(rawBroker["mc_number"]),
     },
   };
 

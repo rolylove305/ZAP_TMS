@@ -125,12 +125,19 @@
             return String(b.name||"").trim().toLowerCase()===bName.toLowerCase();
           });
           if(!exists){
+            /* The brokers table has no address/fax/MC columns, so pack that
+               extra detail into Notes to keep a richer broker record. */
+            const notesParts=[];
+            if(bd.location&&String(bd.location).trim())notesParts.push(String(bd.location).trim());
+            if(bd.fax&&String(bd.fax).trim())notesParts.push("Fax: "+String(bd.fax).trim());
+            if(bd.mc_number&&String(bd.mc_number).trim())notesParts.push("MC/DOT: "+String(bd.mc_number).trim());
             const brokerObj={
               name:bName,
               contact:bd.contact?String(bd.contact).trim():"",
               phone:bd.phone?String(bd.phone).trim():"",
               email:bd.email?String(bd.email).trim():"",
-              source:"AI Rate Con"
+              source:"AI Rate Con",
+              notes:notesParts.join(" • ")
             };
             const brokerRes=await sb.from("brokers").insert(map.brokers.toDb(brokerObj)).select().single();
             if(!brokerRes.error&&brokerRes.data){
