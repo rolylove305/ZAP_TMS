@@ -93,11 +93,21 @@
       if(notice){notice.remove();notice=null}
 
       if(!res.ok||!ai||ai.error){
-        alert(
-          "AI could not read this Rate Con"+
-          (ai&&ai.error?": "+ai.error:".")+
-          "\nYou can still fill the load manually."
-        );
+        const rawErr=ai&&ai.error?String(ai.error):"";
+        const isQuota=res.status===429||
+          /quota|rate.?limit|exceeded|resource_?exhausted|too many requests|retry in/i.test(rawErr);
+        if(isQuota){
+          alert(
+            "AI limit reached for now. Please wait a moment and try again, "+
+            "or fill the load manually."
+          );
+        }else{
+          alert(
+            "AI could not read this Rate Con"+
+            (rawErr?": "+rawErr:".")+
+            "\nYou can still fill the load manually."
+          );
+        }
         return;
       }
 
