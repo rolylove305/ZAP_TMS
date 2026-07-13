@@ -202,6 +202,9 @@ const responseSchema = {
         "contact",
         "phone",
         "email",
+        "location",
+        "fax",
+        "mc_number",
       ],
 
       properties: {
@@ -220,6 +223,18 @@ const responseSchema = {
         email: {
           type: "STRING",
         },
+
+        location: {
+          type: "STRING",
+        },
+
+        fax: {
+          type: "STRING",
+        },
+
+        mc_number: {
+          type: "STRING",
+        },
       },
 
       required: [
@@ -227,6 +242,9 @@ const responseSchema = {
         "contact",
         "phone",
         "email",
+        "location",
+        "fax",
+        "mc_number",
       ],
     },
   },
@@ -289,8 +307,15 @@ Rules:
   ambiguous, inconsistent, or confidence is below 0.85.
 - broker_details.company is the brokerage company issuing the Rate
   Confirmation (not the shipper or consignee).
-- broker_details.contact, phone, and email are the broker agent's name,
-  phone number, and email address.
+- broker_details.contact and phone are the broker agent's name and phone.
+- broker_details.email is the broker agent's email if present. If there is
+  no direct broker email, fall back to the brokerage's billing / accounting /
+  "remit to" / "send invoices to" email anywhere in the document.
+- broker_details.location is the brokerage's own city and state (e.g.
+  "Lakewood, CO"), taken from the broker/brokerage address in the header —
+  NOT the pickup or delivery location.
+- broker_details.fax is the brokerage's fax number if present.
+- broker_details.mc_number is the brokerage's MC or DOT number if present.
 - Use an empty string for any broker detail that is not present.
 `.trim();
 
@@ -566,6 +591,15 @@ function normalizeResult(
 
       email:
         stringValue(rawBroker["email"]),
+
+      location:
+        stringValue(rawBroker["location"]),
+
+      fax:
+        stringValue(rawBroker["fax"]),
+
+      mc_number:
+        stringValue(rawBroker["mc_number"]),
     },
   };
 
@@ -755,10 +789,22 @@ async function callGemini(
   config: EnvConfig,
   pdfBase64: string,
 ): Promise<Record<string, unknown>> {
-  const endpoint =
-    "https://generativelanguage.googleapis.com/" +
-    `v1beta/models/${encodeURIComponent(config.geminiModel)}` +
-    `:generateContent?key=${encodeURIComponent(config.geminiApiKey)}`;
+  // Cadena de modelos: probamos el configurado y, si está saturado (503) o
+  // retirado (404), caemos automáticamente al siguiente. Cada modelo tiene su
+  // propio pool de capacidad, así que cuando uno está congestionado otro suele
+  // responder — la app se auto-repara sin depender de un único modelo.
+  const FALLBACK_MODELS = [
+    "gemini-flash-latest",
+    "gemini-3.5-flash-lite",
+    "gemini-flash-lite-latest",
+  ];
+  const models = [
+    config.geminiModel,
+    ...FALLBACK_MODELS,
+  ].filter(
+    (m, i, arr) =>
+      Boolean(m) && arr.indexOf(m) === i,
+  );
 
   const requestBody = {
     contents: [
@@ -788,6 +834,13 @@ async function callGemini(
 
       maxOutputTokens: 4096,
 
+      // La extracción es una tarea de salida estructurada, no de razonamiento.
+      // Desactivar el "thinking" hace que Gemini responda mucho más rápido y
+      // evita que la Edge Function exceda su límite de tiempo (error 546 WORKER_LIMIT).
+      thinkingConfig: {
+        thinkingBudget: 0,
+      },
+
       responseMimeType:
         "application/json",
 
@@ -795,85 +848,161 @@ async function callGemini(
     },
   };
 
+  // Presupuesto de tiempo acotado: cada llamada se corta a los 30s y hay un
+  // presupuesto TOTAL para TODA la cascada (modelos × intentos), de modo que la
+  // suma nunca rebase el límite de la Edge Function (nunca volvemos al 546).
+  const PER_CALL_TIMEOUT_MS = 30000;
+  const TOTAL_BUDGET_MS = 100000;
+  const ATTEMPTS_PER_MODEL = 2;
+  const startedAt = Date.now();
+
   let lastStatus = 502;
   let lastMessage =
     "Gemini request failed.";
 
-  for (
-    let attempt = 0;
-    attempt < 3;
-    attempt += 1
-  ) {
-    const response = await fetch(
-      endpoint,
-      {
-        method: "POST",
-
-        headers: {
-          "Content-Type":
-            "application/json",
-        },
-
-        body:
-          JSON.stringify(requestBody),
-      },
-    );
-
-    const responseText =
-      await response.text();
-
-    if (response.ok) {
-      try {
-        return JSON.parse(
-          responseText,
-        ) as Record<string, unknown>;
-      } catch {
-        throw new AppError(
-          502,
-          "Gemini returned an unreadable response envelope.",
-        );
-      }
-    }
-
-    lastStatus = response.status;
-
-    try {
-      const errorPayload =
-        asRecord(
-          JSON.parse(responseText),
-        );
-
-      const nestedError =
-        asRecord(
-          errorPayload["error"],
-        );
-
-      lastMessage =
-        stringValue(
-          nestedError["message"],
-        ) ||
-        responseText.slice(0, 800);
-    } catch {
-      lastMessage =
-        responseText.slice(0, 800) ||
-        `HTTP ${response.status}`;
-    }
-
-    const shouldRetry =
-      RETRYABLE_GEMINI_STATUSES.has(
-        response.status,
-      );
-
+  for (const model of models) {
+    // Si ya casi agotamos el presupuesto total, no arrancamos otro modelo.
     if (
-      !shouldRetry ||
-      attempt === 2
+      Date.now() - startedAt >
+        TOTAL_BUDGET_MS
     ) {
       break;
     }
 
-    await sleep(
-      600 * (2 ** attempt),
-    );
+    const endpoint =
+      "https://generativelanguage.googleapis.com/" +
+      `v1beta/models/${encodeURIComponent(model)}` +
+      `:generateContent?key=${encodeURIComponent(config.geminiApiKey)}`;
+
+    for (
+      let attempt = 0;
+      attempt < ATTEMPTS_PER_MODEL;
+      attempt += 1
+    ) {
+      if (
+        attempt > 0 &&
+        Date.now() - startedAt >
+          TOTAL_BUDGET_MS
+      ) {
+        break;
+      }
+
+      let response: Response;
+
+      try {
+        response = await fetch(
+          endpoint,
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+            },
+
+            body:
+              JSON.stringify(requestBody),
+
+            // AbortSignal.timeout aborta el fetch si Gemini se cuelga o va lento,
+            // en vez de dejar el worker esperando hasta que la plataforma lo mate.
+            signal:
+              AbortSignal.timeout(
+                PER_CALL_TIMEOUT_MS,
+              ),
+          },
+        );
+      } catch (fetchErr) {
+        // Timeout (AbortSignal) o fallo de red: reintento acotado; si persiste,
+        // pasamos al siguiente modelo de la cascada.
+        lastStatus = 504;
+        lastMessage =
+          (fetchErr as Error)?.name ===
+            "TimeoutError"
+            ? "The document took too long for the AI to read. Please try again."
+            : `Network error contacting the AI: ${
+              (fetchErr as Error)?.message ??
+                String(fetchErr)
+            }`;
+
+        if (attempt === ATTEMPTS_PER_MODEL - 1) {
+          break;
+        }
+
+        await sleep(
+          500 * (2 ** attempt),
+        );
+        continue;
+      }
+
+      const responseText =
+        await response.text();
+
+      if (response.ok) {
+        try {
+          return JSON.parse(
+            responseText,
+          ) as Record<string, unknown>;
+        } catch {
+          throw new AppError(
+            502,
+            "Gemini returned an unreadable response envelope.",
+          );
+        }
+      }
+
+      lastStatus = response.status;
+
+      try {
+        const errorPayload =
+          asRecord(
+            JSON.parse(responseText),
+          );
+
+        const nestedError =
+          asRecord(
+            errorPayload["error"],
+          );
+
+        lastMessage =
+          stringValue(
+            nestedError["message"],
+          ) ||
+          responseText.slice(0, 800);
+      } catch {
+        lastMessage =
+          responseText.slice(0, 800) ||
+          `HTTP ${response.status}`;
+      }
+
+      // 429 (cuota) no se resuelve cambiando de modelo: comparten la cuota del
+      // proyecto. Fallamos rápido para que el frontend muestre "AI limit reached".
+      if (response.status === 429) {
+        throw new AppError(
+          429,
+          `Gemini API error: ${lastMessage}`,
+        );
+      }
+
+      // 5xx transitorio (503 "high demand", etc.): un reintento corto en el mismo
+      // modelo; si persiste, salimos para probar el SIGUIENTE modelo. 404/400
+      // (modelo retirado/no válido) no son retryables -> siguiente modelo directo.
+      const shouldRetrySameModel =
+        RETRYABLE_GEMINI_STATUSES.has(
+          response.status,
+        ) &&
+        response.status !== 429;
+
+      if (
+        !shouldRetrySameModel ||
+        attempt === ATTEMPTS_PER_MODEL - 1
+      ) {
+        break;
+      }
+
+      await sleep(
+        500 * (2 ** attempt),
+      );
+    }
   }
 
   throw new AppError(
