@@ -114,6 +114,31 @@ async function actionLocation(l){const r=await sb.from("load_events").select("la
 async function actionSetStatus(l,status){if(status===l.status)return;if(status==="Paid"&&!confirm("Move this load to Paid?"))return;await updateRow("loads",{...l,status})}
 async function actionNextStatus(l){const i=LOAD_STATUSES.indexOf(l.status);await updateRow("loads",{...l,status:LOAD_STATUSES[(i+1)%LOAD_STATUSES.length]})}
 async function actionArchive(l){const on=String(l.status||"").toLowerCase()!=="archived";if(!confirm(on?"Archive this load?":"Restore this load to Paid?"))return;localStorage.setItem("zapFolder",on?"archive":"paid");await updateRow("loads",{...l,status:on?"Archived":"Paid"})}
+function zapToast(msg){const d=document.createElement("div");d.textContent=msg;d.style.cssText="position:fixed;left:50%;bottom:90px;transform:translateX(-50%);z-index:100000;background:#0ea5e9;color:#04121d;font-weight:800;padding:10px 16px;border-radius:12px;box-shadow:0 12px 28px rgba(0,0,0,.35)";document.body.appendChild(d);return d}
+/* AI: after a Rate Confirmation PDF is uploaded, ask the parse-ratecon Edge Function to read it
+   and pre-fill the load. Non-fatal — any failure just warns; the upload itself already succeeded.
+   Shared by both upload paths (app.js actionUploadDoc and storage-upload.js). */
+async function zapParseRateCon(l,kind,storagePath){
+  if(!l||!l.id||!/rate/i.test(String(kind||"")))return;
+  let notice;
+  try{
+    const sess=(await sb.auth.getSession()).data.session;if(!sess)return;
+    notice=zapToast("Reading Rate Con with AI…");
+    const res=await fetch(cfg.url+"/functions/v1/parse-ratecon",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+sess.access_token,"apikey":cfg.token},body:JSON.stringify({storage_path:storagePath})});
+    const ai=await res.json().catch(()=>null);
+    if(notice){notice.remove();notice=null}
+    if(!res.ok||!ai||ai.error){alert("AI could not read this Rate Con"+(ai&&ai.error?": "+ai.error:".")+"\nYou can still fill the load manually.");return}
+    const FIELDS=["broker","loadNumber","rate","equipment","miles","pickup","pickupAddress","pickupDate","pickupTime","pickupNumber","delivery","deliveryAddress","deliveryDate","deliveryTime","deliveryNumber","notes"];
+    const patch={};
+    FIELDS.forEach(k=>{const v=ai[k];if(v!==undefined&&v!==null&&v!=="")patch[k]=v});
+    if(Array.isArray(ai.stops)&&ai.stops.length)patch.stops=ai.stops.map(s=>({address:s.address||"",num:s.num||"",time:s.time||"",date:s.date||""}));
+    const merged={...l,...patch};
+    const needsReview=!ai._meta||ai._meta.needsReview!==false;
+    if(needsReview){actionEdit(merged)} /* dispatcher verifies the money before saving */
+    else{await updateRow("loads",merged);alert("Rate Con imported automatically.")}
+  }catch(e){if(notice)notice.remove();console.warn("parse-ratecon failed",e)}
+}
+window.zapParseRateCon=zapParseRateCon;
 function actionUploadDoc(l){
   const input=document.createElement("input");input.type="file";input.accept="image/*,.pdf";
   input.onchange=async()=>{
@@ -127,6 +152,7 @@ function actionUploadDoc(l){
     if(up.error)return alert("Storage upload error: "+up.error.message);
     const r=await sb.from("load_documents").insert({user_id:user.id,load_id:l.id,file_name:"["+kind+"] "+file.name,file_type:file.type||"application/octet-stream",storage_bucket:"load-documents",storage_path:path,uploaded_by:"dispatcher"});
     if(r.error)return alert("File uploaded, but TMS record failed: "+r.error.message);
+    if(/rate/i.test(kind))return zapParseRateCon(l,kind,path);
     alert("Document uploaded to Storage.");
   };
   input.click();

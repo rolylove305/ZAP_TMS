@@ -15,6 +15,7 @@ async function uploadStorage(card,i){
     if(up.error)return alert('Storage upload error: '+up.error.message);
     const r=await sb.from('load_documents').insert({user_id:user.id,load_id:l.id,file_name:'['+kind+'] '+file.name,file_type:file.type||'application/octet-stream',storage_bucket:'load-documents',storage_path:path,uploaded_by:'dispatcher'});
     if(r.error)return alert('File uploaded, but TMS record failed: '+r.error.message);
+    if(window.zapParseRateCon&&/rate/i.test(kind))return window.zapParseRateCon(l,kind,path);
     alert('Document uploaded to Storage.');
   };
   input.click();
