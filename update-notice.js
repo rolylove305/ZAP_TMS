@@ -3,7 +3,7 @@
    Keeping it separate makes the change easy to test and roll back. */
 if(!document.querySelector('script[data-zap-ai-ratecon-safe]')){
   const s=document.createElement('script');
-  s.src='ai-ratecon-safe.js?v=1';
+  s.src='ai-ratecon-safe.js?v=4';
   s.async=false;
   s.dataset.zapAiRateconSafe='1';
   document.head.appendChild(s);

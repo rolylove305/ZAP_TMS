@@ -93,12 +93,56 @@
       if(notice){notice.remove();notice=null}
 
       if(!res.ok||!ai||ai.error){
-        alert(
-          "AI could not read this Rate Con"+
-          (ai&&ai.error?": "+ai.error:".")+
-          "\nYou can still fill the load manually."
-        );
+        const rawErr=ai&&ai.error?String(ai.error):"";
+        const isQuota=res.status===429||
+          /quota|rate.?limit|exceeded|resource_?exhausted|too many requests|retry in/i.test(rawErr);
+        if(isQuota){
+          alert(
+            "AI limit reached for now. Please wait a moment and try again, "+
+            "or fill the load manually."
+          );
+        }else{
+          const noBody=!ai||!ai.error;
+          const diag="[HTTP "+res.status+
+            (res.statusText?" "+res.statusText:"")+
+            (noBody?" · no JSON body → likely timeout/gateway":"")+"]";
+          alert(
+            "AI could not read this Rate Con "+diag+
+            (rawErr?":\n"+rawErr:".")+
+            "\nYou can still fill the load manually."
+          );
+        }
         return;
+      }
+
+      /* AI: if the Rate Con named a broker company we don't have yet, save it to brokers.
+         Isolated + defensive: if it fails, it never blocks the Rate Con flow. */
+      try{
+        const bd=ai.broker_details;
+        const bName=bd&&bd.company?String(bd.company).trim():"";
+        if(bName){
+          const exists=(appData.brokers||[]).some(function(b){
+            return String(b.name||"").trim().toLowerCase()===bName.toLowerCase();
+          });
+          if(!exists){
+            const brokerObj={
+              name:bName,
+              contact:bd.contact?String(bd.contact).trim():"",
+              phone:bd.phone?String(bd.phone).trim():"",
+              email:bd.email?String(bd.email).trim():"",
+              source:"AI Rate Con"
+            };
+            const brokerRes=await sb.from("brokers").insert(map.brokers.toDb(brokerObj)).select().single();
+            if(!brokerRes.error&&brokerRes.data){
+              appData.brokers.push(map.brokers.fromDb(brokerRes.data));
+              refresh();
+            }else if(brokerRes.error){
+              console.warn("AI broker auto-save failed:",brokerRes.error.message);
+            }
+          }
+        }
+      }catch(brokerErr){
+        console.warn("AI broker auto-save skipped:",brokerErr);
       }
 
       const patch={};
