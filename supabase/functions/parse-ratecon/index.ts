@@ -802,11 +802,14 @@ async function callGemini(
     },
   };
 
-  // Presupuesto de tiempo acotado: cada llamada se corta a los 40s y hacemos
-  // como máximo 2 intentos. Así el tiempo total (2×40s + backoff) siempre cabe
-  // bajo el límite de la Edge Function y nunca volvemos a morir por 546.
-  const PER_CALL_TIMEOUT_MS = 40000;
-  const MAX_ATTEMPTS = 2;
+  // Presupuesto de tiempo acotado: cada llamada se corta a los 30s y hacemos
+  // hasta 5 intentos para empujar a través de los picos temporales de 503
+  // ("high demand"). Un guard de presupuesto TOTAL evita que la suma de
+  // reintentos rebase el límite de la Edge Function (nunca volvemos al 546).
+  const PER_CALL_TIMEOUT_MS = 30000;
+  const TOTAL_BUDGET_MS = 100000;
+  const MAX_ATTEMPTS = 5;
+  const startedAt = Date.now();
 
   let lastStatus = 502;
   let lastMessage =
@@ -817,6 +820,16 @@ async function callGemini(
     attempt < MAX_ATTEMPTS;
     attempt += 1
   ) {
+    // No arrancar otro intento si ya casi agotamos el presupuesto total:
+    // así, aunque reintentemos varias veces, el tiempo total siempre cabe.
+    if (
+      attempt > 0 &&
+      Date.now() - startedAt >
+        TOTAL_BUDGET_MS
+    ) {
+      break;
+    }
+
     let response: Response;
 
     try {
