@@ -61,6 +61,7 @@ const responseSchema = {
     "deliveryNumber",
     "notes",
     "stops",
+    "broker_details",
     "_meta",
   ],
 
@@ -192,6 +193,42 @@ const responseSchema = {
         "needsReview",
       ],
     },
+
+    broker_details: {
+      type: "OBJECT",
+
+      propertyOrdering: [
+        "company",
+        "contact",
+        "phone",
+        "email",
+      ],
+
+      properties: {
+        company: {
+          type: "STRING",
+        },
+
+        contact: {
+          type: "STRING",
+        },
+
+        phone: {
+          type: "STRING",
+        },
+
+        email: {
+          type: "STRING",
+        },
+      },
+
+      required: [
+        "company",
+        "contact",
+        "phone",
+        "email",
+      ],
+    },
   },
 
   required: [
@@ -212,6 +249,7 @@ const responseSchema = {
     "deliveryNumber",
     "notes",
     "stops",
+    "broker_details",
     "_meta",
   ],
 } as const;
@@ -249,6 +287,11 @@ Rules:
 - _meta.confidence must be between 0 and 1.
 - _meta.needsReview must be true when a critical value is missing,
   ambiguous, inconsistent, or confidence is below 0.85.
+- broker_details.company is the brokerage company issuing the Rate
+  Confirmation (not the shipper or consignee).
+- broker_details.contact, phone, and email are the broker agent's name,
+  phone number, and email address.
+- Use an empty string for any broker detail that is not present.
 `.trim();
 
 function envValue(...names: string[]): string {
@@ -402,6 +445,10 @@ function normalizeResult(
     raw["_meta"],
   );
 
+  const rawBroker = asRecord(
+    raw["broker_details"],
+  );
+
   const rawStops = Array.isArray(
       raw["stops"],
     )
@@ -505,6 +552,20 @@ function normalizeResult(
         booleanValue(
           rawMeta["needsReview"],
         ),
+    },
+
+    broker_details: {
+      company:
+        stringValue(rawBroker["company"]),
+
+      contact:
+        stringValue(rawBroker["contact"]),
+
+      phone:
+        stringValue(rawBroker["phone"]),
+
+      email:
+        stringValue(rawBroker["email"]),
     },
   };
 
@@ -725,7 +786,7 @@ async function callGemini(
     generationConfig: {
       temperature: 0,
 
-      maxOutputTokens: 2048,
+      maxOutputTokens: 4096,
 
       responseMimeType:
         "application/json",

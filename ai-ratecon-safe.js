@@ -101,6 +101,36 @@
         return;
       }
 
+      /* AI: if the Rate Con named a broker company we don't have yet, save it to brokers.
+         Isolated + defensive: if it fails, it never blocks the Rate Con flow. */
+      try{
+        const bd=ai.broker_details;
+        const bName=bd&&bd.company?String(bd.company).trim():"";
+        if(bName){
+          const exists=(appData.brokers||[]).some(function(b){
+            return String(b.name||"").trim().toLowerCase()===bName.toLowerCase();
+          });
+          if(!exists){
+            const brokerObj={
+              name:bName,
+              contact:bd.contact?String(bd.contact).trim():"",
+              phone:bd.phone?String(bd.phone).trim():"",
+              email:bd.email?String(bd.email).trim():"",
+              source:"AI Rate Con"
+            };
+            const brokerRes=await sb.from("brokers").insert(map.brokers.toDb(brokerObj)).select().single();
+            if(!brokerRes.error&&brokerRes.data){
+              appData.brokers.push(map.brokers.fromDb(brokerRes.data));
+              refresh();
+            }else if(brokerRes.error){
+              console.warn("AI broker auto-save failed:",brokerRes.error.message);
+            }
+          }
+        }
+      }catch(brokerErr){
+        console.warn("AI broker auto-save skipped:",brokerErr);
+      }
+
       const patch={};
       let hasConflict=false;
       let aiDataInvalid=false;
