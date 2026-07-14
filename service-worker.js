@@ -1,5 +1,5 @@
-const CACHE_NAME="zap-dispatch-tms-v44";
-const FILES=["index.html","styles.css","app.js?v=ai-ratecon-1","ai-ratecon-safe.js?v=5","card-edit.js?v=1","admin-users.js?v=1","pw-login.js?v=2","update-notice.js?v=1","config.js","manifest.json","zap-icon.svg","zap-logo.svg","loadlink.js?v=driver-link-native-fix-1"];
+const CACHE_NAME="zap-dispatch-tms-v45";
+const FILES=["index.html","styles.css","app.js?v=ai-ratecon-1","ai-ratecon-safe.js?v=5","card-edit.js?v=1","admin-users.js?v=1","paywall.js?v=1","pw-login.js?v=2","update-notice.js?v=1","config.js","manifest.json","zap-icon.svg","zap-logo.svg","loadlink.js?v=driver-link-native-fix-1"];
 /* Security headers, kept in sync with /_headers. The SW rewrites index.html into a fresh
    Response that would otherwise drop the edge headers, so we re-add them here for the shell. */
 const SEC_HEADERS={"content-type":"text/html;charset=UTF-8","X-Frame-Options":"DENY","X-Content-Type-Options":"nosniff","Referrer-Policy":"strict-origin-when-cross-origin","Content-Security-Policy":"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"};
