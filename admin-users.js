@@ -24,29 +24,35 @@
   async function renderList(body){
     const meId=await sessionUserId();
     const r=await sb.from('profiles')
-      .select('id,email,role,is_active,subscription_status,trial_ends_at,created_at')
+      .select('id,email,role,is_active,comp_access,subscription_status,trial_ends_at,created_at')
       .order('created_at',{ascending:true});
     if(r.error){body.innerHTML='<p class="muted">Could not load users: '+esc2(r.error.message)+'</p>';return}
     const rows=r.data||[];
     let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
       +'<thead><tr style="text-align:left;border-bottom:1px solid rgba(255,255,255,.18)">'
-      +'<th style="padding:8px 6px">Email</th><th>Role</th><th>Status</th><th>Subscription</th><th>Trial ends</th><th>Joined</th><th></th></tr></thead><tbody>';
+      +'<th style="padding:8px 6px">Email</th><th>Role</th><th>Status</th><th>Free access</th><th>Subscription</th><th>Trial ends</th><th>Joined</th><th></th></tr></thead><tbody>';
     rows.forEach(u=>{
       const isMe=u.id===meId;
       const badge=u.is_active?'<span class="pill green">Active</span>':'<span class="pill red">Disabled</span>';
-      const btn=isMe
-        ?'<span class="muted" style="font-size:12px">(you)</span>'
-        :'<button class="small-btn zau-toggle" data-id="'+esc2(u.id)+'" data-active="'+(u.is_active?'1':'0')+'">'+(u.is_active?'Deactivate':'Reactivate')+'</button>';
+      const comp=u.comp_access?'<span class="pill green">Free</span>':'<span class="muted" style="font-size:12px">—</span>';
+      let actions;
+      if(isMe){
+        actions='<span class="muted" style="font-size:12px">(you)</span>';
+      }else{
+        actions='<button class="small-btn zau-comp" data-id="'+esc2(u.id)+'" data-comp="'+(u.comp_access?'1':'0')+'">'+(u.comp_access?'Remove free':'Grant free')+'</button>'
+          +' <button class="small-btn zau-toggle" data-id="'+esc2(u.id)+'" data-active="'+(u.is_active?'1':'0')+'">'+(u.is_active?'Deactivate':'Reactivate')+'</button>';
+      }
       html+='<tr style="border-bottom:1px solid rgba(255,255,255,.07)">'
         +'<td style="padding:8px 6px">'+esc2(u.email)+'</td>'
         +'<td>'+esc2(u.role)+'</td><td>'+badge+'</td>'
+        +'<td>'+comp+'</td>'
         +'<td>'+esc2(u.subscription_status)+'</td>'
         +'<td>'+fmtDate(u.trial_ends_at)+'</td>'
         +'<td>'+fmtDate(u.created_at)+'</td>'
-        +'<td>'+btn+'</td></tr>';
+        +'<td style="white-space:nowrap">'+actions+'</td></tr>';
     });
     html+='</tbody></table></div><p class="muted" style="margin-top:10px;font-size:12px">'
-      +rows.length+' user(s). Deactivating a user immediately blocks their access to all TMS data (enforced server-side).</p>';
+      +rows.length+' user(s). "Grant free" gives complimentary access (no charge). Deactivating blocks a user\'s access immediately. All enforced server-side.</p>';
     body.innerHTML=html;
     body.querySelectorAll('.zau-toggle').forEach(b=>{
       b.onclick=async()=>{
@@ -55,6 +61,16 @@
         b.disabled=true;b.textContent='…';
         const up=await sb.from('profiles').update({is_active:!cur}).eq('id',id).select().single();
         if(up.error){alert('Update failed: '+up.error.message);b.disabled=false;b.textContent=cur?'Deactivate':'Reactivate';return}
+        await renderList(body);
+      };
+    });
+    body.querySelectorAll('.zau-comp').forEach(b=>{
+      b.onclick=async()=>{
+        const id=b.dataset.id, cur=b.dataset.comp==='1';
+        if(!confirm(cur?'Remove free access from this user? They will need a subscription (or valid trial) to keep using the TMS.':'Grant free (complimentary) access to this user? They will not be charged.'))return;
+        b.disabled=true;b.textContent='…';
+        const up=await sb.from('profiles').update({comp_access:!cur}).eq('id',id).select().single();
+        if(up.error){alert('Update failed: '+up.error.message);b.disabled=false;b.textContent=cur?'Remove free':'Grant free';return}
         await renderList(body);
       };
     });
