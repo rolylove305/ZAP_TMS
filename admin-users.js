@@ -84,9 +84,46 @@
       modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px';
       document.body.appendChild(modal);
     }
-    modal.innerHTML='<div class="card" style="width:min(940px,97vw);max-height:90vh;overflow:auto"><div class="section-title"><h2>Admin — Users</h2><button class="small-btn" id="zauClose">Close</button></div><div id="zauBody"><p class="muted">Loading users…</p></div></div>';
+    modal.innerHTML='<div class="card" style="width:min(940px,97vw);max-height:90vh;overflow:auto">'
+      +'<div class="section-title"><h2>Admin — Users</h2><button class="small-btn" id="zauClose">Close</button></div>'
+      +'<h3 style="margin:4px 0 6px;font-size:15px">Free-access invites</h3>'
+      +'<div id="zciBody"><p class="muted">Loading…</p></div>'
+      +'<h3 style="margin:18px 0 6px;font-size:15px">Users</h3>'
+      +'<div id="zauBody"><p class="muted">Loading users…</p></div>'
+      +'</div>';
     modal.querySelector('#zauClose').onclick=()=>modal.remove();
+    await renderInvites(modal.querySelector('#zciBody'));
     await renderList(modal.querySelector('#zauBody'));
+  }
+
+  async function renderInvites(box){
+    const r=await sb.from('comp_invites').select('email,created_at').order('created_at',{ascending:false});
+    const rows=(r&&!r.error&&r.data)?r.data:[];
+    const list=rows.length
+      ? rows.map(x=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.07)"><span>'+esc2(x.email)+'</span><button class="small-btn zci-del" data-email="'+esc2(x.email)+'">Remove</button></div>').join('')
+      : '<p class="muted" style="font-size:12px">No free-access invites yet.</p>';
+    box.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><input id="zciEmail" type="email" placeholder="person@email.com" style="flex:1;min-width:240px"><button class="small-btn" id="zciAdd">Add free invite</button></div>'
+      +'<div>'+list+'</div>'
+      +'<p class="muted" style="font-size:11px;margin-top:6px">Invited emails get free access automatically when they sign up (just share app.zapdispatch.com — no payment required for them).</p>';
+    box.querySelector('#zciAdd').onclick=async()=>{
+      const inp=box.querySelector('#zciEmail');
+      const email=(inp.value||'').trim().toLowerCase();
+      if(!email||email.indexOf('@')<1){alert('Enter a valid email.');return}
+      const meId=await sessionUserId();
+      const up=await sb.from('comp_invites').upsert({email:email,invited_by:meId},{onConflict:'email'});
+      if(up.error){alert('Could not add invite: '+up.error.message);return}
+      inp.value='';
+      await renderInvites(box);
+    };
+    box.querySelectorAll('.zci-del').forEach(b=>{
+      b.onclick=async()=>{
+        const email=b.dataset.email;
+        if(!confirm('Remove the free-access invite for '+email+'?\n(If they already signed up, their access stays — use "Remove free" on their row to revoke it.)'))return;
+        const d=await sb.from('comp_invites').delete().eq('email',email);
+        if(d.error){alert('Could not remove: '+d.error.message);return}
+        await renderInvites(box);
+      };
+    });
   }
 
   function injectButton(){
