@@ -35,6 +35,13 @@ API credentials remain encrypted in `eld_connections`. The frontend never receiv
 
 The dashboard displays the latest saved position, address, coordinates, reported speed, odometer, engine hours, and a Google Maps link.
 
+## Backend validation
+
+- Database migration applied successfully.
+- Row Level Security is enabled with owner-scoped select, insert, update, and delete policies.
+- `eld-location` is deployed and active.
+- An unauthenticated request is rejected with HTTP 401, confirming that the function enforces a valid Zap Dispatch login session internally.
+
 ## Test flow
 
 1. Open the feature preview.
