@@ -72,7 +72,9 @@ async function decryptSecret(ciphertext: string, iv: string): Promise<string> {
 
 function tokenFromRequest(req: Request): string {
   const auth = req.headers.get("authorization") || "";
-  if (!auth.toLowerCase().startsWith("bearer ")) throw new HttpError(401, "Missing Authorization bearer token");
+  if (!auth.toLowerCase().startsWith("bearer ")) {
+    throw new HttpError(401, "Missing Authorization bearer token");
+  }
   return auth.slice(7).trim();
 }
 
@@ -91,7 +93,9 @@ async function authenticatedUser(req: Request) {
 }
 
 function asArray(payload: unknown): Record<string, unknown>[] {
-  if (Array.isArray(payload)) return payload.filter((x): x is Record<string, unknown> => !!x && typeof x === "object");
+  if (Array.isArray(payload)) {
+    return payload.filter((item): item is Record<string, unknown> => !!item && typeof item === "object");
+  }
   if (!payload || typeof payload !== "object") return [];
   const obj = payload as Record<string, unknown>;
   for (const key of ["content", "data", "items", "results", "records", "rows"]) {
@@ -109,21 +113,61 @@ function firstString(item: Record<string, unknown>, keys: string[]): string {
   return "";
 }
 
-async function nextFleetFetch(apiKey: string, path: string): Promise<unknown> {
+function firstNumber(item: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = item[key];
+    if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
+    if (typeof value === "string" && value.trim() && Number.isFinite(Number(value))) {
+      return Math.trunc(Number(value));
+    }
+  }
+  return null;
+}
+
+function epochToIso(value: unknown): string | null {
+  const millis = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(millis) || millis <= 0) return null;
+  const date = new Date(millis);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+async function nextFleetRequest(
+  apiKey: string,
+  path: string,
+  method: "GET" | "POST" = "GET",
+): Promise<unknown> {
   const response = await fetch(`${NEXT_FLEET_BASE_URL}${path}`, {
-    headers: { "X-Api-Key": apiKey, Accept: "application/json" },
+    method,
+    headers: {
+      "X-Api-Key": apiKey,
+      Accept: "application/json",
+      ...(method === "POST" ? { "Content-Type": "application/json" } : {}),
+    },
+    body: method === "POST" ? "{}" : undefined,
   });
+
   const text = await response.text();
   let payload: unknown = text;
-  try { payload = text ? JSON.parse(text) : null; } catch { /* retain text */ }
+  try {
+    payload = text ? JSON.parse(text) : null;
+  } catch {
+    // Keep text for a useful error message.
+  }
+
   if (!response.ok) {
-    const detail = typeof payload === "string" ? payload.slice(0, 500) : JSON.stringify(payload).slice(0, 500);
+    const detail = typeof payload === "string"
+      ? payload.slice(0, 500)
+      : JSON.stringify(payload).slice(0, 500);
     throw new HttpError(response.status, `Next Fleet API error ${response.status}: ${detail}`);
   }
   return payload;
 }
 
-async function getConnection(admin: ReturnType<typeof serviceClient>, userId: string, connectionId: string) {
+async function getConnection(
+  admin: ReturnType<typeof serviceClient>,
+  userId: string,
+  connectionId: string,
+) {
   const { data, error } = await admin
     .from("eld_connections")
     .select("*")
@@ -135,24 +179,33 @@ async function getConnection(admin: ReturnType<typeof serviceClient>, userId: st
 }
 
 async function connectionApiKey(connection: Record<string, unknown>): Promise<string> {
-  return decryptSecret(String(connection.credential_ciphertext), String(connection.credential_iv));
+  return decryptSecret(
+    String(connection.credential_ciphertext),
+    String(connection.credential_iv),
+  );
 }
 
 async function testNextFleet(apiKey: string) {
-  const payload = await nextFleetFetch(
+  const payload = await nextFleetRequest(
     apiKey,
     "/api/v0/users/drivers?page=1&elements=1&asc=true&orderBy=driverName&active=true",
   );
   return { ok: true, provider: "nextfleet", sampleCount: asArray(payload).length };
 }
 
-async function syncNextFleet(admin: ReturnType<typeof serviceClient>, userId: string, connectionId: string, apiKey: string) {
+async function syncNextFleetBase(
+  admin: ReturnType<typeof serviceClient>,
+  userId: string,
+  connectionId: string,
+  apiKey: string,
+) {
   const [driversPayload, gpsPayload, eldPayload] = await Promise.all([
-    nextFleetFetch(apiKey, "/api/v0/users/drivers?page=1&elements=500&asc=true&orderBy=driverName&active=true"),
-    nextFleetFetch(apiKey, "/api/v0/devices/gps?page=1&elements=500&asc=true&orderBy=vehicleId&status=active"),
-    nextFleetFetch(apiKey, "/api/v0/devices/eld?page=1&elements=500&asc=true&orderBy=vehicleId&status=active"),
+    nextFleetRequest(apiKey, "/api/v0/users/drivers?page=1&elements=100&asc=true&orderBy=driverName&active=true"),
+    nextFleetRequest(apiKey, "/api/v0/devices/gps?page=1&elements=100&asc=true&orderBy=vehicleId&status=active"),
+    nextFleetRequest(apiKey, "/api/v0/devices/eld?page=1&elements=100&asc=true&orderBy=vehicleId&status=active"),
   ]);
 
+  const syncedAt = new Date().toISOString();
   const drivers = asArray(driversPayload).map((item, index) => ({
     user_id: userId,
     connection_id: connectionId,
@@ -161,51 +214,148 @@ async function syncNextFleet(admin: ReturnType<typeof serviceClient>, userId: st
     phone: firstString(item, ["phoneNum", "phone", "mobile", "phoneNumber"]),
     email: firstString(item, ["email", "emailAddress"]),
     status: firstString(item, ["status", "driverStatus"]),
+    duty_status: firstString(item, ["dutyStatus"]),
     raw_data: item,
-    synced_at: new Date().toISOString(),
+    synced_at: syncedAt,
   }));
 
-  const normalizeDevices = (payload: unknown, deviceType: "gps" | "eld") => asArray(payload).map((item, index) => ({
-    user_id: userId,
-    connection_id: connectionId,
-    device_type: deviceType,
-    external_id: firstString(item, ["id", "deviceId", "serialNum", "serialNumber", "vehicleId"]) || `${deviceType}-${index}`,
-    vehicle_id: firstString(item, ["vehicleId", "vehicle", "unitNumber", "truckNumber"]),
-    serial_number: firstString(item, ["serialNum", "serialNumber", "serial"]),
-    status: firstString(item, ["status", "deviceStatus"]),
-    raw_data: item,
-    synced_at: new Date().toISOString(),
-  }));
+  const normalizeDevices = (payload: unknown, deviceType: "gps" | "eld") =>
+    asArray(payload).map((item, index) => ({
+      user_id: userId,
+      connection_id: connectionId,
+      device_type: deviceType,
+      external_id:
+        firstString(item, ["id", "deviceId", "serialNum", "serialNumber", "vehicleId"]) ||
+        `${deviceType}-${index}`,
+      vehicle_id: firstString(item, ["vehicleId", "vehicle", "unitNumber", "truckNumber"]),
+      serial_number: firstString(item, ["serialNum", "serialNumber", "serial"]),
+      status: firstString(item, ["status", "deviceStatus"]),
+      raw_data: item,
+      synced_at: syncedAt,
+    }));
 
-  const devices = [...normalizeDevices(gpsPayload, "gps"), ...normalizeDevices(eldPayload, "eld")];
+  const gpsDevices = normalizeDevices(gpsPayload, "gps");
+  const eldDevices = normalizeDevices(eldPayload, "eld");
+  const devices = [...gpsDevices, ...eldDevices];
 
   if (drivers.length) {
-    const { error } = await admin.from("eld_external_drivers").upsert(drivers, { onConflict: "connection_id,external_id" });
+    const { error } = await admin
+      .from("eld_external_drivers")
+      .upsert(drivers, { onConflict: "connection_id,external_id" });
     if (error) throw new HttpError(500, `Could not save synced drivers: ${error.message}`);
   }
+
   if (devices.length) {
-    const { error } = await admin.from("eld_external_devices").upsert(devices, { onConflict: "connection_id,device_type,external_id" });
+    const { error } = await admin
+      .from("eld_external_devices")
+      .upsert(devices, { onConflict: "connection_id,device_type,external_id" });
     if (error) throw new HttpError(500, `Could not save synced devices: ${error.message}`);
   }
 
-  const now = new Date().toISOString();
-  await admin.from("eld_connections").update({ status: "connected", last_error: null, last_synced_at: now }).eq("id", connectionId).eq("user_id", userId);
-  return { drivers: drivers.length, gpsDevices: normalizeDevices(gpsPayload, "gps").length, eldDevices: normalizeDevices(eldPayload, "eld").length, syncedAt: now };
+  return {
+    drivers: drivers.length,
+    gpsDevices: gpsDevices.length,
+    eldDevices: eldDevices.length,
+  };
+}
+
+async function syncNextFleetHos(
+  admin: ReturnType<typeof serviceClient>,
+  userId: string,
+  connectionId: string,
+  apiKey: string,
+) {
+  const endTime = Date.now();
+  const startTime = endTime - 7 * 24 * 60 * 60 * 1000;
+  const query = new URLSearchParams({
+    page: "1",
+    elements: "100",
+    orderBy: "driverName",
+    asc: "true",
+    active: "true",
+    showUnassigned: "true",
+    startTime: String(startTime),
+    endTime: String(endTime),
+    forceFinished: "false",
+    eventTypes: "",
+    companyIds: "",
+    groupIds: "",
+    vehicleIds: "",
+    driverIds: "",
+    fmcIds: "",
+    trailerIds: "",
+  });
+
+  const payload = await nextFleetRequest(
+    apiKey,
+    `/web/fleetDashboard/driverProfiles?${query.toString()}`,
+    "POST",
+  );
+
+  const hosSyncedAt = new Date().toISOString();
+  const profiles = asArray(payload);
+  const records = profiles.map((item, index) => ({
+    user_id: userId,
+    connection_id: connectionId,
+    external_id: firstString(item, ["id", "driverId"]) || `hos-driver-${index}`,
+    driver_name: firstString(item, ["driverName", "name"]),
+    phone: firstString(item, ["phoneNum", "phone"]),
+    vehicle_id: firstString(item, ["vehicleId"]),
+    trailer_id: firstString(item, ["trailerName", "trailerId"]),
+    duty_status: firstString(item, ["dutyStatus"]),
+    duty_status_duration: firstString(item, ["dutyStatusDuration"]),
+    break_minutes: firstNumber(item, ["breakTime"]),
+    drive_minutes: firstNumber(item, ["driveTime"]),
+    shift_minutes: firstNumber(item, ["shiftTime"]),
+    cycle_minutes: firstNumber(item, ["cycleTime"]),
+    cycle_tomorrow_minutes: firstNumber(item, ["cycleTomorrowTime"]),
+    last_hos_sync: firstString(item, ["lastHosSync"]),
+    last_activity_at: epochToIso(item.lastActivity),
+    hos_synced_at: hosSyncedAt,
+    raw_data: item,
+    synced_at: hosSyncedAt,
+  }));
+
+  if (records.length) {
+    const { error } = await admin
+      .from("eld_external_drivers")
+      .upsert(records, { onConflict: "connection_id,external_id" });
+    if (error) throw new HttpError(500, `Could not save HOS clocks: ${error.message}`);
+  }
+
+  return { hosDrivers: records.length };
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
   try {
     const { user, admin } = await authenticatedUser(req);
 
     if (req.method === "GET") {
       const url = new URL(req.url);
       const connectionId = url.searchParams.get("connection_id");
+
       if (connectionId) {
         const [drivers, devices] = await Promise.all([
-          admin.from("eld_external_drivers").select("external_id,driver_name,phone,email,status,synced_at").eq("user_id", user.id).eq("connection_id", connectionId).order("driver_name"),
-          admin.from("eld_external_devices").select("device_type,external_id,vehicle_id,serial_number,status,synced_at").eq("user_id", user.id).eq("connection_id", connectionId).order("vehicle_id"),
+          admin
+            .from("eld_external_drivers")
+            .select(
+              "external_id,driver_name,phone,email,status,synced_at,vehicle_id,trailer_id,duty_status,duty_status_duration,break_minutes,drive_minutes,shift_minutes,cycle_minutes,cycle_tomorrow_minutes,last_hos_sync,last_activity_at,hos_synced_at",
+            )
+            .eq("user_id", user.id)
+            .eq("connection_id", connectionId)
+            .order("driver_name"),
+          admin
+            .from("eld_external_devices")
+            .select("device_type,external_id,vehicle_id,serial_number,status,synced_at")
+            .eq("user_id", user.id)
+            .eq("connection_id", connectionId)
+            .order("vehicle_id"),
         ]);
+
         if (drivers.error) throw new HttpError(500, drivers.error.message);
         if (devices.error) throw new HttpError(500, devices.error.message);
         return json({ drivers: drivers.data || [], devices: devices.data || [] });
@@ -213,15 +363,18 @@ Deno.serve(async (req) => {
 
       const { data, error } = await admin
         .from("eld_connections")
-        .select("id,carrier_id,provider,display_name,account_id,status,last_error,last_tested_at,last_synced_at,created_at,updated_at")
+        .select(
+          "id,carrier_id,provider,display_name,account_id,status,last_error,last_tested_at,last_synced_at,created_at,updated_at",
+        )
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
+
       if (error) throw new HttpError(500, error.message);
       return json({ connections: data || [] });
     }
 
     if (req.method !== "POST") throw new HttpError(405, "Method not allowed");
-    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const action = String(body.action || "");
 
     if (action === "save_connection") {
@@ -229,8 +382,13 @@ Deno.serve(async (req) => {
       const apiKey = String(body.api_key || "").trim();
       const displayName = String(body.display_name || "").trim();
       const carrierId = body.carrier_id ? String(body.carrier_id) : null;
-      if (provider !== "nextfleet") throw new HttpError(400, "Next Fleet is the first supported provider");
-      if (!apiKey || !displayName) throw new HttpError(400, "Connection name and API key are required");
+
+      if (provider !== "nextfleet") {
+        throw new HttpError(400, "Next Fleet is the first supported provider");
+      }
+      if (!apiKey || !displayName) {
+        throw new HttpError(400, "Connection name and API key are required");
+      }
 
       await testNextFleet(apiKey);
       const encrypted = await encryptSecret(apiKey);
@@ -246,7 +404,13 @@ Deno.serve(async (req) => {
         last_error: null,
         last_tested_at: new Date().toISOString(),
       };
-      const { data, error } = await admin.from("eld_connections").upsert(record, { onConflict: "user_id,provider,display_name" }).select("id,carrier_id,provider,display_name,status,last_tested_at,last_synced_at").single();
+
+      const { data, error } = await admin
+        .from("eld_connections")
+        .upsert(record, { onConflict: "user_id,provider,display_name" })
+        .select("id,carrier_id,provider,display_name,status,last_tested_at,last_synced_at")
+        .single();
+
       if (error) throw new HttpError(500, error.message);
       return json({ connection: data }, 201);
     }
@@ -259,22 +423,66 @@ Deno.serve(async (req) => {
       const apiKey = await connectionApiKey(connection);
       try {
         const result = await testNextFleet(apiKey);
-        await admin.from("eld_connections").update({ status: "connected", last_error: null, last_tested_at: new Date().toISOString() }).eq("id", connectionId).eq("user_id", user.id);
+        await admin
+          .from("eld_connections")
+          .update({
+            status: "connected",
+            last_error: null,
+            last_tested_at: new Date().toISOString(),
+          })
+          .eq("id", connectionId)
+          .eq("user_id", user.id);
         return json(result);
       } catch (error) {
         const message = error instanceof Error ? error.message : "Connection test failed";
-        await admin.from("eld_connections").update({ status: "error", last_error: message, last_tested_at: new Date().toISOString() }).eq("id", connectionId).eq("user_id", user.id);
+        await admin
+          .from("eld_connections")
+          .update({
+            status: "error",
+            last_error: message,
+            last_tested_at: new Date().toISOString(),
+          })
+          .eq("id", connectionId)
+          .eq("user_id", user.id);
         throw error;
       }
     }
 
     if (action === "sync") {
-      if (String(connection.provider) !== "nextfleet") throw new HttpError(400, "Provider is not implemented yet");
-      return json(await syncNextFleet(admin, user.id, connectionId, await connectionApiKey(connection)));
+      if (String(connection.provider) !== "nextfleet") {
+        throw new HttpError(400, "Provider is not implemented yet");
+      }
+
+      const apiKey = await connectionApiKey(connection);
+      const base = await syncNextFleetBase(admin, user.id, connectionId, apiKey);
+      let hos: { hosDrivers: number; warning?: string } = { hosDrivers: 0 };
+
+      try {
+        hos = await syncNextFleetHos(admin, user.id, connectionId, apiKey);
+      } catch (error) {
+        hos.warning = error instanceof Error ? error.message : "HOS sync failed";
+      }
+
+      const syncedAt = new Date().toISOString();
+      await admin
+        .from("eld_connections")
+        .update({
+          status: "connected",
+          last_error: hos.warning || null,
+          last_synced_at: syncedAt,
+        })
+        .eq("id", connectionId)
+        .eq("user_id", user.id);
+
+      return json({ ...base, ...hos, syncedAt });
     }
 
     if (action === "delete_connection") {
-      const { error } = await admin.from("eld_connections").delete().eq("id", connectionId).eq("user_id", user.id);
+      const { error } = await admin
+        .from("eld_connections")
+        .delete()
+        .eq("id", connectionId)
+        .eq("user_id", user.id);
       if (error) throw new HttpError(500, error.message);
       return json({ deleted: true });
     }
