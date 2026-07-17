@@ -1,4 +1,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
+import {
+  ApolloApiError,
+  apolloBreakMinutes,
+  apolloClockMinutes,
+  apolloDriverName,
+  apolloEpochToIso,
+  apolloRequest,
+  apolloRows,
+  sanitizeApolloRecord,
+} from "../_shared/apollo.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,6 +17,7 @@ const corsHeaders = {
 };
 
 const NEXT_FLEET_BASE_URL = "https://cloud.nextfleeteld.com";
+const SUPPORTED_PROVIDERS = new Set(["nextfleet", "apollo"]);
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -193,6 +204,26 @@ async function testNextFleet(apiKey: string) {
   return { ok: true, provider: "nextfleet", sampleCount: asArray(payload).length };
 }
 
+async function testApollo(apiKey: string) {
+  try {
+    const payload = await apolloRequest(
+      apiKey,
+      "/HOSDriver/v2.0/GetHOSDriversForClient",
+      { DriverStatus: 1 },
+    );
+    return { ok: true, provider: "apollo", sampleCount: apolloRows(payload).length };
+  } catch (error) {
+    if (error instanceof ApolloApiError) throw new HttpError(error.status, error.message);
+    throw error;
+  }
+}
+
+async function testProvider(provider: string, apiKey: string) {
+  if (provider === "nextfleet") return testNextFleet(apiKey);
+  if (provider === "apollo") return testApollo(apiKey);
+  throw new HttpError(400, "ELD provider is not supported");
+}
+
 async function syncNextFleetBase(
   admin: ReturnType<typeof serviceClient>,
   userId: string,
@@ -257,6 +288,77 @@ async function syncNextFleetBase(
     gpsDevices: gpsDevices.length,
     eldDevices: eldDevices.length,
   };
+}
+
+function apolloActiveStatus(value: unknown): string {
+  if (value === true || value === 1 || String(value).toLowerCase() === "true" || String(value) === "1") {
+    return "active";
+  }
+  if (value === false || value === 0 || String(value).toLowerCase() === "false" || String(value) === "0") {
+    return "inactive";
+  }
+  return String(value ?? "").trim();
+}
+
+async function syncApolloBase(
+  admin: ReturnType<typeof serviceClient>,
+  userId: string,
+  connectionId: string,
+  apiKey: string,
+) {
+  let driversPayload: unknown;
+  let assetsPayload: unknown;
+  try {
+    [driversPayload, assetsPayload] = await Promise.all([
+      apolloRequest(apiKey, "/HOSDriver/v2.0/GetHOSDriversForClient"),
+      apolloRequest(apiKey, "/HOSAsset/v2.0/GetHOSAssetsForClient"),
+    ]);
+  } catch (error) {
+    if (error instanceof ApolloApiError) throw new HttpError(error.status, error.message);
+    throw error;
+  }
+
+  const syncedAt = new Date().toISOString();
+  const drivers = apolloRows(driversPayload).map((item, index) => ({
+    user_id: userId,
+    connection_id: connectionId,
+    external_id: firstString(item, ["HOSDriverId", "ExternalDriverId", "HOSUserName"]) || `apollo-driver-${index}`,
+    driver_name: apolloDriverName(item),
+    phone: firstString(item, ["MobilePhone", "Phone", "PhoneNumber"]),
+    email: firstString(item, ["Email", "EmailAddress"]),
+    status: apolloActiveStatus(item.IsActive ?? item.DriverStatus),
+    duty_status: "",
+    raw_data: sanitizeApolloRecord(item),
+    synced_at: syncedAt,
+  }));
+
+  const eldDevices = apolloRows(assetsPayload).map((item, index) => ({
+    user_id: userId,
+    connection_id: connectionId,
+    device_type: "eld" as const,
+    external_id: firstString(item, ["AssetId", "ECMId", "VIN", "Number"]) || `apollo-eld-${index}`,
+    vehicle_id: firstString(item, ["Number", "VehicleNumber", "UnitNumber"]),
+    serial_number: firstString(item, ["ECMId", "AdditionalECMId", "VIN"]),
+    status: apolloActiveStatus(item.Active),
+    raw_data: sanitizeApolloRecord(item),
+    synced_at: syncedAt,
+  }));
+
+  if (drivers.length) {
+    const { error } = await admin
+      .from("eld_external_drivers")
+      .upsert(drivers, { onConflict: "connection_id,external_id" });
+    if (error) throw new HttpError(500, `Could not save Apollo drivers: ${error.message}`);
+  }
+
+  if (eldDevices.length) {
+    const { error } = await admin
+      .from("eld_external_devices")
+      .upsert(eldDevices, { onConflict: "connection_id,device_type,external_id" });
+    if (error) throw new HttpError(500, `Could not save Apollo assets: ${error.message}`);
+  }
+
+  return { drivers: drivers.length, gpsDevices: 0, eldDevices: eldDevices.length };
 }
 
 async function syncNextFleetHos(
@@ -326,6 +428,80 @@ async function syncNextFleetHos(
   return { hosDrivers: records.length };
 }
 
+async function syncApolloHos(
+  admin: ReturnType<typeof serviceClient>,
+  userId: string,
+  connectionId: string,
+  apiKey: string,
+) {
+  let payload: unknown;
+  try {
+    payload = await apolloRequest(
+      apiKey,
+      "/HOSDashboard/v2.0/GetHoursOfServiceByDriverForClient",
+      { HOSDriverId: -1 },
+    );
+  } catch (error) {
+    if (error instanceof ApolloApiError) throw new HttpError(error.status, error.message);
+    throw error;
+  }
+
+  const hosSyncedAt = new Date().toISOString();
+  const records = apolloRows(payload).map((item, index) => {
+    const activityAt = apolloEpochToIso(item.LastUpdateTimestamp);
+    return {
+      user_id: userId,
+      connection_id: connectionId,
+      external_id: firstString(item, ["HOSDriverId", "HOSUserName"]) || `apollo-hos-driver-${index}`,
+      driver_name: apolloDriverName(item),
+      duty_status: firstString(item, ["CurrentDutyStatus"]),
+      break_minutes: apolloBreakMinutes(item.Next30BreakTimestamp),
+      drive_minutes: apolloClockMinutes(item.DrivingString),
+      shift_minutes: apolloClockMinutes(item.OnDutyString),
+      cycle_minutes: apolloClockMinutes(item.OnDutyWeekString),
+      cycle_tomorrow_minutes: null,
+      last_hos_sync: activityAt || firstString(item, ["LastUpdateTimestamp"]),
+      last_activity_at: activityAt,
+      hos_synced_at: hosSyncedAt,
+      raw_data: sanitizeApolloRecord(item),
+      synced_at: hosSyncedAt,
+    };
+  });
+
+  if (records.length) {
+    const { error } = await admin
+      .from("eld_external_drivers")
+      .upsert(records, { onConflict: "connection_id,external_id" });
+    if (error) throw new HttpError(500, `Could not save Apollo HOS clocks: ${error.message}`);
+  }
+
+  return { hosDrivers: records.length };
+}
+
+async function syncProviderBase(
+  provider: string,
+  admin: ReturnType<typeof serviceClient>,
+  userId: string,
+  connectionId: string,
+  apiKey: string,
+) {
+  if (provider === "nextfleet") return syncNextFleetBase(admin, userId, connectionId, apiKey);
+  if (provider === "apollo") return syncApolloBase(admin, userId, connectionId, apiKey);
+  throw new HttpError(400, "ELD provider is not supported");
+}
+
+async function syncProviderHos(
+  provider: string,
+  admin: ReturnType<typeof serviceClient>,
+  userId: string,
+  connectionId: string,
+  apiKey: string,
+) {
+  if (provider === "nextfleet") return syncNextFleetHos(admin, userId, connectionId, apiKey);
+  if (provider === "apollo") return syncApolloHos(admin, userId, connectionId, apiKey);
+  throw new HttpError(400, "ELD provider is not supported");
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers: corsHeaders });
@@ -383,14 +559,14 @@ Deno.serve(async (req) => {
       const displayName = String(body.display_name || "").trim();
       const carrierId = body.carrier_id ? String(body.carrier_id) : null;
 
-      if (provider !== "nextfleet") {
-        throw new HttpError(400, "Next Fleet is the first supported provider");
+      if (!SUPPORTED_PROVIDERS.has(provider)) {
+        throw new HttpError(400, "ELD provider is not supported");
       }
       if (!apiKey || !displayName) {
         throw new HttpError(400, "Connection name and API key are required");
       }
 
-      await testNextFleet(apiKey);
+      await testProvider(provider, apiKey);
       const encrypted = await encryptSecret(apiKey);
       const record = {
         user_id: user.id,
@@ -421,8 +597,9 @@ Deno.serve(async (req) => {
 
     if (action === "test_connection") {
       const apiKey = await connectionApiKey(connection);
+      const provider = String(connection.provider || "").toLowerCase();
       try {
-        const result = await testNextFleet(apiKey);
+        const result = await testProvider(provider, apiKey);
         await admin
           .from("eld_connections")
           .update({
@@ -449,16 +626,13 @@ Deno.serve(async (req) => {
     }
 
     if (action === "sync") {
-      if (String(connection.provider) !== "nextfleet") {
-        throw new HttpError(400, "Provider is not implemented yet");
-      }
-
+      const provider = String(connection.provider || "").toLowerCase();
       const apiKey = await connectionApiKey(connection);
-      const base = await syncNextFleetBase(admin, user.id, connectionId, apiKey);
+      const base = await syncProviderBase(provider, admin, user.id, connectionId, apiKey);
       let hos: { hosDrivers: number; warning?: string } = { hosDrivers: 0 };
 
       try {
-        hos = await syncNextFleetHos(admin, user.id, connectionId, apiKey);
+        hos = await syncProviderHos(provider, admin, user.id, connectionId, apiKey);
       } catch (error) {
         hos.warning = error instanceof Error ? error.message : "HOS sync failed";
       }

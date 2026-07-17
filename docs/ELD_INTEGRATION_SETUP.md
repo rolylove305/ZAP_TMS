@@ -2,7 +2,7 @@
 
 ## Production status
 
-The provider-neutral ELD foundation is live in production. Next Fleet ELD is the first supported provider.
+The provider-neutral ELD foundation is live in production. Next Fleet ELD is verified in production, and the Apollo ELD adapter supports connection testing, drivers, assets, and HOS clocks.
 
 Completed:
 
@@ -16,7 +16,7 @@ Completed:
 
 ## Security model
 
-Next Fleet API keys must never be pasted into chat, committed to GitHub, included in screenshots, or stored in browser localStorage.
+ELD API keys must never be pasted into chat, committed to GitHub, included in screenshots, or stored in browser localStorage.
 
 Keys are entered only through:
 
@@ -52,11 +52,27 @@ The HOS endpoint returns values in minutes, including:
 
 Zap Dispatch converts the minute values to `hours:minutes` for the Dashboard.
 
+## Apollo ELD API contract
+
+Base URL: `https://content.eldroadmap.com:9103`
+
+Authentication field: `HOSClientApiKey` in the server-to-server JSON request body.
+
+Supported endpoints:
+
+- Drivers: `POST /HOSDriver/v2.0/GetHOSDriversForClient`
+- Assets: `POST /HOSAsset/v2.0/GetHOSAssetsForClient`
+- HOS clocks: `POST /HOSDashboard/v2.0/GetHoursOfServiceByDriverForClient`
+
+Apollo returns drive, on-duty shift, and weekly-cycle clocks as elapsed/remaining strings. Zap Dispatch stores and displays the remaining value. Apollo credentials use the same AES-256-GCM encrypted storage as Next Fleet credentials.
+
+See `docs/APOLLO_ELD.md` for the integration-specific mapping and verification checklist.
+
 ## Supported now
 
 - Multiple ELD connections per dispatcher.
 - One connection associated with a specific carrier.
-- Secure Next Fleet API-key storage.
+- Secure Next Fleet and Apollo API-key storage.
 - Connection testing.
 - Driver synchronization.
 - GPS-device synchronization.

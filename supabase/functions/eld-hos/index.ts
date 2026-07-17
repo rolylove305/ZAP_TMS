@@ -1,4 +1,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
+import {
+  ApolloApiError,
+  apolloBreakMinutes,
+  apolloClockMinutes,
+  apolloDriverName,
+  apolloEpochToIso,
+  apolloRequest,
+  apolloRows,
+  sanitizeApolloRecord,
+} from "../_shared/apollo.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -104,6 +114,19 @@ async function fetchOfficialHos(apiKey: string) {
   return rows(payload);
 }
 
+async function fetchApolloHos(apiKey: string) {
+  try {
+    return apolloRows(await apolloRequest(
+      apiKey,
+      "/HOSDashboard/v2.0/GetHoursOfServiceByDriverForClient",
+      { HOSDriverId: -1 },
+    ));
+  } catch (error) {
+    if (error instanceof ApolloApiError) throw new HttpError(error.status, error.message);
+    throw error;
+  }
+}
+
 const selectFields =
   "external_id,driver_name,phone,vehicle_id,trailer_id,duty_status,duty_status_duration,break_minutes,drive_minutes,shift_minutes,cycle_minutes,cycle_tomorrow_minutes,last_hos_sync,last_activity_at,hos_synced_at,raw_data";
 
@@ -129,7 +152,10 @@ Deno.serve(async (req) => {
       .eq("user_id", user.id)
       .single();
     if (connectionError || !connection) throw new HttpError(404, "ELD connection not found");
-    if (connection.provider !== "nextfleet") throw new HttpError(400, "HOS provider is not supported");
+    const provider = String(connection.provider || "").toLowerCase();
+    if (provider !== "nextfleet" && provider !== "apollo") {
+      throw new HttpError(400, "HOS provider is not supported");
+    }
 
     if (req.method === "POST") {
       const { data: existingRows, error: existingError } = await admin
@@ -140,13 +166,40 @@ Deno.serve(async (req) => {
       if (existingError) throw new HttpError(500, existingError.message);
       const existing = new Map((existingRows || []).map((row) => [String(row.external_id), row.raw_data || {}]));
 
-      const profiles = await fetchOfficialHos(
-        await decrypt(connection.credential_ciphertext, connection.credential_iv),
-      );
+      const apiKey = await decrypt(connection.credential_ciphertext, connection.credential_iv);
+      const profiles = provider === "apollo"
+        ? await fetchApolloHos(apiKey)
+        : await fetchOfficialHos(apiKey);
       const now = new Date().toISOString();
       const normalized = profiles.map((item, index) => {
-        const externalId = text(item, "id", "driverId") || `hos-driver-${index}`;
+        const externalId = provider === "apollo"
+          ? text(item, "HOSDriverId", "HOSUserName") || `apollo-hos-driver-${index}`
+          : text(item, "id", "driverId") || `hos-driver-${index}`;
         const priorRaw = existing.get(externalId);
+        if (provider === "apollo") {
+          const activityAt = apolloEpochToIso(item.LastUpdateTimestamp);
+          return {
+            user_id: user.id,
+            connection_id: connectionId,
+            external_id: externalId,
+            driver_name: apolloDriverName(item),
+            vehicle_id: text(item, "AssetNumber", "VehicleNumber", "UnitNumber"),
+            duty_status: text(item, "CurrentDutyStatus"),
+            break_minutes: apolloBreakMinutes(item.Next30BreakTimestamp),
+            drive_minutes: apolloClockMinutes(item.DrivingString),
+            shift_minutes: apolloClockMinutes(item.OnDutyString),
+            cycle_minutes: apolloClockMinutes(item.OnDutyWeekString),
+            cycle_tomorrow_minutes: null,
+            last_hos_sync: activityAt || text(item, "LastUpdateTimestamp"),
+            last_activity_at: activityAt,
+            hos_synced_at: now,
+            synced_at: now,
+            raw_data: {
+              ...(priorRaw && typeof priorRaw === "object" ? priorRaw : {}),
+              ...sanitizeApolloRecord(item),
+            },
+          };
+        }
         return {
           user_id: user.id,
           connection_id: connectionId,
