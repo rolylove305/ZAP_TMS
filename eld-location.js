@@ -183,9 +183,10 @@
 
   function fleetState(item,load=matchLoad(item)){
     const age=locationAgeMinutes(item);
-    if(!hasCoordinates(item)||age>120)return "offline";
-    if(age>30)return "attention";
-    return load?"active":"available";
+    if(!hasCoordinates(item)||age>1440)return "offline";
+    if(load)return "active";
+    if(age>360)return "attention";
+    return "available";
   }
 
   function fleetStateLabel(state){
