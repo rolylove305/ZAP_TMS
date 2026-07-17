@@ -36,7 +36,7 @@
       <div class="form-grid">
         <label>Vehicle<select id="eldLocationVehicle"><option value="">No locations synced</option></select></label>
       </div>
-      <p class="muted" id="eldLocationStatus">Refresh to retrieve the latest Next Fleet vehicle position.</p>
+      <p class="muted" id="eldLocationStatus">Refresh to retrieve the latest ELD vehicle position.</p>
       <div id="eldLocationDetails"></div>`;
     const hos=by("eldHosDashboardCard");
     if(hos)hos.after(card);else{
@@ -72,7 +72,7 @@
     const old=select.value;
     if(!locations.length){
       select.innerHTML='<option value="">No locations synced</option>';
-      status.textContent=lastError||"Press Refresh Location to retrieve the latest Next Fleet position.";
+      status.textContent=lastError||"Press Refresh Location to retrieve the latest ELD position.";
       status.classList.toggle("bad",!!lastError);
       details.innerHTML="";
       return;
@@ -115,7 +115,7 @@
     locations=[];lastError="";
     try{
       const connectionPayload=await request(gateway());
-      connections=(connectionPayload.connections||[]).filter(connection=>connection.provider==="nextfleet");
+      connections=(connectionPayload.connections||[]).filter(connection=>["nextfleet","apollo"].includes(connection.provider));
       for(const connection of connections){
         try{
           const payload=sync
