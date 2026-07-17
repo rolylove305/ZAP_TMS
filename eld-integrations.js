@@ -35,9 +35,9 @@
         <p class="muted">Connect each carrier to its own ELD provider. API keys are encrypted and used only by Supabase Edge Functions.</p>
         <div class="form-grid">
           <label>Carrier<select id="eldCarrier"><option value="">No carrier selected</option></select></label>
-          <label>Provider<select id="eldProvider"><option value="nextfleet">Next Fleet ELD</option></select></label>
-          <label>Connection name<input id="eldDisplayName" placeholder="Estrella Trucking — Next Fleet"></label>
-          <label>API key<input id="eldApiKey" type="password" autocomplete="new-password" placeholder="Paste once; it will not be shown again"></label>
+          <label>Provider<select id="eldProvider"><option value="nextfleet">Next Fleet ELD</option><option value="apollo">Apollo ELD</option></select></label>
+          <label>Connection name<input id="eldDisplayName" placeholder="Carrier — Next Fleet"></label>
+          <label><span id="eldApiKeyLabel">API key</span><input id="eldApiKey" type="password" autocomplete="new-password" placeholder="Paste once; it will not be shown again"></label>
         </div>
         <div class="card-actions" style="margin-top:12px"><button type="button" class="primary-btn" id="eldConnect">Test & Connect</button></div>
         <p class="muted" id="eldMessage"></p>
@@ -46,6 +46,8 @@
       if(refreshCard)refreshCard.before(card);else settings.appendChild(card);
       by("eldConnect").onclick=connect;
       by("eldRefresh").onclick=loadConnections;
+      by("eldProvider").onchange=updateProviderUi;
+      updateProviderUi();
     }
     ensureHosUi();
   }
@@ -80,6 +82,21 @@
     const carriers=(typeof appData!=="undefined"&&Array.isArray(appData.carriers))?appData.carriers:[];
     select.innerHTML='<option value="">No carrier selected</option>'+carriers.map(c=>`<option value="${esc(c.id||"")}">${esc(c.name||"Unnamed carrier")}</option>`).join("");
     select.value=old;
+  }
+
+  function providerName(provider){
+    if(provider==="nextfleet")return "Next Fleet ELD";
+    if(provider==="apollo")return "Apollo ELD";
+    return provider||"ELD";
+  }
+
+  function updateProviderUi(){
+    const provider=by("eldProvider")?.value||"nextfleet";
+    const name=providerName(provider).replace(" ELD","");
+    const display=by("eldDisplayName");
+    const label=by("eldApiKeyLabel");
+    if(display)display.placeholder=`Carrier — ${name}`;
+    if(label)label.textContent=provider==="apollo"?"Apollo HOS Client API key":"API key";
   }
 
   function say(text,bad=false){
@@ -176,7 +193,7 @@
     list.innerHTML=connections.map(c=>`
       <div class="list-card" data-eld-id="${esc(c.id)}">
         <h3>${esc(c.display_name)}</h3>
-        <p class="muted">${esc(c.provider==="nextfleet"?"Next Fleet ELD":c.provider)} • ${esc(carrierName(c.carrier_id))}</p>
+        <p class="muted">${esc(providerName(c.provider))} • ${esc(carrierName(c.carrier_id))}</p>
         <div class="pill-row"><span class="pill">${esc(statusLabel(c.status))}</span>${c.last_synced_at?`<span class="pill">Synced ${esc(new Date(c.last_synced_at).toLocaleString())}</span>`:""}</div>
         ${c.last_error?`<p class="bad">${esc(c.last_error)}</p>`:""}
         <div class="card-actions">
@@ -200,9 +217,10 @@
     const displayName=by("eldDisplayName").value.trim();
     const apiKey=by("eldApiKey").value.trim();
     if(!displayName||!apiKey)return say("Connection name and API key are required.",true);
-    const button=by("eldConnect");button.disabled=true;say("Testing Next Fleet connection...");
+    const provider=by("eldProvider").value;
+    const button=by("eldConnect");button.disabled=true;say(`Testing ${providerName(provider)} connection...`);
     try{
-      await api("POST",{action:"save_connection",provider:by("eldProvider").value,carrier_id:by("eldCarrier").value||null,display_name:displayName,api_key:apiKey});
+      await api("POST",{action:"save_connection",provider,carrier_id:by("eldCarrier").value||null,display_name:displayName,api_key:apiKey});
       by("eldApiKey").value="";
       say("Connected securely. The API key is encrypted on the server.");
       await loadConnections();
@@ -240,7 +258,7 @@
     const button=by("eldHosRefresh");
     if(button)button.disabled=true;
     const status=by("eldHosStatus");
-    if(status)status.textContent="Syncing live HOS clocks from Next Fleet...";
+    if(status)status.textContent="Syncing live HOS clocks from connected ELD providers...";
     try{await loadHos(true)}finally{if(button)button.disabled=false}
   }
 
@@ -250,7 +268,8 @@
   }
 
   async function syncConnection(connectionId){
-    say("Syncing Next Fleet drivers, devices and HOS clocks...");
+    const provider=connections.find(item=>String(item.id)===String(connectionId))?.provider;
+    say(`Syncing ${providerName(provider)} drivers, devices and HOS clocks...`);
     try{
       const result=await api("POST",{action:"sync",connection_id:connectionId});
       let hosCount=0,hosWarning="";
