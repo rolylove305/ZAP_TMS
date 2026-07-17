@@ -277,11 +277,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="fleet-command-1";
+      const version="fleet-command-2";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=fleet-command-1").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=fleet-command-2").catch(()=>{});
 }
