@@ -197,6 +197,21 @@ function normalizeApolloLocations(records: Record<string, unknown>[]) {
   return { rows, assignments };
 }
 
+function latestRowsByVehicle(rows: Record<string, unknown>[]) {
+  const latest = new Map<string, Record<string, unknown>>();
+  for (const row of rows) {
+    const key = String(row.vehicle_id || row.external_id || "").trim();
+    if (!key) continue;
+    const current = latest.get(key);
+    const candidateTime = Date.parse(String(row.location_time || "")) || 0;
+    const currentTime = current
+      ? Date.parse(String(current.location_time || "")) || 0
+      : -1;
+    if (!current || candidateTime >= currentTime) latest.set(key, row);
+  }
+  return [...latest.values()];
+}
+
 const fields =
   "external_id,vehicle_id,driver_external_id,latitude,longitude,speed,bearing,fuel,odometer,engine_hours,location_time,timezone_offset,geocoded_location,synced_at";
 
@@ -273,6 +288,11 @@ Deno.serve(async (req) => {
         }));
       }
 
+      // Apollo can return several driver-event groups for the same tractor. Postgres
+      // cannot upsert the same conflict key twice in one statement, so keep only the
+      // newest snapshot for each physical truck before writing.
+      rows = latestRowsByVehicle(rows);
+
       const databaseRows = rows.map((row) => ({
         ...row,
         user_id: user.id,
@@ -318,7 +338,40 @@ Deno.serve(async (req) => {
       .order("vehicle_id");
     if (error) throw new EldHttpError(500, error.message);
 
-    return reply({ locations: data || [] });
+    const { data: driverRows, error: driverError } = await admin
+      .from("eld_external_drivers")
+      .select("external_id,driver_name,vehicle_id,trailer_id,duty_status,last_activity_at")
+      .eq("user_id", user.id)
+      .eq("connection_id", connectionId);
+    if (driverError) throw new EldHttpError(500, driverError.message);
+
+    const enriched = (data || []).map((location) => {
+      const exactDriver = (driverRows || []).find((driver) =>
+        location.driver_external_id &&
+        String(driver.external_id || "") === String(location.driver_external_id)
+      );
+      const vehicleDrivers = (driverRows || []).filter((driver) =>
+        location.vehicle_id &&
+        String(driver.vehicle_id || "").trim() === String(location.vehicle_id).trim()
+      );
+      const matchedDrivers = exactDriver
+        ? [exactDriver, ...vehicleDrivers.filter((driver) => driver.external_id !== exactDriver.external_id)]
+        : vehicleDrivers;
+      const driverNames = [...new Set(
+        matchedDrivers.map((driver) => String(driver.driver_name || "").trim()).filter(Boolean),
+      )];
+      const primaryDriver = exactDriver || matchedDrivers[0] || null;
+      return {
+        ...location,
+        driver_name: primaryDriver?.driver_name || null,
+        driver_names: driverNames,
+        trailer_id: primaryDriver?.trailer_id || null,
+        duty_status: primaryDriver?.duty_status || null,
+        driver_last_activity_at: primaryDriver?.last_activity_at || null,
+      };
+    });
+
+    return reply({ locations: enriched });
   } catch (error) {
     const status = error instanceof EldHttpError ? error.status : 500;
     const message = error instanceof Error ? error.message : "Unexpected location error";
