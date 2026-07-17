@@ -21,10 +21,13 @@ export async function apolloRequest(
   path: string,
   parameters: Record<string, unknown> = {},
 ): Promise<unknown> {
-  const response = await fetch(`${APOLLO_BASE_URL}${path}`, {
-    method: "POST",
-    headers: { Accept: "application/json", "Content-Type": "application/json" },
-    body: JSON.stringify({ HOSClientApiKey: apiKey, ...parameters }),
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries({ ...parameters, HOSClientApiKey: apiKey })) {
+    if (value !== null && value !== undefined && value !== "") query.set(key, String(value));
+  }
+  const response = await fetch(`${APOLLO_BASE_URL}${path}?${query.toString()}`, {
+    method: "GET",
+    headers: { Accept: "application/json", "Cache-Control": "no-store" },
   });
 
   const raw = await response.text();
