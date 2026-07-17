@@ -5,7 +5,7 @@
 if(!document.getElementById("eldLocationModule")){
   const script=document.createElement("script");
   script.id="eldLocationModule";
-  script.src="eld-location.js?v=multi-eld-location-3";
+  script.src="eld-location.js?v=multi-eld-location-4";
   script.defer=true;
   document.body.appendChild(script);
 }
