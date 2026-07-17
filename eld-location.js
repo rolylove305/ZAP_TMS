@@ -115,7 +115,7 @@
     locations=[];lastError="";
     try{
       const connectionPayload=await request(gateway());
-      connections=connectionPayload.connections||[];
+      connections=(connectionPayload.connections||[]).filter(connection=>connection.provider==="nextfleet");
       for(const connection of connections){
         try{
           const payload=sync
