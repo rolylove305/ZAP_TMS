@@ -271,4 +271,17 @@ async function sendLink(){const email=$("authEmail").value.trim();if(!email)retu
 $("loginBtn").onclick=sendLink;$("signupBtn").onclick=sendLink;$("showLogin").onclick=()=>msg("");$("showSignup").onclick=()=>msg("Enter your email and press Create user to receive a login link.");
 async function migrateLocal(){const done=store.get("tmsMigratedToCloud",false);if(done||!currentUser)return;let moved=0;for(const t of tables){const old=store.get(t,[]).filter(x=>!x.id);for(const row of old){const {error}=await sb.from(t).insert(map[t].toDb(row));if(!error)moved++}}store.set("tmsMigratedToCloud",true);if(moved)alert(`Imported ${moved} old local records to cloud.`)}
 async function startApp(){const {data:{session}}=await sb.auth.getSession();currentUser=session?.user;if(!currentUser){$("authShell").classList.remove("hidden");$("appShell").classList.add("hidden");return}$("authShell").classList.add("hidden");$("appShell").classList.remove("hidden");$("userEmail").textContent=currentUser.email||"";await migrateLocal();await loadCloud()}
-if(store.get("light",false))document.body.classList.add("light");startApp();if("serviceWorker"in navigator){navigator.serviceWorker.register("service-worker.js").catch(()=>{})}
+if(store.get("light",false))document.body.classList.add("light");
+startApp();
+if("serviceWorker"in navigator){
+  const hadController=!!navigator.serviceWorker.controller;
+  if(hadController){
+    navigator.serviceWorker.addEventListener("controllerchange",()=>{
+      const version="fleet-command-1";
+      if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
+      sessionStorage.setItem("zapServiceWorkerReload",version);
+      location.reload();
+    });
+  }
+  navigator.serviceWorker.register("service-worker.js?v=fleet-command-1").catch(()=>{});
+}
