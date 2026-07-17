@@ -10,6 +10,9 @@
   let activeLoads=[];
   let connectionErrors=[];
   let lastError="";
+  let fleetMap=null;
+  let fleetMarkers=null;
+  let markerByIndex=new Map();
 
   async function headers(){
     const {data,error}=await sb.auth.getSession();
@@ -41,14 +44,32 @@
     card.className="card";
     card.id="eldLocationCard";
     card.innerHTML=`
-      <div class="section-title">
-        <h2>Vehicle Location</h2>
-        <button type="button" class="small-btn" id="eldLocationRefresh">Refresh Location</button>
+      <div class="section-title fleet-command-title">
+        <div><p class="eyebrow">Live operations</p><h2>Fleet Command Center</h2></div>
+        <button type="button" class="small-btn" id="eldLocationRefresh">Refresh Fleet</button>
       </div>
-      <div class="form-grid">
-        <label>Vehicle / driver / active load<select id="eldLocationVehicle"><option value="">No locations synced</option></select></label>
+      <p class="muted">All connected trucks, drivers and active loads in one operational view.</p>
+      <div class="fleet-map-stats" id="fleetMapStats"></div>
+      <div class="fleet-map-toolbar">
+        <label>Find truck, driver or load<input id="fleetMapSearch" type="search" placeholder="Truck 20, driver, load #..."></label>
+        <label>Status<select id="fleetMapStatus"><option value="">All statuses</option><option value="active">On active load</option><option value="available">Available</option><option value="attention">Needs attention</option><option value="offline">Location offline</option></select></label>
+        <label>Carrier / ELD<select id="fleetMapCarrier"><option value="">All carriers</option></select></label>
+        <button type="button" class="small-btn fleet-fit-btn" id="fleetMapFit">Show all trucks</button>
       </div>
-      <p class="muted" id="eldLocationStatus">Refresh to retrieve the latest ELD vehicle position.</p>
+      <div class="fleet-command-grid">
+        <div class="fleet-map-shell"><div id="fleetMap" class="fleet-map" role="application" aria-label="Live fleet map"></div><div class="fleet-map-empty hidden" id="fleetMapEmpty">No trucks with coordinates match these filters.</div></div>
+        <div class="fleet-vehicle-list" id="fleetVehicleList" aria-label="Fleet vehicle list"></div>
+      </div>
+      <div class="fleet-map-legend" aria-label="Map status legend">
+        <span><i class="fleet-dot fleet-dot--active"></i>Active load</span>
+        <span><i class="fleet-dot fleet-dot--available"></i>Available</span>
+        <span><i class="fleet-dot fleet-dot--attention"></i>Needs attention</span>
+        <span><i class="fleet-dot fleet-dot--offline"></i>Offline / old location</span>
+      </div>
+      <div class="form-grid fleet-detail-picker">
+        <label>Selected vehicle / driver / active load<select id="eldLocationVehicle"><option value="">No locations synced</option></select></label>
+      </div>
+      <p class="muted" id="eldLocationStatus">Refresh to retrieve the latest ELD vehicle positions.</p>
       <div id="eldLocationDetails"></div>`;
     const hos=by("eldHosDashboardCard");
     if(hos)hos.after(card);else{
@@ -56,7 +77,15 @@
       if(hero)hero.after(card);else dashboard.prepend(card);
     }
     by("eldLocationRefresh").onclick=()=>loadLocations(true);
-    by("eldLocationVehicle").onchange=renderSelected;
+    by("eldLocationVehicle").onchange=()=>{renderSelected();renderFleetCommandCenter(false)};
+    by("fleetMapSearch").oninput=()=>renderFleetCommandCenter(true);
+    by("fleetMapStatus").onchange=()=>renderFleetCommandCenter(true);
+    by("fleetMapCarrier").onchange=()=>renderFleetCommandCenter(true);
+    by("fleetMapFit").onclick=fitFleetMap;
+    by("fleetVehicleList").onclick=event=>{
+      const button=event.target.closest("[data-fleet-index]");
+      if(button)selectLocation(Number(button.dataset.fleetIndex),true);
+    };
   }
 
   function formatNumber(value,digits=1){
@@ -134,6 +163,145 @@
     return parts.join(" — ");
   }
 
+  function hasCoordinates(item){
+    const latitude=item?.latitude;
+    const longitude=item?.longitude;
+    if(latitude===null||latitude===undefined||latitude===""||longitude===null||longitude===undefined||longitude==="")return false;
+    return Number.isFinite(Number(latitude))&&Number.isFinite(Number(longitude));
+  }
+
+  function locationAgeMinutes(item){
+    const value=item?.location_time||item?.synced_at;
+    if(!value)return Infinity;
+    const time=new Date(value).getTime();
+    return Number.isFinite(time)?Math.max(0,(Date.now()-time)/60000):Infinity;
+  }
+
+  function carrierFor(item,load=matchLoad(item)){
+    return load?.carrier||item.connection_name||"Unassigned carrier";
+  }
+
+  function fleetState(item,load=matchLoad(item)){
+    const age=locationAgeMinutes(item);
+    if(!hasCoordinates(item)||age>120)return "offline";
+    if(age>30)return "attention";
+    return load?"active":"available";
+  }
+
+  function fleetStateLabel(state){
+    return ({active:"On active load",available:"Available",attention:"Needs attention",offline:"Location offline"})[state]||"Unknown";
+  }
+
+  function fleetSearchText(item,load){
+    return [item.vehicle_id,driverFor(item,load),item.connection_name,item.geocoded_location,load?.load_number,load?.carrier,load?.pickup,load?.delivery,load?.status].join(" ").toLowerCase();
+  }
+
+  function fillFleetCarrierFilter(){
+    const select=by("fleetMapCarrier");
+    if(!select)return;
+    const old=select.value;
+    const carriers=[...new Set(locations.map(item=>carrierFor(item)).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+    select.innerHTML='<option value="">All carriers</option>'+carriers.map(name=>`<option value="${esc(name)}">${esc(name)}</option>`).join("");
+    if(carriers.includes(old))select.value=old;
+  }
+
+  function fleetRows(){
+    const search=String(by("fleetMapSearch")?.value||"").trim().toLowerCase();
+    const status=by("fleetMapStatus")?.value||"";
+    const carrier=by("fleetMapCarrier")?.value||"";
+    return locations.map((item,index)=>{
+      const load=matchLoad(item);
+      return {item,index,load,state:fleetState(item,load),carrier:carrierFor(item,load)};
+    }).filter(row=>(!search||fleetSearchText(row.item,row.load).includes(search))&&(!status||row.state===status)&&(!carrier||row.carrier===carrier));
+  }
+
+  function fleetStatsHtml(){
+    const counts={active:0,available:0,attention:0,offline:0};
+    locations.forEach(item=>counts[fleetState(item)]++);
+    const card=(label,value,tone)=>`<div class="fleet-stat fleet-stat--${tone}"><span>${esc(label)}</span><strong>${esc(value)}</strong></div>`;
+    return card("Trucks",locations.length,"total")+card("Active loads",counts.active,"active")+card("Available",counts.available,"available")+card("Attention",counts.attention+counts.offline,counts.attention+counts.offline?"attention":"clear");
+  }
+
+  function initializeFleetMap(){
+    const element=by("fleetMap");
+    if(fleetMap||!element||!window.L)return fleetMap;
+    fleetMap=L.map(element,{zoomControl:true,preferCanvas:true}).setView([39.5,-98.35],4);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+      maxZoom:19,
+      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
+    }).addTo(fleetMap);
+    fleetMarkers=L.featureGroup().addTo(fleetMap);
+    setTimeout(()=>fleetMap?.invalidateSize(),0);
+    return fleetMap;
+  }
+
+  function markerHtml(item,state){
+    return `<span class="fleet-marker fleet-marker--${state}"><span aria-hidden="true">🚚</span><b>${esc(item.vehicle_id||"?")}</b></span>`;
+  }
+
+  function popupHtml(row){
+    const {item,load,state}=row;
+    const route=load?[load.pickup,load.delivery].filter(Boolean).join(" → "):"No active load";
+    return `<div class="fleet-popup"><strong>Truck ${esc(item.vehicle_id||"Unknown")}</strong><span>${esc(driverFor(item,load))}</span><span>${esc(fleetStateLabel(state))}</span>${load?.load_number?`<span>Load #${esc(load.load_number)}</span>`:""}<span>${esc(route)}</span><small>${esc(item.geocoded_location||"Address unavailable")}</small><small>Updated ${esc(formatTime(item.location_time||item.synced_at))}</small></div>`;
+  }
+
+  function selectLocation(index,openPopup=false){
+    if(!Number.isInteger(index)||!locations[index])return;
+    const select=by("eldLocationVehicle");
+    if(select)select.value=String(index);
+    renderSelected();
+    renderFleetCommandCenter(false);
+    if(openPopup)markerByIndex.get(index)?.openPopup();
+    by("eldLocationDetails")?.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }
+
+  function fitFleetMap(){
+    if(!fleetMap||!fleetMarkers)return;
+    const bounds=fleetMarkers.getBounds();
+    if(bounds.isValid())fleetMap.fitBounds(bounds,{padding:[36,36],maxZoom:10});
+  }
+
+  function renderFleetCommandCenter(fit=false){
+    const stats=by("fleetMapStats");
+    const list=by("fleetVehicleList");
+    const empty=by("fleetMapEmpty");
+    if(!stats||!list)return;
+    stats.innerHTML=fleetStatsHtml();
+    fillFleetCarrierFilter();
+    const rows=fleetRows();
+    const selected=Number(by("eldLocationVehicle")?.value||0);
+    list.innerHTML=rows.length?rows.map(row=>{
+      const {item,index,load,state}=row;
+      return `<button type="button" class="fleet-vehicle ${index===selected?"is-selected":""}" data-fleet-index="${index}"><span class="fleet-vehicle-icon fleet-vehicle-icon--${state}">🚚</span><span class="fleet-vehicle-copy"><strong>Truck ${esc(item.vehicle_id||"Unknown")}</strong><span>${esc(driverFor(item,load))}</span><small>${load?.load_number?`Load #${esc(load.load_number)} • `:""}${esc(item.geocoded_location||"Location unavailable")}</small></span><span class="fleet-status fleet-status--${state}">${esc(fleetStateLabel(state))}</span></button>`;
+    }).join(""):'<div class="fleet-list-empty">No trucks match these filters.</div>';
+
+    const map=initializeFleetMap();
+    if(!map){
+      if(empty){empty.textContent="Map could not load. Truck details remain available in the list.";empty.classList.remove("hidden")}
+      return;
+    }
+    fleetMarkers.clearLayers();
+    markerByIndex=new Map();
+    const mapped=rows.filter(row=>hasCoordinates(row.item));
+    mapped.forEach(row=>{
+      const icon=L.divIcon({className:"fleet-marker-wrap",html:markerHtml(row.item,row.state),iconSize:[72,34],iconAnchor:[36,17]});
+      const marker=L.marker([Number(row.item.latitude),Number(row.item.longitude)],{icon,title:`Truck ${row.item.vehicle_id||"Unknown"}`}).bindPopup(popupHtml(row),{maxWidth:300});
+      marker.on("click",()=>{
+        const select=by("eldLocationVehicle");
+        if(select)select.value=String(row.index);
+        renderSelected();
+        list.querySelectorAll(".fleet-vehicle").forEach(button=>button.classList.toggle("is-selected",Number(button.dataset.fleetIndex)===row.index));
+      });
+      marker.addTo(fleetMarkers);
+      markerByIndex.set(row.index,marker);
+    });
+    if(empty)empty.classList.toggle("hidden",mapped.length>0);
+    setTimeout(()=>{
+      fleetMap?.invalidateSize();
+      if(fit||mapped.length===1)fitFleetMap();
+    },0);
+  }
+
   function selectedLocation(){
     const index=Number(by("eldLocationVehicle")?.value||0);
     return locations[index]||locations[0]||null;
@@ -151,11 +319,13 @@
       status.textContent=lastError||"Press Refresh Location to retrieve the latest ELD position.";
       status.classList.toggle("bad",!!lastError);
       details.innerHTML="";
+      renderFleetCommandCenter(true);
       return;
     }
     select.innerHTML=locations.map((item,index)=>`<option value="${index}">${esc(optionLabel(item))}</option>`).join("");
     if([...select.options].some(option=>option.value===old))select.value=old;
     status.classList.remove("bad");
+    renderFleetCommandCenter(true);
     renderSelected();
   }
 
@@ -166,8 +336,8 @@
     if(!item||!status||!details)return;
     const load=matchLoad(item);
     const driver=driverFor(item,load);
-    const hasCoordinates=Number.isFinite(Number(item.latitude))&&Number.isFinite(Number(item.longitude));
-    const mapUrl=hasCoordinates?`https://www.google.com/maps?q=${encodeURIComponent(item.latitude)},${encodeURIComponent(item.longitude)}`:"";
+    const coordinatesAvailable=hasCoordinates(item);
+    const mapUrl=coordinatesAvailable?`https://www.google.com/maps?q=${encodeURIComponent(item.latitude)},${encodeURIComponent(item.longitude)}`:"";
     const loadTruck=String(load?.truck_number||"").trim();
     const truckMismatch=loadTruck&&unitKey(loadTruck)!==unitKey(item.vehicle_id);
     const route=load?[load.pickup,load.delivery].filter(Boolean).join(" → "):"No active load matched";
@@ -182,7 +352,7 @@
         ${truckMismatch?`<span class="pill" style="border-color:#f59e0b;color:#fbbf24">Load says Truck ${esc(loadTruck)}</span>`:""}
       </div>
       <div class="grid two">
-        <div class="metric-card"><p>Location</p><h3 style="font-size:18px">${esc(item.geocoded_location||"Address unavailable")}</h3><span class="muted">${hasCoordinates?`${esc(formatNumber(item.latitude,5))}, ${esc(formatNumber(item.longitude,5))}`:"Coordinates unavailable"}</span></div>
+        <div class="metric-card"><p>Location</p><h3 style="font-size:18px">${esc(item.geocoded_location||"Address unavailable")}</h3><span class="muted">${coordinatesAvailable?`${esc(formatNumber(item.latitude,5))}, ${esc(formatNumber(item.longitude,5))}`:"Coordinates unavailable"}</span></div>
         <div class="metric-card"><p>Active load</p><h3 style="font-size:18px">${load?`#${esc(load.load_number||"No number")}`:"None matched"}</h3><span class="muted">${esc(load?.status||"Check Load Board")}</span></div>
         <div class="metric-card"><p>Route</p><h3 style="font-size:18px">${esc(route)}</h3><span class="muted">${load?`${esc(load.pickup_date||"No pickup date")} → ${esc(load.delivery_date||"No delivery date")}`:"Match uses truck, driver and carrier"}</span></div>
         <div class="metric-card"><p>Speed / odometer</p><h3>${esc(formatNumber(item.speed,1))} / ${esc(formatNumber(item.odometer,1))}</h3><span class="muted">ELD reported values</span></div>
@@ -229,7 +399,7 @@
     const index=locations.findIndex(item=>unitKey(item.vehicle_id)===unitKey(vehicleId));
     if(index<0)return;
     const select=by("eldLocationVehicle");
-    if(select){select.value=String(index);renderSelected()}
+    if(select){select.value=String(index);renderSelected();renderFleetCommandCenter(false)}
   }
 
   function boot(){ensureUi();setTimeout(()=>loadLocations(false),1300)}
