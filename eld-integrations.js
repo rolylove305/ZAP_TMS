@@ -56,7 +56,7 @@
     const dashboard=by("dashboard");
     if(!dashboard||by("eldHosDashboardCard"))return;
     const card=document.createElement("div");
-    card.className="card";
+    card.className="card hos-dashboard-card";
     card.id="eldHosDashboardCard";
     card.innerHTML=`
       <div class="section-title">
@@ -68,7 +68,7 @@
       </div>
       <p class="muted" id="eldHosStatus">Connect and sync an ELD provider to display real driver clocks.</p>
       <div id="eldHosSummary"></div>
-      <div id="eldHosClocks" class="grid two"></div>`;
+      <div id="eldHosClocks" class="hos-clocks-layout"></div>`;
     const hero=dashboard.querySelector(".hero-card");
     if(hero)hero.after(card);else dashboard.prepend(card);
     by("eldHosDriver").onchange=renderSelectedHos;
@@ -126,10 +126,58 @@
     return `${hours}:${String(minutes).padStart(2,"0")}`;
   }
 
-  function clock(label,value,detail="Remaining"){
-    return `<div class="metric-card" style="text-align:center;min-height:112px;display:flex;flex-direction:column;justify-content:center">
-      <p>${esc(label)}</p><h3 style="font-size:28px;margin:6px 0">${esc(formatMinutes(value))}</h3><span class="muted">${esc(detail)}</span>
-    </div>`;
+  function numericMinutes(value){
+    if(value===null||value===undefined||value==="")return null;
+    const parsed=Number(value);
+    return Number.isFinite(parsed)?Math.max(0,parsed):null;
+  }
+
+  function cycleLimitMinutes(driver){
+    const ruleSet=Number(driver?.raw_data?.HOSRuleSetId);
+    const limits={0:60*60,1:70*60,2:80*60,3:60*60,4:70*60,5:70*60,6:120*60,7:70*60,9:60*60,10:70*60,11:70*60,12:80*60,13:60*60,14:70*60};
+    return limits[ruleSet]||70*60;
+  }
+
+  function gaugeTone(value,label,dutyStatus){
+    const minutes=numericMinutes(value);
+    if(minutes===null)return "unknown";
+    const duty=String(dutyStatus||"").toUpperCase().replace(/[\s_-]+/g,"");
+    const active=["D","DRIVING","ON","ONDUTY","YM","YARDMOVE"].includes(duty);
+    if(label==="Until Break"&&!active)return "normal";
+    if(minutes<=60)return "critical";
+    if(minutes<=120)return "warning";
+    return "normal";
+  }
+
+  function hosGauge(label,value,maxMinutes,dutyStatus){
+    const minutes=numericMinutes(value);
+    const ratio=minutes===null?0:Math.min(1,Math.max(0,minutes/maxMinutes));
+    const angle=Math.round(ratio*360);
+    const tone=gaugeTone(value,label,dutyStatus);
+    const display=formatMinutes(value);
+    return `<article class="hos-gauge hos-gauge--${tone}" aria-label="${esc(label)}: ${esc(display)} remaining">
+      <div class="hos-gauge-ring" style="--gauge-angle:${angle}deg">
+        <div class="hos-gauge-center"><strong>${esc(display)}</strong><span>remaining</span></div>
+      </div>
+      <h3>${esc(label)}</h3>
+    </article>`;
+  }
+
+  function hosAlert(driver){
+    const duty=String(driver?.duty_status||"").toUpperCase().replace(/[\s_-]+/g,"");
+    const active=["D","DRIVING","ON","ONDUTY","YM","YARDMOVE"].includes(duty);
+    const metrics=[
+      {label:"Drive",value:numericMinutes(driver?.drive_minutes)},
+      {label:"Shift",value:numericMinutes(driver?.shift_minutes)},
+      {label:"Cycle",value:numericMinutes(driver?.cycle_minutes)}
+    ];
+    if(active)metrics.push({label:"Break",value:numericMinutes(driver?.break_minutes)});
+    const available=metrics.filter(metric=>metric.value!==null).sort((a,b)=>a.value-b.value);
+    if(!available.length)return {tone:"neutral",text:"Waiting for complete HOS clocks from the ELD."};
+    const lowest=available[0];
+    if(lowest.value<=60)return {tone:"critical",text:`Critical: only ${formatMinutes(lowest.value)} of ${lowest.label} remaining.`};
+    if(lowest.value<=120)return {tone:"warning",text:`Attention: ${formatMinutes(lowest.value)} of ${lowest.label} remaining.`};
+    return {tone:"good",text:"HOS clocks are within the available range."};
   }
 
   function renderHosDashboard(){
@@ -171,19 +219,31 @@
 
     const duty=(driver.duty_status||"Unknown").replace(/_/g," ");
     status.textContent=`${duty}${driver.duty_status_duration?` • ${driver.duty_status_duration}`:""}${driver.last_hos_sync?` • Last HOS sync ${driver.last_hos_sync}`:""}`;
-    summary.innerHTML=`<div class="pill-row" style="margin:10px 0">
-      <span class="pill">Driver: ${esc(driver.driver_name||driver.external_id)}</span>
-      ${driver.vehicle_id?`<span class="pill">Truck: ${esc(driver.vehicle_id)}</span>`:""}
-      ${driver.trailer_id?`<span class="pill">Trailer: ${esc(driver.trailer_id)}</span>`:""}
-      ${driver.connection_name?`<span class="pill">${esc(driver.connection_name)}</span>`:""}
+    const alert=hosAlert(driver);
+    const dutyTone=["OFF","SB","SLEEPER","OFFDUTY"].includes(String(driver.duty_status||"").toUpperCase().replace(/[\s_-]+/g,""))?"good":"active";
+    summary.innerHTML=`<div class="hos-driver-summary">
+      <div class="hos-driver-title">
+        <div><span class="muted">Selected driver</span><strong>${esc(driver.driver_name||driver.external_id)}</strong></div>
+        <span class="hos-duty-badge hos-duty-badge--${dutyTone}">${esc(duty)}</span>
+      </div>
+      <div class="pill-row">
+        ${driver.vehicle_id?`<span class="pill">Truck: ${esc(driver.vehicle_id)}</span>`:""}
+        ${driver.trailer_id?`<span class="pill">Trailer: ${esc(driver.trailer_id)}</span>`:""}
+        ${driver.connection_name?`<span class="pill">${esc(driver.connection_name)}</span>`:""}
+      </div>
+      <div class="hos-alert hos-alert--${alert.tone}">${esc(alert.text)}</div>
     </div>`;
-    clocks.innerHTML=[
-      clock("Until Break",driver.break_minutes),
-      clock("Drive",driver.drive_minutes),
-      clock("Shift",driver.shift_minutes),
-      clock("Cycle",driver.cycle_minutes),
-      clock("Cycle Tomorrow",driver.cycle_tomorrow_minutes,"Available tomorrow")
-    ].join("");
+    clocks.innerHTML=`
+      <div class="hos-gauge-grid">
+        ${hosGauge("Until Break",driver.break_minutes,8*60,driver.duty_status)}
+        ${hosGauge("Drive",driver.drive_minutes,11*60,driver.duty_status)}
+        ${hosGauge("Shift",driver.shift_minutes,14*60,driver.duty_status)}
+        ${hosGauge("Cycle",driver.cycle_minutes,cycleLimitMinutes(driver),driver.duty_status)}
+      </div>
+      <div class="hos-tomorrow">
+        <div><span class="hos-tomorrow-icon">↻</span><span>Cycle Available Tomorrow</span></div>
+        <strong>${esc(formatMinutes(driver.cycle_tomorrow_minutes))}</strong>
+      </div>`;
   }
 
   function renderConnections(){
