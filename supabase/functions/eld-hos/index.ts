@@ -135,13 +135,27 @@ async function fetchApolloDriverRecords(apiKey: string) {
       "/HOSRecord/v2.0/GetDriverRecordsForClient",
       {
         HOSDriverId: -1,
-        FromDate: endDate - 48 * 60 * 60,
+        FromDate: endDate - 16 * 24 * 60 * 60,
         EndDate: endDate,
       },
     ));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Apollo driver records unavailable";
     console.warn("apollo-driver-records", { message });
+    return [];
+  }
+}
+
+async function fetchApolloDriverProfiles(apiKey: string) {
+  try {
+    return apolloRows(await apolloRequest(
+      apiKey,
+      "/HOSDriver/v2.0/GetHOSDriversForClient",
+      {},
+    ));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Apollo driver profiles unavailable";
+    console.warn("apollo-driver-profiles", { message });
     return [];
   }
 }
@@ -157,6 +171,172 @@ function latestApolloRecordByDriver(records: Record<string, unknown>[]) {
     if (!current || timestamp > currentTimestamp) latest.set(driverId, record);
   }
   return latest;
+}
+
+type ApolloCycleConfig = { days: number; limitMinutes: number };
+
+const APOLLO_CYCLE_CONFIG: Record<number, ApolloCycleConfig> = {
+  0: { days: 7, limitMinutes: 60 * 60 },
+  1: { days: 8, limitMinutes: 70 * 60 },
+  2: { days: 8, limitMinutes: 80 * 60 },
+  3: { days: 7, limitMinutes: 60 * 60 },
+  4: { days: 8, limitMinutes: 70 * 60 },
+  5: { days: 7, limitMinutes: 70 * 60 },
+  6: { days: 14, limitMinutes: 120 * 60 },
+  7: { days: 7, limitMinutes: 70 * 60 },
+  9: { days: 7, limitMinutes: 60 * 60 },
+  10: { days: 8, limitMinutes: 70 * 60 },
+  11: { days: 7, limitMinutes: 70 * 60 },
+  12: { days: 8, limitMinutes: 80 * 60 },
+  13: { days: 7, limitMinutes: 60 * 60 },
+  14: { days: 8, limitMinutes: 70 * 60 },
+};
+
+const APOLLO_TIME_ZONES: Record<number, string> = {
+  0: "America/New_York",
+  1: "America/Chicago",
+  2: "America/Denver",
+  3: "America/Los_Angeles",
+  4: "America/Anchorage",
+  5: "Pacific/Honolulu",
+  6: "America/Halifax",
+  7: "America/Phoenix",
+};
+
+function apolloClockPair(value: unknown) {
+  const [usedText = "", remainingText = ""] = String(value || "").split("/");
+  const parse = (clock: string) => {
+    const match = clock.trim().match(/^(\d+):(\d{1,2})$/);
+    if (!match) return null;
+    return Number(match[1]) * 60 + Number(match[2]);
+  };
+  return { used: parse(usedText), remaining: parse(remainingText) };
+}
+
+function apolloEpochSeconds(value: unknown) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed > 1_000_000_000_000 ? Math.floor(parsed / 1000) : Math.floor(parsed);
+}
+
+function apolloCycleConfig(item: Record<string, unknown>, profile?: Record<string, unknown>) {
+  const ruleSetId = Number(profile?.HOSRuleSetId ?? item.HOSRuleSetId);
+  const config = APOLLO_CYCLE_CONFIG[ruleSetId];
+  return config ? { ...config, ruleSetId } : null;
+}
+
+function apolloTimeZone(profile?: Record<string, unknown>) {
+  const code = Number(profile?.TimeZoneCode);
+  return APOLLO_TIME_ZONES[code] || "America/New_York";
+}
+
+function dateKey(epochSeconds: number, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(epochSeconds * 1000));
+  const part = (type: string) => parts.find((entry) => entry.type === type)?.value || "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function addDaysToDateKey(value: string, days: number) {
+  const [year, month, day] = value.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1, day + days));
+  return [
+    shifted.getUTCFullYear(),
+    String(shifted.getUTCMonth() + 1).padStart(2, "0"),
+    String(shifted.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function timeZoneOffsetMinutes(epochMs: number, timeZone: string) {
+  const zoneName = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    timeZoneName: "shortOffset",
+    hour: "2-digit",
+  }).formatToParts(new Date(epochMs))
+    .find((entry) => entry.type === "timeZoneName")?.value || "GMT";
+  if (zoneName === "GMT" || zoneName === "UTC") return 0;
+  const match = zoneName.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
+  if (!match) return 0;
+  const amount = Number(match[2]) * 60 + Number(match[3] || 0);
+  return match[1] === "-" ? -amount : amount;
+}
+
+function startOfDateKey(value: string, timeZone: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  const utcMidnight = Date.UTC(year, month - 1, day);
+  let result = utcMidnight;
+  for (let index = 0; index < 3; index += 1) {
+    result = utcMidnight - timeZoneOffsetMinutes(result, timeZone) * 60_000;
+  }
+  return Math.floor(result / 1000);
+}
+
+function isCycleDutyStatus(status: string) {
+  const normalized = status.toUpperCase().replace(/[\s_-]+/g, "");
+  return ["D", "DRIVING", "ON", "ONDUTY", "YM", "YARDMOVE"].includes(normalized);
+}
+
+function apolloCycleTomorrow(
+  item: Record<string, unknown>,
+  driverId: string,
+  records: Record<string, unknown>[],
+  profile?: Record<string, unknown>,
+) {
+  const config = apolloCycleConfig(item, profile);
+  const clock = apolloClockPair(item.OnDutyWeekString);
+  if (!config || clock.remaining === null) return null;
+
+  const timeZone = apolloTimeZone(profile);
+  const todayKey = dateKey(Math.floor(Date.now() / 1000), timeZone);
+  const fallingOffDate = addDaysToDateKey(todayKey, -(config.days - 1));
+  const start = startOfDateKey(fallingOffDate, timeZone);
+  const end = startOfDateKey(addDaysToDateKey(fallingOffDate, 1), timeZone);
+
+  const events = records
+    .filter((record) => text(record, "HOSDriverId") === driverId)
+    .filter((record) => {
+      const eventStatus = Number(record.EventStatus);
+      const eventType = Number(record.EventType);
+      return (!Number.isFinite(eventStatus) || eventStatus === 1) &&
+        (!Number.isFinite(eventType) || eventType === 1);
+    })
+    .map((record) => ({
+      timestamp: apolloEpochSeconds(record.Timestamp),
+      status: text(record, "NewDriverStatus"),
+    }))
+    .filter((event): event is { timestamp: number; status: string } =>
+      event.timestamp !== null && Boolean(event.status)
+    )
+    .sort((left, right) => left.timestamp - right.timestamp);
+
+  let currentStatus = "OFF";
+  let cursor = start;
+  let dutySeconds = 0;
+
+  for (const event of events) {
+    if (event.timestamp <= start) {
+      currentStatus = event.status;
+      continue;
+    }
+    if (event.timestamp >= end) break;
+    if (isCycleDutyStatus(currentStatus)) dutySeconds += event.timestamp - cursor;
+    currentStatus = event.status;
+    cursor = event.timestamp;
+  }
+  if (isCycleDutyStatus(currentStatus)) dutySeconds += end - cursor;
+
+  const fallingOffMinutes = Math.max(0, Math.round(dutySeconds / 60));
+  return {
+    minutes: Math.min(config.limitMinutes, clock.remaining + fallingOffMinutes),
+    fallingOffMinutes,
+    fallingOffDate,
+    ruleSetId: config.ruleSetId,
+    timeZone,
+  };
 }
 
 const selectFields =
@@ -202,9 +382,16 @@ Deno.serve(async (req) => {
       const profiles = provider === "apollo"
         ? await fetchApolloHos(apiKey)
         : await fetchOfficialHos(apiKey);
-      const latestApolloRecords = provider === "apollo"
-        ? latestApolloRecordByDriver(await fetchApolloDriverRecords(apiKey))
-        : new Map<string, Record<string, unknown>>();
+      const apolloDriverRecords = provider === "apollo"
+        ? await fetchApolloDriverRecords(apiKey)
+        : [];
+      const latestApolloRecords = latestApolloRecordByDriver(apolloDriverRecords);
+      const apolloDriverProfiles = provider === "apollo"
+        ? await fetchApolloDriverProfiles(apiKey)
+        : [];
+      const apolloDriverProfilesById = new Map(
+        apolloDriverProfiles.map((profile) => [text(profile, "HOSDriverId"), profile]),
+      );
       const now = new Date().toISOString();
       const normalized = profiles.map((item, index) => {
         const externalId = provider === "apollo"
@@ -213,6 +400,13 @@ Deno.serve(async (req) => {
         const priorRaw = existing.get(externalId);
         if (provider === "apollo") {
           const latestRecord = latestApolloRecords.get(externalId);
+          const driverProfile = apolloDriverProfilesById.get(externalId);
+          const cycleTomorrow = apolloCycleTomorrow(
+            item,
+            externalId,
+            apolloDriverRecords,
+            driverProfile,
+          );
           const activityAt = apolloEpochToIso(
             latestRecord?.Timestamp || item.LastUpdateTimestamp,
           );
@@ -230,7 +424,7 @@ Deno.serve(async (req) => {
             drive_minutes: apolloClockMinutes(item.DrivingString),
             shift_minutes: apolloClockMinutes(item.OnDutyString),
             cycle_minutes: apolloClockMinutes(item.OnDutyWeekString),
-            cycle_tomorrow_minutes: null,
+            cycle_tomorrow_minutes: cycleTomorrow?.minutes ?? null,
             last_hos_sync: activityAt || text(item, "LastUpdateTimestamp"),
             last_activity_at: activityAt,
             hos_synced_at: now,
@@ -240,6 +434,9 @@ Deno.serve(async (req) => {
               ...sanitizeApolloRecord(item),
               ...(latestRecord
                 ? { LatestDriverRecord: sanitizeApolloRecord(latestRecord) }
+                : {}),
+              ...(cycleTomorrow
+                ? { CycleTomorrowCalculation: cycleTomorrow }
                 : {}),
             },
           };
