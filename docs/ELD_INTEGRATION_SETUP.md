@@ -56,13 +56,13 @@ Zap Dispatch converts the minute values to `hours:minutes` for the Dashboard.
 
 Base URL: `https://content.eldroadmap.com:9103`
 
-Authentication field: `HOSClientApiKey` in the server-to-server JSON request body.
+Authentication field: `HOSClientApiKey` in the server-to-server HTTPS query.
 
 Supported endpoints:
 
-- Drivers: `POST /HOSDriver/v2.0/GetHOSDriversForClient`
-- Assets: `POST /HOSAsset/v2.0/GetHOSAssetsForClient`
-- HOS clocks: `POST /HOSDashboard/v2.0/GetHoursOfServiceByDriverForClient`
+- Drivers: `GET /HOSDriver/v2.0/GetHOSDriversForClient`
+- Assets: `GET /HOSAsset/v2.0/GetHOSAssetsForClient`
+- HOS clocks: `GET /HOSDashboard/v2.0/GetHoursOfServiceByDriverForClient`
 
 Apollo returns drive, on-duty shift, and weekly-cycle clocks as elapsed/remaining strings. Zap Dispatch stores and displays the remaining value. Apollo credentials use the same AES-256-GCM encrypted storage as Next Fleet credentials.
 
