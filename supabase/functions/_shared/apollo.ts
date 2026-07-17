@@ -1,7 +1,150 @@
-import { request as httpsRequest } from "node:https";
-
 const APOLLO_HOST = "content.eldroadmap.com";
 const APOLLO_PORT = 9103;
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+
+async function withTimeout<T>(promise: Promise<T>, milliseconds: number): Promise<T> {
+  let timer = 0;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Apollo request timed out")), milliseconds);
+  });
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function joinBytes(chunks: Uint8Array[]): Uint8Array {
+  const total = chunks.reduce((sum, chunk) => sum + chunk.byteLength, 0);
+  const joined = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    joined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return joined;
+}
+
+function findCrlf(bytes: Uint8Array, start = 0): number {
+  for (let index = start; index + 1 < bytes.byteLength; index += 1) {
+    if (bytes[index] === 13 && bytes[index + 1] === 10) return index;
+  }
+  return -1;
+}
+
+function findHeaderEnd(bytes: Uint8Array): number {
+  for (let index = 0; index + 3 < bytes.byteLength; index += 1) {
+    if (
+      bytes[index] === 13 &&
+      bytes[index + 1] === 10 &&
+      bytes[index + 2] === 13 &&
+      bytes[index + 3] === 10
+    ) return index;
+  }
+  return -1;
+}
+
+function decodeChunkedBody(body: Uint8Array): Uint8Array {
+  const chunks: Uint8Array[] = [];
+  let cursor = 0;
+  while (cursor < body.byteLength) {
+    const lineEnd = findCrlf(body, cursor);
+    if (lineEnd < 0) throw new Error("Invalid Apollo chunked response");
+    const sizeText = decoder.decode(body.subarray(cursor, lineEnd)).split(";", 1)[0].trim();
+    const size = Number.parseInt(sizeText, 16);
+    if (!Number.isFinite(size) || size < 0) throw new Error("Invalid Apollo chunk size");
+    cursor = lineEnd + 2;
+    if (size === 0) break;
+    if (cursor + size > body.byteLength) throw new Error("Incomplete Apollo response");
+    chunks.push(body.slice(cursor, cursor + size));
+    cursor += size;
+    if (body[cursor] !== 13 || body[cursor + 1] !== 10) {
+      throw new Error("Invalid Apollo chunk delimiter");
+    }
+    cursor += 2;
+  }
+  return joinBytes(chunks);
+}
+
+async function writeAll(connection: Deno.TlsConn, bytes: Uint8Array): Promise<void> {
+  let offset = 0;
+  while (offset < bytes.byteLength) {
+    const written = await withTimeout(connection.write(bytes.subarray(offset)), 15_000);
+    if (written <= 0) throw new Error("Apollo connection closed while sending");
+    offset += written;
+  }
+}
+
+async function apolloTransport(path: string, requestBody: string): Promise<{ status: number; raw: string }> {
+  let connection: Deno.TlsConn | null = null;
+  try {
+    connection = await withTimeout(
+      Deno.connectTls({ hostname: APOLLO_HOST, port: APOLLO_PORT }),
+      15_000,
+    );
+
+    const bodyBytes = encoder.encode(requestBody);
+    const requestHeaders = [
+      `GET ${path} HTTP/1.1`,
+      `Host: ${APOLLO_HOST}:${APOLLO_PORT}`,
+      "Accept: application/json",
+      "Content-Type: application/json; charset=utf-8",
+      `Content-Length: ${bodyBytes.byteLength}`,
+      "Cache-Control: no-store",
+      "Connection: close",
+      "",
+      "",
+    ].join("\r\n");
+
+    await writeAll(connection, encoder.encode(requestHeaders));
+    await writeAll(connection, bodyBytes);
+
+    const chunks: Uint8Array[] = [];
+    const buffer = new Uint8Array(16_384);
+    while (true) {
+      const count = await withTimeout(connection.read(buffer), 15_000);
+      if (count === null) break;
+      chunks.push(buffer.slice(0, count));
+    }
+
+    const responseBytes = joinBytes(chunks);
+    const headerEnd = findHeaderEnd(responseBytes);
+    if (headerEnd < 0) throw new Error("Invalid Apollo HTTP response");
+    const headerText = decoder.decode(responseBytes.subarray(0, headerEnd));
+    const headerLines = headerText.split("\r\n");
+    const statusMatch = headerLines[0]?.match(/^HTTP\/\d(?:\.\d)?\s+(\d{3})/);
+    if (!statusMatch) throw new Error("Invalid Apollo HTTP status");
+
+    const headers = new Map<string, string>();
+    for (const line of headerLines.slice(1)) {
+      const separator = line.indexOf(":");
+      if (separator > 0) {
+        headers.set(line.slice(0, separator).trim().toLowerCase(), line.slice(separator + 1).trim());
+      }
+    }
+
+    let responseBody = responseBytes.slice(headerEnd + 4);
+    if (headers.get("transfer-encoding")?.toLowerCase().includes("chunked")) {
+      responseBody = decodeChunkedBody(responseBody);
+    }
+    return { status: Number(statusMatch[1]), raw: decoder.decode(responseBody) };
+  } catch (error) {
+    if (error instanceof ApolloApiError) throw error;
+    const timedOut = error instanceof Error && error.message.includes("timed out");
+    throw new ApolloApiError(
+      timedOut ? 504 : 502,
+      timedOut ? "Apollo ELD API timed out" : "Could not reach Apollo ELD API",
+    );
+  } finally {
+    try {
+      connection?.close();
+    } catch {
+      // The connection may already be closed by the server.
+    }
+  }
+}
+
 
 export class ApolloApiError extends Error {
   constructor(public status: number, message: string) {
@@ -25,52 +168,7 @@ export async function apolloRequest(
   parameters: Record<string, unknown> = {},
 ): Promise<unknown> {
   const requestBody = JSON.stringify({ ...parameters, HOSClientApiKey: apiKey });
-  const { status, raw } = await new Promise<{ status: number; raw: string }>((resolve, reject) => {
-    const request = httpsRequest(
-      {
-        hostname: APOLLO_HOST,
-        port: APOLLO_PORT,
-        path,
-        method: "GET",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json; charset=utf-8",
-          "Content-Length": String(new TextEncoder().encode(requestBody).byteLength),
-          "Cache-Control": "no-store",
-          Connection: "close",
-        },
-      },
-      (response) => {
-        let responseBody = "";
-        response.setEncoding("utf8");
-        response.on("data", (chunk) => {
-          responseBody += String(chunk);
-        });
-        response.on("end", () => {
-          resolve({ status: response.statusCode ?? 502, raw: responseBody });
-        });
-        response.on("aborted", () => {
-          reject(new ApolloApiError(502, "Apollo ELD API response was interrupted"));
-        });
-      },
-    );
-
-    request.setTimeout(15_000, () => {
-      request.destroy(new Error("Apollo request timed out"));
-    });
-    request.on("error", (error) => {
-      reject(
-        new ApolloApiError(
-          error.message.includes("timed out") ? 504 : 502,
-          error.message.includes("timed out")
-            ? "Apollo ELD API timed out"
-            : "Could not reach Apollo ELD API",
-        ),
-      );
-    });
-    request.write(requestBody);
-    request.end();
-  });
+  const { status, raw } = await apolloTransport(path, requestBody);
   let payload: unknown = raw;
   try {
     payload = raw ? JSON.parse(raw) : null;
