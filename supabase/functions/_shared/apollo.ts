@@ -1,4 +1,7 @@
-const APOLLO_BASE_URL = "https://content.eldroadmap.com:9103";
+import { request as httpsRequest } from "node:https";
+
+const APOLLO_HOST = "content.eldroadmap.com";
+const APOLLO_PORT = 9103;
 
 export class ApolloApiError extends Error {
   constructor(public status: number, message: string) {
@@ -21,16 +24,53 @@ export async function apolloRequest(
   path: string,
   parameters: Record<string, unknown> = {},
 ): Promise<unknown> {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries({ ...parameters, HOSClientApiKey: apiKey })) {
-    if (value !== null && value !== undefined && value !== "") query.set(key, String(value));
-  }
-  const response = await fetch(`${APOLLO_BASE_URL}${path}?${query.toString()}`, {
-    method: "GET",
-    headers: { Accept: "application/json", "Cache-Control": "no-store" },
-  });
+  const requestBody = JSON.stringify({ ...parameters, HOSClientApiKey: apiKey });
+  const { status, raw } = await new Promise<{ status: number; raw: string }>((resolve, reject) => {
+    const request = httpsRequest(
+      {
+        hostname: APOLLO_HOST,
+        port: APOLLO_PORT,
+        path,
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Length": String(new TextEncoder().encode(requestBody).byteLength),
+          "Cache-Control": "no-store",
+          Connection: "close",
+        },
+      },
+      (response) => {
+        let responseBody = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => {
+          responseBody += String(chunk);
+        });
+        response.on("end", () => {
+          resolve({ status: response.statusCode ?? 502, raw: responseBody });
+        });
+        response.on("aborted", () => {
+          reject(new ApolloApiError(502, "Apollo ELD API response was interrupted"));
+        });
+      },
+    );
 
-  const raw = await response.text();
+    request.setTimeout(15_000, () => {
+      request.destroy(new Error("Apollo request timed out"));
+    });
+    request.on("error", (error) => {
+      reject(
+        new ApolloApiError(
+          error.message.includes("timed out") ? 504 : 502,
+          error.message.includes("timed out")
+            ? "Apollo ELD API timed out"
+            : "Could not reach Apollo ELD API",
+        ),
+      );
+    });
+    request.write(requestBody);
+    request.end();
+  });
   let payload: unknown = raw;
   try {
     payload = raw ? JSON.parse(raw) : null;
@@ -39,10 +79,10 @@ export async function apolloRequest(
   }
 
   const safeMessage = messageFrom(payload).replaceAll(apiKey, "[redacted]");
-  if (!response.ok) {
+  if (status < 200 || status >= 300) {
     throw new ApolloApiError(
-      response.status,
-      `Apollo ELD API error ${response.status}: ${safeMessage}`,
+      status,
+      `Apollo ELD API error ${status}: ${safeMessage}`,
     );
   }
 
