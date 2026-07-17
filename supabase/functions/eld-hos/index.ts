@@ -127,6 +127,38 @@ async function fetchApolloHos(apiKey: string) {
   }
 }
 
+async function fetchApolloDriverRecords(apiKey: string) {
+  const endDate = Math.floor(Date.now() / 1000);
+  try {
+    return apolloRows(await apolloRequest(
+      apiKey,
+      "/HOSRecord/v2.0/GetDriverRecordsForClient",
+      {
+        HOSDriverId: -1,
+        FromDate: endDate - 48 * 60 * 60,
+        EndDate: endDate,
+      },
+    ));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Apollo driver records unavailable";
+    console.warn("apollo-driver-records", { message });
+    return [];
+  }
+}
+
+function latestApolloRecordByDriver(records: Record<string, unknown>[]) {
+  const latest = new Map<string, Record<string, unknown>>();
+  for (const record of records) {
+    const driverId = text(record, "HOSDriverId");
+    if (!driverId) continue;
+    const current = latest.get(driverId);
+    const timestamp = Number(record.Timestamp || 0);
+    const currentTimestamp = Number(current?.Timestamp || 0);
+    if (!current || timestamp > currentTimestamp) latest.set(driverId, record);
+  }
+  return latest;
+}
+
 const selectFields =
   "external_id,driver_name,phone,vehicle_id,trailer_id,duty_status,duty_status_duration,break_minutes,drive_minutes,shift_minutes,cycle_minutes,cycle_tomorrow_minutes,last_hos_sync,last_activity_at,hos_synced_at,raw_data";
 
@@ -170,6 +202,9 @@ Deno.serve(async (req) => {
       const profiles = provider === "apollo"
         ? await fetchApolloHos(apiKey)
         : await fetchOfficialHos(apiKey);
+      const latestApolloRecords = provider === "apollo"
+        ? latestApolloRecordByDriver(await fetchApolloDriverRecords(apiKey))
+        : new Map<string, Record<string, unknown>>();
       const now = new Date().toISOString();
       const normalized = profiles.map((item, index) => {
         const externalId = provider === "apollo"
@@ -177,13 +212,19 @@ Deno.serve(async (req) => {
           : text(item, "id", "driverId") || `hos-driver-${index}`;
         const priorRaw = existing.get(externalId);
         if (provider === "apollo") {
-          const activityAt = apolloEpochToIso(item.LastUpdateTimestamp);
+          const latestRecord = latestApolloRecords.get(externalId);
+          const activityAt = apolloEpochToIso(
+            latestRecord?.Timestamp || item.LastUpdateTimestamp,
+          );
           return {
             user_id: user.id,
             connection_id: connectionId,
             external_id: externalId,
             driver_name: apolloDriverName(item),
-            vehicle_id: text(item, "AssetNumber", "VehicleNumber", "UnitNumber"),
+            vehicle_id: latestRecord
+              ? text(latestRecord, "TractorNumber", "TractorVin", "ELDId")
+              : text(item, "AssetNumber", "VehicleNumber", "UnitNumber"),
+            trailer_id: latestRecord ? text(latestRecord, "TrailerNumber") : null,
             duty_status: text(item, "CurrentDutyStatus"),
             break_minutes: apolloBreakMinutes(item.Next30BreakTimestamp),
             drive_minutes: apolloClockMinutes(item.DrivingString),
@@ -197,6 +238,9 @@ Deno.serve(async (req) => {
             raw_data: {
               ...(priorRaw && typeof priorRaw === "object" ? priorRaw : {}),
               ...sanitizeApolloRecord(item),
+              ...(latestRecord
+                ? { LatestDriverRecord: sanitizeApolloRecord(latestRecord) }
+                : {}),
             },
           };
         }
