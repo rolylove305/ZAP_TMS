@@ -301,16 +301,23 @@
       ["Miles","miles","number"],
       ["Equipment","equipment","text"],
       ["Rate $","rate","number"],
-      ["Dispatcher %","commissionPct","number"],
       ["Load #","loadNumber","text"],
       ["Pickup #","pickupNumber","text"],
       ["Delivery #","deliveryNumber","text"],
       ["Driver name","driverName","text"],
       ["Driver phone","driverPhone","text"],
       ["Truck #","truckNumber","text"],
-      ["Trailer #","trailerNumber","text"],
-      ["Notes","notes","text"]
+      ["Trailer #","trailerNumber","text"]
     ];
+    if(window.zapAccountType==="dispatcher")F.splice(12,0,["Dispatcher %","commissionPct","number"]);
+    if(window.zapAccountType==="carrier")F.push(
+      ["Fuel cost $","fuelCost","number"],
+      ["Driver / Owner Op pay $","driverCost","number"],
+      ["Tolls $","tollsCost","number"],
+      ["Maintenance reserve $","maintenanceCost","number"],
+      ["Other load costs $","otherCost","number"]
+    );
+    F.push(["Notes","notes","text"]);
     const ALL=[...LOAD_STATUSES,"Archived","Cancelled"];
     let modal=document.getElementById("zapEditModal");
     if(!modal){

@@ -6,7 +6,7 @@
   <title>Zap Dispatch TMS</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#061827">
-  <link rel="stylesheet" href="styles.css?v=map-controls-1" />
+  <link rel="stylesheet" href="styles.css?v=carrier-accounts-1" />
   <link rel="stylesheet" href="mobile-fix.css?v=5100" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynhtfRMU6MZehJczd3eVFf/Mml7o=" crossorigin="anonymous" />
 </head>
@@ -15,7 +15,7 @@
   <div class="auth-card">
     <p class="eyebrow">Zap Dispatch</p>
     <h1>Mini TMS Login</h1>
-    <p class="muted">Sign in to save carriers, loads, brokers, and expenses in Supabase cloud.</p>
+    <p class="muted">Sign in to manage dispatch, tracking, loads, fleet records, and costs securely.</p>
     <div class="auth-trial-banner">
       <strong>30-day free trial</strong>
       <span>Full access for 30 days. Then $29.99/month. Cancel anytime.</span>
@@ -28,9 +28,15 @@
     <div class="form-grid auth-form single">
       <label>Email<input id="authEmail" type="email" placeholder="you@email.com" autocomplete="email"></label>
       <label>Password<input id="authSecret" type="password" placeholder="Minimum 10 characters" autocomplete="current-password"></label>
+      <label id="authAccountTypeWrap" class="hidden">New account type
+        <select id="authAccountType">
+          <option value="dispatcher">Dispatcher — manage multiple carriers</option>
+          <option value="carrier">Carrier — manage my own fleet</option>
+        </select>
+      </label>
     </div>
     <button id="loginBtn" class="primary-btn">Log in</button>
-    <button id="signupBtn" class="primary-btn">Create account</button>
+    <button id="signupBtn" class="primary-btn hidden">Create account</button>
     <p class="muted small-copy">Create an account with a strong password and confirm your email to activate your 30-day free trial. No payment is required to start.</p>
   </div>
 </div>
@@ -40,8 +46,9 @@
     <div>
       <p class="eyebrow">Zap Dispatch</p>
       <h1>Mini TMS</h1>
-      <p class="muted">Carrier • Load • Broker • Revenue Tracker</p>
+      <p class="muted" id="appSubtitle">Carrier • Load • Broker • Revenue Tracker</p>
       <p class="muted" id="userEmail"></p>
+      <span class="pill" id="accountTypeBadge">Dispatcher</span>
     </div>
     <div class="top-actions">
       <button id="themeToggle" class="icon-btn">◐</button>
@@ -61,17 +68,18 @@
       </div>
 
       <div class="grid two">
-        <div class="metric-card"><p>Carriers</p><h3 id="carrierCount">0</h3></div>
-        <div class="metric-card"><p>Active trucks</p><h3 id="truckCount">0</h3></div>
+        <div class="metric-card"><p id="carrierCountLabel">Carriers</p><h3 id="carrierCount">0</h3></div>
+        <div class="metric-card"><p id="truckCountLabel">Active trucks</p><h3 id="truckCount">0</h3></div>
         <div class="metric-card"><p>Open loads</p><h3 id="openLoads">0</h3></div>
-        <div class="metric-card"><p>Dispatcher commission</p><h3 id="dashCommission">$0</h3></div>
+        <div class="metric-card"><p id="dashCommissionLabel">Dispatcher commission</p><h3 id="dashCommission">$0</h3></div>
       </div>
 
       <div class="card">
         <div class="section-title"><h2>Quick actions</h2></div>
         <div class="quick-actions">
           <button class="primary-btn jump" data-screen="loads">Add Load</button>
-          <button class="primary-btn jump" data-screen="carriers">Add Carrier</button>
+          <button class="primary-btn jump dispatcher-only" data-screen="carriers">Add Carrier</button>
+          <button class="primary-btn jump carrier-only" data-screen="fleet">Add Driver / Owner Op</button>
           <button class="primary-btn jump" data-screen="brokers">Add Broker</button>
           <button class="primary-btn jump" data-screen="invoices">Invoices</button>
         </div>
@@ -87,7 +95,7 @@
       <div class="section-title"><h2>Load Board</h2><button id="addLoad" class="small-btn">Save load</button></div>
       <div class="card">
         <div class="form-grid">
-          <label>Carrier<select id="loadCarrier"></select></label>
+          <label id="dispatcherCarrierField" class="dispatcher-only">Carrier<select id="loadCarrier"></select></label>
           <label>Broker<select id="loadBroker"></select></label>
           <label>Pickup city/state<input id="pickup" placeholder="Miami, FL"></label>
           <label>Delivery city/state<input id="delivery" placeholder="Atlanta, GA"></label>
@@ -100,7 +108,8 @@
           <label>Equipment<select id="equipment"><option>Reefer</option><option>Dry Van</option><option>Flatbed</option><option>Step Deck</option><option>Hotshot</option></select></label>
           <label>Status<select id="loadStatus"><option>Booked</option><option>Dispatched</option><option>Picked Up</option><option>Delivered</option><option>Invoiced</option><option>Paid</option><option>Cancelled</option></select></label>
           <label>Rate $<input id="rate" type="number" step="0.01"></label>
-          <label>Dispatcher %<input id="commissionPct" type="number" step="0.1" value="8"></label>
+          <label id="dispatcherCommissionField" class="dispatcher-only">Dispatcher %<input id="commissionPct" type="number" step="0.1" value="8"></label>
+          <label>Miles<input id="loadMiles" type="number" min="0" step="1" placeholder="Loaded miles"></label>
           <label>Saved driver<select id="driverPick"><option value="">— New driver / type below —</option></select></label>
           <label>Driver name<input id="driverName" placeholder="Driver on this load"></label>
           <label>Driver cell<input id="driverPhone" type="tel" placeholder="(555) 555-5555"></label>
@@ -108,6 +117,21 @@
           <label>Trailer #<input id="trailerNumber" placeholder="Trailer #"></label>
           <label>Load #<input id="loadNumber" placeholder="Broker load #"></label>
           <label>Notes<input id="loadNotes" placeholder="Temp, appt, lumper, etc."></label>
+        </div>
+        <div class="carrier-only load-cost-box">
+          <div class="section-title"><h3>Cost per mile calculator</h3><span class="pill green" id="newLoadProfit">Profit $0.00</span></div>
+          <div class="form-grid">
+            <label>Fuel $<input id="fuelCost" type="number" min="0" step="0.01" value="0"></label>
+            <label>Driver / Owner Op pay $<input id="driverCost" type="number" min="0" step="0.01" value="0"></label>
+            <label>Tolls $<input id="tollsCost" type="number" min="0" step="0.01" value="0"></label>
+            <label>Maintenance reserve $<input id="maintenanceCost" type="number" min="0" step="0.01" value="0"></label>
+            <label>Other load costs $<input id="otherCost" type="number" min="0" step="0.01" value="0"></label>
+          </div>
+          <div class="cost-preview">
+            <div><span>Total cost</span><strong id="newLoadTotalCost">$0.00</strong></div>
+            <div><span>Cost per mile</span><strong id="newLoadCpm">$0.00</strong></div>
+            <div><span>Revenue per mile</span><strong id="newLoadRpm">$0.00</strong></div>
+          </div>
         </div>
         <div style="margin-top:12px">
           <div class="section-title" style="margin-bottom:6px"><h3 style="margin:0;font-size:15px">Additional stops (optional)</h3><button type="button" class="small-btn" id="addStopBtn">+ Add stop</button></div>
@@ -134,6 +158,29 @@
       <div id="carriersList" class="list"></div>
     </section>
 
+    <section class="screen" id="fleet">
+      <div class="section-title"><h2>My Fleet</h2><button id="addFleetPerson" class="small-btn">Save</button></div>
+      <div class="card">
+        <p class="muted">Keep company drivers and owner operators separate. These records belong only to this carrier account.</p>
+        <div class="form-grid">
+          <label>Type<select id="fleetPersonType"><option value="company_driver">Company Driver</option><option value="owner_operator">Owner Operator</option></select></label>
+          <label>Name<input id="fleetPersonName" placeholder="Full name"></label>
+          <label>Cell<input id="fleetPersonPhone" type="tel" placeholder="(555) 555-5555"></label>
+          <label>Email<input id="fleetPersonEmail" type="email" placeholder="driver@email.com"></label>
+          <label>Truck #<input id="fleetTruckNumber" placeholder="Truck #"></label>
+          <label>Trailer #<input id="fleetTrailerNumber" placeholder="Trailer #"></label>
+          <label>Equipment<select id="fleetEquipment"><option>Reefer</option><option>Dry Van</option><option>Flatbed</option><option>Step Deck</option><option>Hotshot</option></select></label>
+          <label>Pay method<select id="fleetPayType"><option value="per_mile">Per mile</option><option value="percentage">Percentage of load</option><option value="flat">Flat per load</option><option value="salary">Salary / overhead</option></select></label>
+          <label>Pay rate<input id="fleetPayRate" type="number" min="0" step="0.01" placeholder="Example: 0.65 or 25"></label>
+          <label>Notes<input id="fleetPersonNotes" placeholder="Insurance, agreement, reminders..."></label>
+        </div>
+      </div>
+      <div class="fleet-groups">
+        <div><div class="section-title"><h2>Company Drivers</h2><span class="pill" id="companyDriverCount">0</span></div><div id="companyDriversList" class="list"></div></div>
+        <div><div class="section-title"><h2>Owner Operators</h2><span class="pill" id="ownerOperatorCount">0</span></div><div id="ownerOperatorsList" class="list"></div></div>
+      </div>
+    </section>
+
     <section class="screen" id="brokers">
       <div class="section-title"><h2>Brokers</h2><button id="addBroker" class="small-btn">Save broker</button></div>
       <div class="card">
@@ -151,6 +198,7 @@
 
     <section class="screen" id="expenses">
       <div class="section-title"><h2>My Business Costs</h2><button id="addExpense" class="small-btn">Save cost</button></div>
+      <div id="carrierCostSummary" class="card carrier-only"></div>
       <div class="card">
         <div class="form-grid">
           <label>Date<input id="expenseDate" type="date"></label>
@@ -193,7 +241,8 @@
   <nav class="bottom-nav">
     <button class="nav-btn active" data-screen="dashboard">🏠<span>Home</span></button>
     <button class="nav-btn" data-screen="loads">🚚<span>Loads</span></button>
-    <button class="nav-btn" data-screen="carriers">👥<span>Carriers</span></button>
+    <button class="nav-btn dispatcher-only" data-screen="carriers">👥<span>Carriers</span></button>
+    <button class="nav-btn carrier-only" data-screen="fleet">👥<span>Fleet</span></button>
     <button class="nav-btn" data-screen="brokers">🏢<span>Brokers</span></button>
     <button class="nav-btn" data-screen="expenses">⛽<span>Costs</span></button>
     <button class="nav-btn" data-screen="invoices">🧾<span>Pay</span></button>
@@ -203,8 +252,8 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
 <script src="config.js"></script>
 <script src="vendor/supabase-js-2.110.2.js"></script>
-<script src="app.js?v=map-controls-1"></script>
-<script src="pw-login.js?v=trial-copy-1"></script>
+<script src="app.js?v=carrier-accounts-1"></script>
+<script src="pw-login.js?v=carrier-accounts-1"></script>
 <script src="loadlink.js?v=driver-link-native-fix-1"></script>
 <script id="eldIntegrationsModule" src="eld-integrations.js?v=apollo-break-clock-1"></script>
 <script src="refresh.js?v=map-controls-1"></script>
@@ -212,9 +261,10 @@
 <script src="zap-upgrades.js?v=4400"></script>
 <script src="no-autofill.js?v=1"></script>
 <script src="card-edit.js?v=1"></script>
-<script src="admin-users.js?v=3"></script>
+<script src="admin-users.js?v=4"></script>
 <script src="paywall.js?v=1"></script>
 <script src="manage-subscription.js?v=1"></script>
-<script src="update-notice.js?v=1"></script>
+<script src="carrier-operations.js?v=1"></script>
+<script src="update-notice.js?v=2"></script>
 </body>
 </html>

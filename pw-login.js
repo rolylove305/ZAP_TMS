@@ -7,7 +7,7 @@
     if(!window.ZAP_TMS_CONFIG||!window.supabase)return;
     const client=window.supabase.createClient(window.ZAP_TMS_CONFIG.url,window.ZAP_TMS_CONFIG.token,{auth:{persistSession:true,autoRefreshToken:true}});
     const by=id=>document.getElementById(id);
-    const email=by('authEmail'), box=by('authMessage'), login=by('loginBtn'), signup=by('signupBtn');
+    const email=by('authEmail'), box=by('authMessage'), login=by('loginBtn'), signup=by('signupBtn'), showLogin=by('showLogin'), showSignup=by('showSignup'), accountTypeWrap=by('authAccountTypeWrap');
     if(!email||!login||!signup)return;
     let secret=by('authSecret');
     if(!secret){
@@ -23,6 +23,15 @@
     }
     const say=(m,bad=false)=>{if(box){box.textContent=m;box.classList.toggle('bad',bad)}};
     const strong=s=>s.length>=10 && /[A-Z]/.test(s) && /[a-z]/.test(s) && /[0-9]/.test(s);
+    const mode=create=>{
+      login.classList.toggle('hidden',create);
+      signup.classList.toggle('hidden',!create);
+      if(accountTypeWrap)accountTypeWrap.classList.toggle('hidden',!create);
+      if(showLogin)showLogin.classList.toggle('active-tab',!create);
+      if(showSignup)showSignup.classList.toggle('active-tab',create);
+      if(secret)secret.autocomplete=create?'new-password':'current-password';
+      say(create?'Choose Dispatcher or Carrier, then create your account.':'Sign in with your email and password.');
+    };
 
     login.textContent='Log in';
     signup.textContent='Create account';
@@ -37,7 +46,10 @@
       if(!create&&s.length<6){login.disabled=false;signup.disabled=false;say('Enter your full password.',true);return}
       say(create?'Creating your account...':'Logging in...');
       const payload={email:e};payload[secretKey]=s;
-      if(create)payload.options={emailRedirectTo:location.origin+location.pathname};
+      if(create){
+        const selected=by('authAccountType')?.value==='carrier'?'carrier':'dispatcher';
+        payload.options={emailRedirectTo:location.origin+location.pathname,data:{account_type:selected}};
+      }
       const res=create?await client.auth.signUp(payload):await client.auth[method](payload);
       login.disabled=false;signup.disabled=false;
       if(res.error){
@@ -64,6 +76,8 @@
 
     login.onclick=e=>{e.preventDefault();run(false)};
     signup.onclick=e=>{e.preventDefault();run(true)};
-    say('Sign in, or create a new account to start your 30-day free trial.');
+    if(showLogin)showLogin.onclick=e=>{e.preventDefault();mode(false)};
+    if(showSignup)showSignup.onclick=e=>{e.preventDefault();mode(true)};
+    mode(false);
   });
 })();

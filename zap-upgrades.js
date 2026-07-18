@@ -9,7 +9,7 @@ function run(){
   load('actionsKeeper','actions-keeper.js?v=6300');
   load('tmsDashboardStable','tms-dashboard-stable.js?v=5300');
   load('driverLocate','driver-locate.js?v=4');
-  load('driverPicker','driver-picker.js?v=1');
+  load('driverPicker','driver-picker.js?v=2');
 }
 setTimeout(run,300);
 setInterval(run,8000);

@@ -1,6 +1,7 @@
 # Local tooling / scratch — never commit
 .claude/
 node_modules/
+supabase/.temp/
 
 # Secrets — must never be committed
 *.pem

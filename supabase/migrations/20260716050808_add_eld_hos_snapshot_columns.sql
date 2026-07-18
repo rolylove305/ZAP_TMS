@@ -1,0 +1,13 @@
+ALTER TABLE public.eld_external_drivers ADD COLUMN IF NOT EXISTS vehicle_id text;
+ALTER TABLE public.eld_external_drivers ADD COLUMN IF NOT EXISTS trailer_id text;
+ALTER TABLE public.eld_external_drivers ADD COLUMN IF NOT EXISTS duty_status text;
+ALTER TABLE public.eld_external_drivers ADD COLUMN IF NOT EXISTS duty_status_duration text;
+ALTER TABLE public.eld_external_drivers ADD COLUMN IF NOT EXISTS break_minutes integer;
+ALTER TABLE public.eld_external_drivers ADD COLUMN IF NOT EXISTS drive_minutes integer;
+ALTER TABLE public.eld_external_drivers ADD COLUMN IF NOT EXISTS shift_minutes integer;
+ALTER TABLE public.eld_external_drivers ADD COLUMN IF NOT EXISTS cycle_minutes integer;
+ALTER TABLE public.eld_external_drivers ADD COLUMN IF NOT EXISTS cycle_tomorrow_minutes integer;
+ALTER TABLE public.eld_external_drivers ADD COLUMN IF NOT EXISTS last_hos_sync text;
+ALTER TABLE public.eld_external_drivers ADD COLUMN IF NOT EXISTS last_activity_at timestamptz;
+ALTER TABLE public.eld_external_drivers ADD COLUMN IF NOT EXISTS hos_synced_at timestamptz;
+CREATE INDEX IF NOT EXISTS eld_external_drivers_vehicle_idx ON public.eld_external_drivers(connection_id, vehicle_id);;
