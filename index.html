@@ -6,7 +6,7 @@
   <title>Zap Dispatch TMS</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#061827">
-  <link rel="stylesheet" href="styles.css?v=fleet-command-2" />
+  <link rel="stylesheet" href="styles.css?v=login-trial-1" />
   <link rel="stylesheet" href="mobile-fix.css?v=5100" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynhtfRMU6MZehJczd3eVFf/Mml7o=" crossorigin="anonymous" />
 </head>
@@ -16,6 +16,10 @@
     <p class="eyebrow">Zap Dispatch</p>
     <h1>Mini TMS Login</h1>
     <p class="muted">Sign in to save carriers, loads, brokers, and expenses in Supabase cloud.</p>
+    <div class="auth-trial-banner">
+      <strong>30-day free trial</strong>
+      <span>Full access for 30 days. Then $29.99/month. Cancel anytime.</span>
+    </div>
     <div class="auth-tabs">
       <button id="showLogin" class="small-btn active-tab">Login</button>
       <button id="showSignup" class="small-btn">Create user</button>
@@ -23,10 +27,11 @@
     <div id="authMessage" class="auth-message"></div>
     <div class="form-grid auth-form single">
       <label>Email<input id="authEmail" type="email" placeholder="you@email.com" autocomplete="email"></label>
+      <label>Password<input id="authSecret" type="password" placeholder="Minimum 10 characters" autocomplete="current-password"></label>
     </div>
-    <button id="loginBtn" class="primary-btn">Send login link</button>
-    <button id="signupBtn" class="primary-btn">Create user / send link</button>
-    <p class="muted small-copy">Open the email link on this same device. After that, the session stays logged in.</p>
+    <button id="loginBtn" class="primary-btn">Log in</button>
+    <button id="signupBtn" class="primary-btn">Create account</button>
+    <p class="muted small-copy">Create an account with a strong password and confirm your email to activate your 30-day free trial. No payment is required to start.</p>
   </div>
 </div>
 
@@ -197,12 +202,12 @@
 </div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
 <script src="config.js"></script>
-<script src="/vendor/supabase-js-2.110.2.js"></script>
-<script src="app.js?v=fleet-command-2"></script>
-<script src="pw-login.js?v=2"></script>
+<script src="vendor/supabase-js-2.110.2.js"></script>
+<script src="app.js?v=local-login-1"></script>
+<script src="pw-login.js?v=trial-copy-1"></script>
 <script src="loadlink.js?v=driver-link-native-fix-1"></script>
-<script id="eldIntegrationsModule" src="eld-integrations.js?v=hos-rings-1"></script>
-<script src="refresh.js?v=fleet-command-2"></script>
+<script id="eldIntegrationsModule" src="eld-integrations.js?v=apollo-break-clock-1"></script>
+<script src="refresh.js?v=hidden-drivers-1"></script>
 <script src="load-times.js"></script>
 <script src="zap-upgrades.js?v=4400"></script>
 <script src="no-autofill.js?v=1"></script>

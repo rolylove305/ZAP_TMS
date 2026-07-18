@@ -267,8 +267,9 @@ $("addLoad").onclick=()=>insertRow("loads",{carrier:$("loadCarrier").value,broke
 $("addExpense").onclick=()=>insertRow("expenses",{date:$("expenseDate").value,carrier:"",category:$("expenseCategory").value,amount:$("expenseAmount").value,notes:$("expenseNotes").value}).then(()=>clearInputs(["expenseAmount","expenseNotes"]));
 $("saveSettings").onclick=()=>{appData.settings={companyName:$("companyName").value,defaultCommission:$("defaultCommission").value,companyEmail:$("companyEmail").value,companyPhone:$("companyPhone").value};cache();alert("Settings saved on this device.");refresh()};
 $("exportData").onclick=()=>{$("backupBox").value=JSON.stringify(data(),null,2)};$("syncNow").onclick=loadCloud;$("logoutBtn").onclick=async()=>{await sb.auth.signOut();location.reload()};
-async function sendLink(){const email=$("authEmail").value.trim();if(!email)return msg("Enter your email first.",true);setBusy(true);msg("Sending login link...");const res=await sb.auth.signInWithOtp({email,options:{emailRedirectTo:location.origin+location.pathname}});setBusy(false);if(res.error)return msg(res.error.message,true);msg("Check your email and open the login link on this device.")}
-$("loginBtn").onclick=sendLink;$("signupBtn").onclick=sendLink;$("showLogin").onclick=()=>msg("");$("showSignup").onclick=()=>msg("Enter your email and press Create user to receive a login link.");
+function strongPassword(value){return value.length>=10&&/[A-Z]/.test(value)&&/[a-z]/.test(value)&&/[0-9]/.test(value)}
+async function passwordAuth(create=false){const email=$("authEmail").value.trim().toLowerCase(),password=$("authSecret")?.value||"";if(!email||!password)return msg("Enter your email and password.",true);if(create&&!strongPassword(password))return msg("Use at least 10 characters with one uppercase letter, one lowercase letter, and one number.",true);if(!create&&password.length<6)return msg("Enter your full password.",true);setBusy(true);msg(create?"Creating your 30-day free trial...":"Logging in...");const res=create?await sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}}):await sb.auth.signInWithPassword({email,password});setBusy(false);if(res.error){if(!create&&/confirm/i.test(res.error.message||""))return msg("Please confirm your email first, then log in.",true);if(create&&/(registered|already)/i.test(res.error.message||""))return msg("That email is already registered. Try logging in instead.",true);return msg(create?`Could not create the account: ${res.error.message}`:"Could not log in. Check your email and password.",true)}if(create&&!res.data?.session)return msg(`Account created! Check ${email} and open the confirmation link to activate your 30-day free trial, then come back and log in.`);msg(create?"Free trial activated. Opening TMS...":"Done. Opening TMS...");setTimeout(()=>location.replace(location.origin+location.pathname+"?ok="+Date.now()),500)}
+$("loginBtn").onclick=()=>passwordAuth(false);$("signupBtn").onclick=()=>passwordAuth(true);$("showLogin").onclick=()=>msg("Sign in with your email and password.");$("showSignup").onclick=()=>msg("Create an account to start your 30-day free trial. No payment is required to start.");
 async function migrateLocal(){const done=store.get("tmsMigratedToCloud",false);if(done||!currentUser)return;let moved=0;for(const t of tables){const old=store.get(t,[]).filter(x=>!x.id);for(const row of old){const {error}=await sb.from(t).insert(map[t].toDb(row));if(!error)moved++}}store.set("tmsMigratedToCloud",true);if(moved)alert(`Imported ${moved} old local records to cloud.`)}
 async function startApp(){const {data:{session}}=await sb.auth.getSession();currentUser=session?.user;if(!currentUser){$("authShell").classList.remove("hidden");$("appShell").classList.add("hidden");return}$("authShell").classList.add("hidden");$("appShell").classList.remove("hidden");$("userEmail").textContent=currentUser.email||"";await migrateLocal();await loadCloud()}
 if(store.get("light",false))document.body.classList.add("light");
@@ -277,11 +278,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="fleet-command-2";
+      const version="local-login-1";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=fleet-command-2").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=local-login-1").catch(()=>{});
 }

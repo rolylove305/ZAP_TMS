@@ -26,7 +26,7 @@
 
     login.textContent='Log in';
     signup.textContent='Create account';
-    document.querySelectorAll('.small-copy').forEach(p=>p.textContent='Create an account with your email and a strong password (min 10 characters, one uppercase, one lowercase, one number). You will receive a confirmation email — open it to activate your account, then log in.');
+    document.querySelectorAll('.small-copy').forEach(p=>p.textContent='Create an account with a strong password and confirm your email to activate your 30-day free trial. No payment is required to start. After 30 days, continue for $29.99/month.');
 
     async function run(create){
       const e=(email.value||'').trim().toLowerCase();

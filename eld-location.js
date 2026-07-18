@@ -13,6 +13,31 @@
   let fleetMap=null;
   let fleetMarkers=null;
   let markerByIndex=new Map();
+  let hiddenDriverNames=new Set();
+
+  function driverKey(value){
+    return String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+  }
+
+  async function loadHiddenDriverNames(){
+    hiddenDriverNames=new Set();
+    const {data,error}=await sb.from("driver_locates").select("driver_name,active");
+    if(error)return;
+    const states=new Map();
+    (data||[]).forEach(row=>{
+      const key=driverKey(row.driver_name);
+      if(!key)return;
+      const state=states.get(key)||{hasActive:false};
+      if(row.active)state.hasActive=true;
+      states.set(key,state);
+    });
+    states.forEach((state,key)=>{if(!state.hasActive)hiddenDriverNames.add(key)});
+  }
+
+  function removeHiddenDrivers(item){
+    const names=[item.driver_name,...(Array.isArray(item.driver_names)?item.driver_names:[])].filter(name=>name&&!hiddenDriverNames.has(driverKey(name)));
+    return {...item,driver_name:names[0]||null,driver_names:[...new Set(names)]};
+  }
 
   async function headers(){
     const {data,error}=await sb.auth.getSession();
@@ -152,7 +177,9 @@
   }
 
   function driverFor(item,load){
-    return load?.driver_name||item.driver_name||driverNames(item)[0]||"Driver not assigned";
+    const loadDriver=load?.driver_name;
+    if(loadDriver&&!hiddenDriverNames.has(driverKey(loadDriver)))return loadDriver;
+    return item.driver_name||driverNames(item)[0]||"Driver not assigned";
   }
 
   function optionLabel(item){
@@ -376,6 +403,7 @@
     locations=[];connectionErrors=[];lastError="";
     try{
       await loadActiveLoads().catch(error=>connectionErrors.push(`Loads: ${error.message}`));
+      await loadHiddenDriverNames();
       const connectionPayload=await request(gateway());
       connections=(connectionPayload.connections||[]).filter(connection=>["nextfleet","apollo"].includes(connection.provider));
       for(const connection of connections){
@@ -383,7 +411,7 @@
           const payload=sync
             ?await request(endpoint(),"POST",{connection_id:connection.id})
             :await request(`${endpoint()}?connection_id=${encodeURIComponent(connection.id)}`);
-          (payload.locations||[]).forEach(item=>locations.push({...item,connection_id:connection.id,connection_name:connection.display_name}));
+          (payload.locations||[]).map(removeHiddenDrivers).forEach(item=>locations.push({...item,connection_id:connection.id,connection_name:connection.display_name}));
         }catch(error){
           connectionErrors.push(`${connection.display_name}: ${error.message}`);
         }

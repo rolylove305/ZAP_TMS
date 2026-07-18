@@ -6,6 +6,26 @@
   let connections=[];
   let hosDrivers=[];
   let hosError="";
+  let hiddenDriverNames=new Set();
+
+  function driverKey(value){
+    return String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+  }
+
+  async function loadHiddenDriverNames(){
+    hiddenDriverNames=new Set();
+    const {data,error}=await sb.from("driver_locates").select("driver_name,active");
+    if(error)return;
+    const states=new Map();
+    (data||[]).forEach(row=>{
+      const key=driverKey(row.driver_name);
+      if(!key)return;
+      const state=states.get(key)||{hasActive:false};
+      if(row.active)state.hasActive=true;
+      states.set(key,state);
+    });
+    states.forEach((state,key)=>{if(!state.hasActive)hiddenDriverNames.add(key)});
+  }
 
   async function authHeaders(){
     const {data,error}=await sb.auth.getSession();
@@ -301,12 +321,13 @@
   async function loadHos(sync){
     hosDrivers=[];hosError="";
     if(!connections.length){renderHosDashboard();return}
+    await loadHiddenDriverNames();
     for(const connection of connections){
       try{
         const payload=sync
           ?await hosApi("POST",{connection_id:connection.id})
           :await hosApi("GET",null,`?connection_id=${encodeURIComponent(connection.id)}`);
-        (payload.drivers||[]).forEach(driver=>hosDrivers.push({...driver,connection_id:connection.id,connection_name:connection.display_name}));
+        (payload.drivers||[]).filter(driver=>!hiddenDriverNames.has(driverKey(driver.driver_name))).forEach(driver=>hosDrivers.push({...driver,connection_id:connection.id,connection_name:connection.display_name}));
       }catch(error){
         hosError=error.message;
       }

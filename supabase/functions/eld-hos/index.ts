@@ -280,6 +280,62 @@ function isCycleDutyStatus(status: string) {
   return ["D", "DRIVING", "ON", "ONDUTY", "YM", "YARDMOVE"].includes(normalized);
 }
 
+function isDrivingStatus(status: string) {
+  const normalized = status.toUpperCase().replace(/[\s_-]+/g, "");
+  return ["D", "DRIVING"].includes(normalized);
+}
+
+function usesUsThirtyMinuteBreak(
+  item: Record<string, unknown>,
+  profile?: Record<string, unknown>,
+) {
+  const ruleSetId = Number(profile?.HOSRuleSetId ?? item.HOSRuleSetId);
+  return [0, 1, 2, 3, 4, 7, 11, 12, 13, 14, 15, 16, 17, 18].includes(ruleSetId);
+}
+
+function apolloBreakFromRecords(
+  driverId: string,
+  records: Record<string, unknown>[],
+  item: Record<string, unknown>,
+  profile?: Record<string, unknown>,
+) {
+  if (!usesUsThirtyMinuteBreak(item, profile)) return null;
+  const events = records
+    .filter((record) => text(record, "HOSDriverId") === driverId)
+    .filter((record) => {
+      const eventStatus = Number(record.EventStatus);
+      const eventType = Number(record.EventType);
+      return (!Number.isFinite(eventStatus) || eventStatus === 1) &&
+        (!Number.isFinite(eventType) || eventType === 1);
+    })
+    .map((record) => ({
+      timestamp: apolloEpochSeconds(record.Timestamp),
+      status: text(record, "NewDriverStatus"),
+    }))
+    .filter((event): event is { timestamp: number; status: string } =>
+      event.timestamp !== null && Boolean(event.status)
+    )
+    .sort((left, right) => left.timestamp - right.timestamp);
+  if (!events.length) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  let drivingSeconds = 0;
+  let nonDrivingSeconds = 0;
+  for (let index = 0; index < events.length; index += 1) {
+    const event = events[index];
+    const end = Math.min(events[index + 1]?.timestamp ?? now, now);
+    const duration = Math.max(0, end - event.timestamp);
+    if (isDrivingStatus(event.status)) {
+      nonDrivingSeconds = 0;
+      drivingSeconds += duration;
+    } else {
+      nonDrivingSeconds += duration;
+      if (nonDrivingSeconds >= 30 * 60) drivingSeconds = 0;
+    }
+  }
+  return Math.max(0, 8 * 60 - Math.ceil(drivingSeconds / 60));
+}
+
 function apolloCycleTomorrow(
   item: Record<string, unknown>,
   driverId: string,
@@ -401,6 +457,10 @@ Deno.serve(async (req) => {
         if (provider === "apollo") {
           const latestRecord = latestApolloRecords.get(externalId);
           const driverProfile = apolloDriverProfilesById.get(externalId);
+          const breakFromApi = apolloBreakMinutes(item.Next30BreakTimestamp);
+          const breakFromRecords = breakFromApi === null
+            ? apolloBreakFromRecords(externalId, apolloDriverRecords, item, driverProfile)
+            : null;
           const cycleTomorrow = apolloCycleTomorrow(
             item,
             externalId,
@@ -420,7 +480,7 @@ Deno.serve(async (req) => {
               : text(item, "AssetNumber", "VehicleNumber", "UnitNumber"),
             trailer_id: latestRecord ? text(latestRecord, "TrailerNumber") : null,
             duty_status: text(item, "CurrentDutyStatus"),
-            break_minutes: apolloBreakMinutes(item.Next30BreakTimestamp),
+            break_minutes: breakFromApi ?? breakFromRecords,
             drive_minutes: apolloClockMinutes(item.DrivingString),
             shift_minutes: apolloClockMinutes(item.OnDutyString),
             cycle_minutes: apolloClockMinutes(item.OnDutyWeekString),
@@ -437,6 +497,9 @@ Deno.serve(async (req) => {
                 : {}),
               ...(cycleTomorrow
                 ? { CycleTomorrowCalculation: cycleTomorrow }
+                : {}),
+              ...(breakFromRecords !== null
+                ? { BreakCalculation: { minutes: breakFromRecords, source: "driver_records" } }
                 : {}),
             },
           };

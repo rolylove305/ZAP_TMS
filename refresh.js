@@ -5,7 +5,7 @@
 if(!document.getElementById("eldLocationModule")){
   const script=document.createElement("script");
   script.id="eldLocationModule";
-  script.src="eld-location.js?v=fleet-command-2";
+  script.src="eld-location.js?v=hidden-drivers-1";
   script.defer=true;
   document.body.appendChild(script);
 }
