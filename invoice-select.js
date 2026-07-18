@@ -131,11 +131,13 @@ async function invoiceSelected(){
  const carriers=[...new Set(items.map(x=>x.carrier||''))];
  if(carriers.length>1)return alert('Select loads from only one carrier.');
  const st=await settings();
+ const missingPct=items.find(x=>x.commission_pct===null||x.commission_pct===undefined||x.commission_pct===""||!Number.isFinite(Number(x.commission_pct))||Number(x.commission_pct)<0||Number(x.commission_pct)>100);
+ if(missingPct)return alert('Load # '+(missingPct.load_number||'-')+' does not have a valid locked dispatch percentage. Open the carrier record and save its agreed percentage first.');
  const num=await sb.rpc('get_next_invoice_number');
  if(num.error)return alert(num.error.message);
  const invoiceNumber=num.data;
  let total=0;
- items.forEach(x=>{const rate=Number(x.rate||0),pct=Number(x.commission_pct||st.default_commission_pct||0);x.__due=rate*pct/100;total+=x.__due});
+ items.forEach(x=>{const rate=Number(x.rate||0),pct=Number(x.commission_pct);x.__due=rate*pct/100;total+=x.__due});
  const carrier=carriers[0]||'Carrier';
  const inv=await sb.from('invoices').insert({user_id:u.id,invoice_number:invoiceNumber,carrier,total}).select('id').single();
  if(inv.error)return alert(inv.error.message);

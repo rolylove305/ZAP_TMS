@@ -22,7 +22,7 @@
       ["Email","email"],
       ["Equipment","equipment"],
       ["Trucks","trucks"],
-      ["Default commission %","commission"]
+      ["Agreed dispatch %","commission"]
     ]
   };
 
@@ -42,7 +42,8 @@
 
     modal.innerHTML='<div class="card" style="width:min(680px,96vw);max-height:88vh;overflow:auto"><div class="section-title"><h2>'+esc(title)+'</h2><button class="small-btn" id="zceClose">Close</button></div><div class="form-grid">'
       +fields.map(function(f){
-        return '<label>'+esc(f[0])+'<input id="zce_'+f[1]+'" type="text" value="'+esc(item[f[1]]!=null?item[f[1]]:"")+'"></label>';
+        const numeric=f[1]==="commission"||f[1]==="trucks";
+        return '<label>'+esc(f[0])+'<input id="zce_'+f[1]+'" type="'+(numeric?'number':'text')+'"'+(f[1]==="commission"?' min="0" max="100" step="0.1"':'')+' value="'+esc(item[f[1]]!=null?item[f[1]]:"")+'"></label>';
       }).join('')
       +'</div><div class="card-actions" style="margin-top:12px"><button class="small-btn" id="zceSave">Save changes</button></div></div>';
 
@@ -51,6 +52,13 @@
     const saveBtn=modal.querySelector("#zceSave");
     saveBtn.onclick=async function(){
       if(saveBtn.disabled)return;
+      if(type==="carriers"){
+        const pct=Number(modal.querySelector("#zce_commission").value);
+        if(!Number.isFinite(pct)||pct<0||pct>100){
+          alert("Enter the agreed dispatch percentage between 0 and 100.");
+          return;
+        }
+      }
       saveBtn.disabled=true;
       saveBtn.textContent="Saving…";
       const upd=Object.assign({},item);
