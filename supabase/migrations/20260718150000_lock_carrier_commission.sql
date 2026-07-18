@@ -112,7 +112,7 @@ begin
 
   if v_carrier.id is not null then
     if v_carrier.commission is null or v_carrier.commission < 0 or v_carrier.commission > 100 then
-      raise exception 'Carrier % must be between 0 and 100 before saving a load';
+      raise exception 'Carrier percentage must be between 0 and 100 before saving a load';
     end if;
     new.carrier_id := v_carrier.id;
     new.carrier := v_carrier.name;
