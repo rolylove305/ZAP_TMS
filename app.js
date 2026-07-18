@@ -5,31 +5,32 @@ const store={get(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch{re
 let currentUser=null;
 let accountType="dispatcher";
 let currentProfileRole="user";
+let currentOrganizationId=null;
 let appData={settings:store.get("settings",{companyName:"Zap Dispatch",defaultCommission:8,companyEmail:"",companyPhone:""}),carriers:[],brokers:[],loads:[],expenses:[],fleet_people:[]};
 const tables=["carriers","brokers","loads","expenses","fleet_people"];
 const map={
   carriers:{
-    toDb:x=>({name:x.name||"",mc_dot:x.mcDot||"",contact:x.contact||"",phone:x.phone||"",email:x.email||"",equipment:x.equipment||"",trucks:num(x.trucks,0),commission:num(x.commission,8),user_id:currentUser.id}),
-    fromDb:x=>({id:x.id,name:x.name,mcDot:x.mc_dot,contact:x.contact,phone:x.phone,email:x.email,equipment:x.equipment,trucks:x.trucks,commission:x.commission})
+    toDb:x=>({name:x.name||"",mc_dot:x.mcDot||"",contact:x.contact||"",phone:x.phone||"",email:x.email||"",equipment:x.equipment||"",trucks:num(x.trucks,0),commission:num(x.commission,8),user_id:currentUser.id,...tenantField()}),
+    fromDb:x=>({id:x.id,name:x.name,mcDot:x.mc_dot,contact:x.contact,phone:x.phone,email:x.email,equipment:x.equipment,trucks:x.trucks,commission:x.commission,organizationId:x.organization_id,linkedCarrierOrganizationId:x.linked_carrier_organization_id})
   },
   brokers:{
-    toDb:x=>({name:x.name||"",contact:x.contact||"",phone:x.phone||"",email:x.email||"",source:x.source||"",notes:x.notes||"",user_id:currentUser.id}),
-    fromDb:x=>({id:x.id,name:x.name,contact:x.contact,phone:x.phone,email:x.email,source:x.source,notes:x.notes})
+    toDb:x=>({name:x.name||"",contact:x.contact||"",phone:x.phone||"",email:x.email||"",source:x.source||"",notes:x.notes||"",user_id:currentUser.id,...tenantField()}),
+    fromDb:x=>({id:x.id,name:x.name,contact:x.contact,phone:x.phone,email:x.email,source:x.source,notes:x.notes,organizationId:x.organization_id})
   },
   loads:{
-    toDb:x=>({carrier:x.carrier||"",broker:x.broker||"",pickup:x.pickup||"",delivery:x.delivery||"",pickup_date:emptyDate(x.pickupDate),delivery_date:emptyDate(x.deliveryDate),equipment:x.equipment||"",status:x.status||"Booked",rate:num(x.rate,0),commission_pct:num(x.commissionPct,8),load_number:x.loadNumber||"",notes:x.notes||"",pickup_address:x.pickupAddress||"",delivery_address:x.deliveryAddress||"",miles:(x.miles===""||x.miles==null)?null:num(x.miles,0),pickup_time:x.pickupTime||null,delivery_time:x.deliveryTime||null,driver_name:x.driverName||"",driver_phone:x.driverPhone||"",truck_number:x.truckNumber||"",trailer_number:x.trailerNumber||"",additional_stops:x.additionalStops||"",pickup_number:x.pickupNumber||"",delivery_number:x.deliveryNumber||"",stops:Array.isArray(x.stops)?x.stops:[],fleet_person_id:x.fleetPersonId||null,fuel_cost:num(x.fuelCost,0),driver_cost:num(x.driverCost,0),tolls_cost:num(x.tollsCost,0),maintenance_cost:num(x.maintenanceCost,0),other_cost:num(x.otherCost,0),user_id:currentUser.id}),
-    fromDb:x=>({id:x.id,carrier:x.carrier,broker:x.broker,pickup:x.pickup,delivery:x.delivery,pickupDate:x.pickup_date,deliveryDate:x.delivery_date,equipment:x.equipment,status:x.status,rate:x.rate,commissionPct:x.commission_pct,loadNumber:x.load_number,notes:x.notes,pickupAddress:x.pickup_address,deliveryAddress:x.delivery_address,miles:x.miles,pickupTime:x.pickup_time,deliveryTime:x.delivery_time,driverName:x.driver_name,driverPhone:x.driver_phone,truckNumber:x.truck_number,trailerNumber:x.trailer_number,additionalStops:x.additional_stops,pickupNumber:x.pickup_number,deliveryNumber:x.delivery_number,stops:Array.isArray(x.stops)?x.stops:[],fleetPersonId:x.fleet_person_id,fuelCost:x.fuel_cost,driverCost:x.driver_cost,tollsCost:x.tolls_cost,maintenanceCost:x.maintenance_cost,otherCost:x.other_cost})
+    toDb:x=>({carrier:x.carrier||"",broker:x.broker||"",pickup:x.pickup||"",delivery:x.delivery||"",pickup_date:emptyDate(x.pickupDate),delivery_date:emptyDate(x.deliveryDate),equipment:x.equipment||"",status:x.status||"Booked",rate:num(x.rate,0),commission_pct:num(x.commissionPct,8),load_number:x.loadNumber||"",notes:x.notes||"",pickup_address:x.pickupAddress||"",delivery_address:x.deliveryAddress||"",miles:(x.miles===""||x.miles==null)?null:num(x.miles,0),pickup_time:x.pickupTime||null,delivery_time:x.deliveryTime||null,driver_name:x.driverName||"",driver_phone:x.driverPhone||"",truck_number:x.truckNumber||"",trailer_number:x.trailerNumber||"",additional_stops:x.additionalStops||"",pickup_number:x.pickupNumber||"",delivery_number:x.deliveryNumber||"",stops:Array.isArray(x.stops)?x.stops:[],fleet_person_id:x.fleetPersonId||null,fuel_cost:num(x.fuelCost,0),driver_cost:num(x.driverCost,0),tolls_cost:num(x.tollsCost,0),maintenance_cost:num(x.maintenanceCost,0),other_cost:num(x.otherCost,0),user_id:currentUser.id,...tenantField()}),
+    fromDb:x=>({id:x.id,carrier:x.carrier,broker:x.broker,pickup:x.pickup,delivery:x.delivery,pickupDate:x.pickup_date,deliveryDate:x.delivery_date,equipment:x.equipment,status:x.status,rate:x.rate,commissionPct:x.commission_pct,loadNumber:x.load_number,notes:x.notes,pickupAddress:x.pickup_address,deliveryAddress:x.delivery_address,miles:x.miles,pickupTime:x.pickup_time,deliveryTime:x.delivery_time,driverName:x.driver_name,driverPhone:x.driver_phone,truckNumber:x.truck_number,trailerNumber:x.trailer_number,additionalStops:x.additional_stops,pickupNumber:x.pickup_number,deliveryNumber:x.delivery_number,stops:Array.isArray(x.stops)?x.stops:[],fleetPersonId:x.fleet_person_id,fuelCost:x.fuel_cost,driverCost:x.driver_cost,tollsCost:x.tolls_cost,maintenanceCost:x.maintenance_cost,otherCost:x.other_cost,organizationId:x.organization_id,carrierOrganizationId:x.carrier_organization_id})
   },
   expenses:{
-    toDb:x=>({carrier:x.carrier||"",category:x.category||"Other",amount:num(x.amount,0),expense_date:emptyDate(x.date),notes:x.notes||"",user_id:currentUser.id}),
-    fromDb:x=>({id:x.id,carrier:x.carrier,category:x.category,amount:x.amount,date:x.expense_date,notes:x.notes})
+    toDb:x=>({carrier:x.carrier||"",category:x.category||"Other",amount:num(x.amount,0),expense_date:emptyDate(x.date),notes:x.notes||"",user_id:currentUser.id,...tenantField()}),
+    fromDb:x=>({id:x.id,carrier:x.carrier,category:x.category,amount:x.amount,date:x.expense_date,notes:x.notes,organizationId:x.organization_id})
   },
   fleet_people:{
-    toDb:x=>({person_type:x.personType||"company_driver",name:x.name||"",phone:x.phone||"",email:x.email||"",truck_number:x.truckNumber||"",trailer_number:x.trailerNumber||"",equipment:x.equipment||"",pay_type:x.payType||"per_mile",pay_rate:num(x.payRate,0),active:x.active!==false,notes:x.notes||"",user_id:currentUser.id}),
-    fromDb:x=>({id:x.id,personType:x.person_type,name:x.name,phone:x.phone,email:x.email,truckNumber:x.truck_number,trailerNumber:x.trailer_number,equipment:x.equipment,payType:x.pay_type,payRate:x.pay_rate,active:x.active,notes:x.notes})
+    toDb:x=>({person_type:x.personType||"company_driver",name:x.name||"",phone:x.phone||"",email:x.email||"",truck_number:x.truckNumber||"",trailer_number:x.trailerNumber||"",equipment:x.equipment||"",pay_type:x.payType||"per_mile",pay_rate:num(x.payRate,0),active:x.active!==false,notes:x.notes||"",user_id:currentUser.id,...tenantField()}),
+    fromDb:x=>({id:x.id,personType:x.person_type,name:x.name,phone:x.phone,email:x.email,truckNumber:x.truck_number,trailerNumber:x.trailer_number,equipment:x.equipment,payType:x.pay_type,payRate:x.pay_rate,active:x.active,notes:x.notes,organizationId:x.organization_id})
   }
 };
-function num(v,d=0){const n=Number(v);return Number.isFinite(n)?n:d}function emptyDate(v){return v||null}function money(n){return "$"+(Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2})}function loadCost(l){return num(l.fuelCost)+num(l.driverCost)+num(l.tollsCost)+num(l.maintenanceCost)+num(l.otherCost)}function msg(t,bad=false){const el=$("authMessage");if(el){el.textContent=t||"";el.classList.toggle("bad",!!bad)}}function setBusy(b){["loginBtn","signupBtn","addCarrier","addBroker","addLoad","addExpense","addFleetPerson","syncNow"].forEach(id=>{const el=$(id);if(el)el.disabled=b})}
+function tenantField(){return currentOrganizationId?{organization_id:currentOrganizationId}:{}}function num(v,d=0){const n=Number(v);return Number.isFinite(n)?n:d}function emptyDate(v){return v||null}function money(n){return "$"+(Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2})}function loadCost(l){return num(l.fuelCost)+num(l.driverCost)+num(l.tollsCost)+num(l.maintenanceCost)+num(l.otherCost)}function msg(t,bad=false){const el=$("authMessage");if(el){el.textContent=t||"";el.classList.toggle("bad",!!bad)}}function setBusy(b){["loginBtn","signupBtn","addCarrier","addBroker","addLoad","addExpense","addFleetPerson","syncNow"].forEach(id=>{const el=$(id);if(el)el.disabled=b})}
 function data(){return appData}function cache(){tables.forEach(t=>store.set(t,appData[t]));store.set("settings",appData.settings)}
 async function loadCloud(){if(!currentUser)return;setBusy(true);try{for(const t of tables){const {data,error}=await sb.from(t).select("*").order("created_at",{ascending:false});if(error)throw error;appData[t]=(data||[]).map(map[t].fromDb)}cache();refresh()}catch(e){alert("Cloud sync error: "+e.message)}finally{setBusy(false)}}
 async function insertRow(t,row){setBusy(true);try{const {data,error}=await sb.from(t).insert(map[t].toDb(row)).select().single();if(error)throw error;appData[t]=[map[t].fromDb(data),...appData[t]];cache();refresh()}catch(e){alert("Save error: "+e.message)}finally{setBusy(false)}}
@@ -328,14 +329,20 @@ async function startApp(){
     $("appShell").classList.add("hidden");
     return;
   }
-  const profile=await sb.from("profiles").select("account_type,role").eq("id",currentUser.id).maybeSingle();
+  const profile=await sb.from("profiles").select("account_type,role,default_organization_id").eq("id",currentUser.id).maybeSingle();
   const profileAccountType=profile.data?.account_type==="carrier"?"carrier":"dispatcher";
   currentProfileRole=profile.data?.role==="admin"?"admin":"user";
+  currentOrganizationId=profile.data?.default_organization_id||null;
+  if(!currentOrganizationId){
+    const org=await sb.rpc("current_organization_id");
+    if(!org.error)currentOrganizationId=org.data||null;
+  }
   const adminModeKey="zapAdminWorkMode:"+currentUser.id;
   const savedAdminMode=store.get(adminModeKey,profileAccountType);
   accountType=currentProfileRole==="admin"?(savedAdminMode==="carrier"?"carrier":"dispatcher"):profileAccountType;
   window.zapAccountType=accountType;
   window.zapIsAdmin=currentProfileRole==="admin";
+  window.zapOrganizationId=currentOrganizationId;
   document.body.dataset.accountType=accountType;
   const adminModeWrap=$("adminModeWrap"),adminModeSelect=$("adminModeSelect");
   if(currentProfileRole==="admin"&&adminModeWrap&&adminModeSelect){
@@ -359,11 +366,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="admin-dual-mode-1";
+      const version="tenant-security-1";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=admin-dual-mode-1").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=tenant-security-1").catch(()=>{});
 }
