@@ -343,11 +343,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="carrier-accounts-1";
+      const version="carrier-accounts-2";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=carrier-accounts-1").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=carrier-accounts-2").catch(()=>{});
 }
