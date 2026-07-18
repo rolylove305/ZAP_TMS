@@ -156,3 +156,30 @@ body.fleet-map-expanded{overflow:hidden!important}
   .fleet-vehicle-list{grid-template-columns:1fr;max-height:400px}
   .fleet-map-legend{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 }
+
+/* First-login guided product tour */
+.zap-tour-layer{position:fixed;inset:0;z-index:9995;pointer-events:none}
+.zap-tour-layer.hidden{display:none!important}
+.zap-tour-shade{position:absolute;inset:0;background:rgba(2,10,18,.78);pointer-events:auto}
+.zap-tour-popover{position:fixed;z-index:10004;width:min(380px,calc(100vw - 24px));padding:20px;border:2px solid #38bdf8;border-radius:20px;background:#fff;color:#0f172a;box-shadow:0 24px 70px rgba(0,0,0,.58);pointer-events:auto}
+.zap-tour-progress{float:right;padding:5px 9px;border-radius:999px;background:#e0f2fe;color:#075985;font-size:11px;font-weight:900}
+.zap-tour-kicker{margin:0 0 7px;color:#0284c7;font-size:11px;font-weight:950;letter-spacing:.12em}
+.zap-tour-popover h2{clear:both;margin:0 0 8px;color:#0f172a;font-size:22px;line-height:1.2}
+.zap-tour-popover>p:not(.zap-tour-kicker){margin:0;color:#334155;font-size:15px;line-height:1.5}
+.zap-tour-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:18px}
+.zap-tour-actions>div{display:flex;gap:8px}
+.zap-tour-actions button{min-height:42px;border-radius:12px;padding:9px 14px;font-weight:850;cursor:pointer}
+.zap-tour-skip,.zap-tour-back{border:1px solid #cbd5e1;background:#f8fafc;color:#334155}
+.zap-tour-next{border:0;background:linear-gradient(135deg,#0284c7,#16a34a);color:#fff;min-width:92px}
+.zap-tour-actions button:disabled{opacity:.42;cursor:default}
+.zap-tour-target{position:relative!important;z-index:10002!important;outline:4px solid #38bdf8!important;outline-offset:5px!important;box-shadow:0 0 0 10px rgba(56,189,248,.2),0 18px 50px rgba(0,0,0,.5)!important}
+.zap-tour-target.nav-btn,.zap-tour-target.small-btn,.zap-tour-target.primary-btn{background:#fff!important;color:#0f172a!important}
+body.zap-tour-active .bottom-nav{z-index:9997}
+@media(max-width:520px){
+  .zap-tour-popover{padding:17px}
+  .zap-tour-popover h2{font-size:19px}
+  .zap-tour-popover>p:not(.zap-tour-kicker){font-size:14px}
+  .zap-tour-actions{align-items:stretch;flex-direction:column}
+  .zap-tour-actions>div{display:grid;grid-template-columns:1fr 1fr}
+  .zap-tour-actions button{width:100%}
+}

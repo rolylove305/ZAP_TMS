@@ -366,11 +366,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="tenant-security-1";
+      const version="guided-tour-1";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=tenant-security-1").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=guided-tour-1").catch(()=>{});
 }

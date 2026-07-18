@@ -6,7 +6,7 @@
   <title>Zap Dispatch TMS</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#061827">
-  <link rel="stylesheet" href="styles.css?v=admin-dual-mode-1" />
+  <link rel="stylesheet" href="styles.css?v=guided-tour-1" />
   <link rel="stylesheet" href="mobile-fix.css?v=5100" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynhtfRMU6MZehJczd3eVFf/Mml7o=" crossorigin="anonymous" />
 </head>
@@ -228,6 +228,11 @@
 
     <section class="screen" id="settings">
       <div class="section-title"><h2>Settings</h2><button id="saveSettings" class="small-btn">Save</button></div>
+      <div class="card" id="guidedTourCard">
+        <h2>Guided Tour</h2>
+        <p class="muted">Learn how to set up your company, enter a load, assign a driver and keep every shipment moving.</p>
+        <button id="restartTour" class="primary-btn" type="button">Start Guided Tour</button>
+      </div>
       <div class="card"><div class="form-grid">
         <label>Company name<input id="companyName" value="Zap Dispatch"></label>
         <label>Default commission %<input id="defaultCommission" type="number" step="0.1" value="8"></label>
@@ -258,7 +263,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
 <script src="config.js"></script>
 <script src="vendor/supabase-js-2.110.2.js"></script>
-<script src="app.js?v=tenant-security-1"></script>
+<script src="app.js?v=guided-tour-1"></script>
 <script src="pw-login.js?v=carrier-accounts-1"></script>
 <script src="loadlink.js?v=driver-link-native-fix-1"></script>
 <script id="eldIntegrationsModule" src="eld-integrations.js?v=apollo-break-clock-1"></script>
@@ -272,5 +277,6 @@
 <script src="manage-subscription.js?v=1"></script>
 <script src="carrier-operations.js?v=admin-dual-mode-1"></script>
 <script src="update-notice.js?v=2"></script>
+<script src="onboarding-tour.js?v=guided-tour-1"></script>
 </body>
 </html>
