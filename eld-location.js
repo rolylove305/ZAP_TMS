@@ -80,9 +80,10 @@
         <label>Status<select id="fleetMapStatus"><option value="">All statuses</option><option value="active">On active load</option><option value="available">Available</option><option value="attention">Needs attention</option><option value="offline">Location offline</option></select></label>
         <label>Carrier / ELD<select id="fleetMapCarrier"><option value="">All carriers</option></select></label>
         <button type="button" class="small-btn fleet-fit-btn" id="fleetMapFit">Show all trucks</button>
+        <button type="button" class="small-btn fleet-expand-btn" id="fleetMapExpand" aria-pressed="false">Expand map</button>
       </div>
       <div class="fleet-command-grid">
-        <div class="fleet-map-shell"><div id="fleetMap" class="fleet-map" role="application" aria-label="Live fleet map"></div><div class="fleet-map-empty hidden" id="fleetMapEmpty">No trucks with coordinates match these filters.</div></div>
+        <div class="fleet-map-shell" id="fleetMapShell"><button type="button" class="small-btn fleet-map-collapse" id="fleetMapCollapse">Close map</button><div id="fleetMap" class="fleet-map" role="application" aria-label="Live fleet map"></div><div class="fleet-map-empty hidden" id="fleetMapEmpty">No trucks with coordinates match these filters.</div></div>
         <div class="fleet-vehicle-list" id="fleetVehicleList" aria-label="Fleet vehicle list"></div>
       </div>
       <div class="fleet-map-legend" aria-label="Map status legend">
@@ -107,6 +108,11 @@
     by("fleetMapStatus").onchange=()=>renderFleetCommandCenter(true);
     by("fleetMapCarrier").onchange=()=>renderFleetCommandCenter(true);
     by("fleetMapFit").onclick=fitFleetMap;
+    by("fleetMapExpand").onclick=()=>toggleFleetMapExpanded(true);
+    by("fleetMapCollapse").onclick=()=>toggleFleetMapExpanded(false);
+    document.addEventListener("keydown",event=>{
+      if(event.key==="Escape"&&by("fleetMapShell")?.classList.contains("is-expanded"))toggleFleetMapExpanded(false);
+    });
     by("fleetVehicleList").onclick=event=>{
       const button=event.target.closest("[data-fleet-index]");
       if(button)selectLocation(Number(button.dataset.fleetIndex),true);
@@ -253,7 +259,19 @@
   function initializeFleetMap(){
     const element=by("fleetMap");
     if(fleetMap||!element||!window.L)return fleetMap;
-    fleetMap=L.map(element,{zoomControl:true,preferCanvas:true}).setView([39.5,-98.35],4);
+    fleetMap=L.map(element,{
+      zoomControl:true,
+      preferCanvas:true,
+      scrollWheelZoom:true,
+      doubleClickZoom:true,
+      touchZoom:true,
+      dragging:true,
+      boxZoom:true,
+      keyboard:true,
+      zoomSnap:.5,
+      zoomDelta:.5,
+      wheelPxPerZoomLevel:90
+    }).setView([39.5,-98.35],4);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
       maxZoom:19,
       attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
@@ -269,8 +287,25 @@
 
   function popupHtml(row){
     const {item,load,state}=row;
-    const route=load?[load.pickup,load.delivery].filter(Boolean).join(" → "):"No active load";
-    return `<div class="fleet-popup"><strong>Truck ${esc(item.vehicle_id||"Unknown")}</strong><span>${esc(driverFor(item,load))}</span><span>${esc(fleetStateLabel(state))}</span>${load?.load_number?`<span>Load #${esc(load.load_number)}</span>`:""}<span>${esc(route)}</span><small>${esc(item.geocoded_location||"Address unavailable")}</small><small>Updated ${esc(formatTime(item.location_time||item.synced_at))}</small></div>`;
+    const route=load?[load.pickup,load.delivery].filter(Boolean).join(" → "):"No route assigned";
+    const loadLabel=load?.load_number?`#${load.load_number}`:"No active load";
+    return `<div class="fleet-popup"><strong>Truck ${esc(item.vehicle_id||"Unknown")}</strong><span><b>Driver:</b> ${esc(driverFor(item,load))}</span><span><b>Carrier:</b> ${esc(carrierFor(item,load))}</span><span><b>Status:</b> ${esc(fleetStateLabel(state))}</span><span><b>Load:</b> ${esc(loadLabel)}</span><span><b>Route:</b> ${esc(route)}</span><small>${esc(item.geocoded_location||"Address unavailable")}</small><small>Updated ${esc(formatTime(item.location_time||item.synced_at))}</small></div>`;
+  }
+
+  function toggleFleetMapExpanded(expanded){
+    const shell=by("fleetMapShell");
+    const button=by("fleetMapExpand");
+    if(!shell)return;
+    shell.classList.toggle("is-expanded",expanded);
+    document.body.classList.toggle("fleet-map-expanded",expanded);
+    if(button){
+      button.setAttribute("aria-pressed",String(expanded));
+      button.textContent=expanded?"Map expanded":"Expand map";
+    }
+    setTimeout(()=>{
+      fleetMap?.invalidateSize();
+      if(expanded)fitFleetMap();
+    },80);
   }
 
   function selectLocation(index,openPopup=false){
@@ -313,7 +348,7 @@
     const mapped=rows.filter(row=>hasCoordinates(row.item));
     mapped.forEach(row=>{
       const icon=L.divIcon({className:"fleet-marker-wrap",html:markerHtml(row.item,row.state),iconSize:[72,34],iconAnchor:[36,17]});
-      const marker=L.marker([Number(row.item.latitude),Number(row.item.longitude)],{icon,title:`Truck ${row.item.vehicle_id||"Unknown"}`}).bindPopup(popupHtml(row),{maxWidth:300});
+      const marker=L.marker([Number(row.item.latitude),Number(row.item.longitude)],{icon,title:`Truck ${row.item.vehicle_id||"Unknown"}`}).bindPopup(popupHtml(row),{maxWidth:340});
       marker.on("click",()=>{
         const select=by("eldLocationVehicle");
         if(select)select.value=String(row.index);

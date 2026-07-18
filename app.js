@@ -278,11 +278,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="local-login-1";
+      const version="map-controls-1";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=local-login-1").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=map-controls-1").catch(()=>{});
 }
