@@ -209,14 +209,14 @@ export default function Home() {
             <p>From dispatch board to driver HOS, fleet tracking to invoicing—everything in one place.</p>
           </div>
           <div className="screenshots-grid">
-            <img src="/Screenshot 2026-07-18 at 6.19.31 PM.png" alt="Dashboard" className="screenshot" />
-            <img src="/Screenshot 2026-07-18 at 6.19.43 PM.png" alt="Driver HOS" className="screenshot" />
-            <img src="/Screenshot 2026-07-18 at 6.19.52 PM.png" alt="Fleet Tracking" className="screenshot" />
-            <img src="/Screenshot 2026-07-18 at 6.20.03 PM.png" alt="Load Details" className="screenshot" />
-            <img src="/Screenshot 2026-07-18 at 6.20.10 PM.png" alt="Load Form" className="screenshot" />
-            <img src="/Screenshot 2026-07-18 at 6.20.19 PM.png" alt="Load Board" className="screenshot" />
-            <img src="/Screenshot 2026-07-18 at 6.20.25 PM.png" alt="Fleet Management" className="screenshot" />
-            <img src="/Screenshot 2026-07-18 at 6.20.39 PM.png" alt="More Views" className="screenshot" />
+            <img src="/Screenshot%202026-07-18%20at%206.19.31%20PM.png" alt="Dashboard" className="screenshot" />
+            <img src="/Screenshot%202026-07-18%20at%206.19.43%20PM.png" alt="Driver HOS" className="screenshot" />
+            <img src="/Screenshot%202026-07-18%20at%206.19.52%20PM.png" alt="Fleet Tracking" className="screenshot" />
+            <img src="/Screenshot%202026-07-18%20at%206.20.03%20PM.png" alt="Load Details" className="screenshot" />
+            <img src="/Screenshot%202026-07-18%20at%206.20.10%20PM.png" alt="Load Form" className="screenshot" />
+            <img src="/Screenshot%202026-07-18%20at%206.20.19%20PM.png" alt="Load Board" className="screenshot" />
+            <img src="/Screenshot%202026-07-18%20at%206.20.25%20PM.png" alt="Fleet Management" className="screenshot" />
+            <img src="/Screenshot%202026-07-18%20at%206.20.39%20PM.png" alt="More Views" className="screenshot" />
           </div>
         </div>
       </section>
