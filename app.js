@@ -4,6 +4,7 @@ const $=id=>document.getElementById(id);
 const store={get(k,f){try{return JSON.parse(localStorage.getItem(k))??f}catch{return f}},set(k,v){localStorage.setItem(k,JSON.stringify(v))}};
 let currentUser=null;
 let accountType="dispatcher";
+let currentProfileRole="user";
 let appData={settings:store.get("settings",{companyName:"Zap Dispatch",defaultCommission:8,companyEmail:"",companyPhone:""}),carriers:[],brokers:[],loads:[],expenses:[],fleet_people:[]};
 const tables=["carriers","brokers","loads","expenses","fleet_people"];
 const map={
@@ -327,10 +328,25 @@ async function startApp(){
     $("appShell").classList.add("hidden");
     return;
   }
-  const profile=await sb.from("profiles").select("account_type").eq("id",currentUser.id).maybeSingle();
-  accountType=profile.data?.account_type==="carrier"?"carrier":"dispatcher";
+  const profile=await sb.from("profiles").select("account_type,role").eq("id",currentUser.id).maybeSingle();
+  const profileAccountType=profile.data?.account_type==="carrier"?"carrier":"dispatcher";
+  currentProfileRole=profile.data?.role==="admin"?"admin":"user";
+  const adminModeKey="zapAdminWorkMode:"+currentUser.id;
+  const savedAdminMode=store.get(adminModeKey,profileAccountType);
+  accountType=currentProfileRole==="admin"?(savedAdminMode==="carrier"?"carrier":"dispatcher"):profileAccountType;
   window.zapAccountType=accountType;
+  window.zapIsAdmin=currentProfileRole==="admin";
   document.body.dataset.accountType=accountType;
+  const adminModeWrap=$("adminModeWrap"),adminModeSelect=$("adminModeSelect");
+  if(currentProfileRole==="admin"&&adminModeWrap&&adminModeSelect){
+    adminModeWrap.classList.remove("hidden");
+    adminModeSelect.value=accountType;
+    adminModeSelect.onchange=()=>{
+      const next=adminModeSelect.value==="carrier"?"carrier":"dispatcher";
+      store.set(adminModeKey,next);
+      location.reload();
+    };
+  }
   $("authShell").classList.add("hidden");
   $("appShell").classList.remove("hidden");
   $("userEmail").textContent=currentUser.email||"";
@@ -343,11 +359,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="carrier-accounts-2";
+      const version="admin-dual-mode-1";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=carrier-accounts-2").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=admin-dual-mode-1").catch(()=>{});
 }

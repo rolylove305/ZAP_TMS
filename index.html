@@ -6,7 +6,7 @@
   <title>Zap Dispatch TMS</title>
   <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#061827">
-  <link rel="stylesheet" href="styles.css?v=carrier-accounts-1" />
+  <link rel="stylesheet" href="styles.css?v=admin-dual-mode-1" />
   <link rel="stylesheet" href="mobile-fix.css?v=5100" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynhtfRMU6MZehJczd3eVFf/Mml7o=" crossorigin="anonymous" />
 </head>
@@ -51,6 +51,12 @@
       <span class="pill" id="accountTypeBadge">Dispatcher</span>
     </div>
     <div class="top-actions">
+      <label id="adminModeWrap" class="admin-mode-switch hidden">Admin view
+        <select id="adminModeSelect" aria-label="Admin view">
+          <option value="dispatcher">Dispatch</option>
+          <option value="carrier">Carrier</option>
+        </select>
+      </label>
       <button id="themeToggle" class="icon-btn">◐</button>
       <button id="logoutBtn" class="small-btn">Logout</button>
     </div>
@@ -252,7 +258,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="anonymous"></script>
 <script src="config.js"></script>
 <script src="vendor/supabase-js-2.110.2.js"></script>
-<script src="app.js?v=carrier-accounts-2"></script>
+<script src="app.js?v=admin-dual-mode-1"></script>
 <script src="pw-login.js?v=carrier-accounts-1"></script>
 <script src="loadlink.js?v=driver-link-native-fix-1"></script>
 <script id="eldIntegrationsModule" src="eld-integrations.js?v=apollo-break-clock-1"></script>
@@ -264,7 +270,7 @@
 <script src="admin-users.js?v=4"></script>
 <script src="paywall.js?v=1"></script>
 <script src="manage-subscription.js?v=1"></script>
-<script src="carrier-operations.js?v=1"></script>
+<script src="carrier-operations.js?v=admin-dual-mode-1"></script>
 <script src="update-notice.js?v=2"></script>
 </body>
 </html>

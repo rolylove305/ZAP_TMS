@@ -12,7 +12,7 @@
     if(!window.zapAccountType)return;
     document.body.dataset.accountType=window.zapAccountType;
     const carrier=isCarrier();
-    if(by('accountTypeBadge'))by('accountTypeBadge').textContent=carrier?'Carrier account':'Dispatcher account';
+    if(by('accountTypeBadge'))by('accountTypeBadge').textContent=window.zapIsAdmin?(carrier?'Admin • Carrier view':'Admin • Dispatch view'):(carrier?'Carrier account':'Dispatcher account');
     if(by('appSubtitle'))by('appSubtitle').textContent=carrier?'Loads • Fleet • Tracking • Costs • Profitability':'Carrier • Load • Broker • Revenue Tracker';
     if(by('carrierCountLabel'))by('carrierCountLabel').textContent=carrier?'Drivers / Owner Ops':'Carriers';
     if(by('truckCountLabel'))by('truckCountLabel').textContent=carrier?'Fleet trucks':'Active trucks';
