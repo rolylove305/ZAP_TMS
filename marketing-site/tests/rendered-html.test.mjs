@@ -42,6 +42,6 @@ test("publishes the commercial metadata and privacy promise", async () => {
 
   assert.match(html, /property="og:image" content="https:\/\/zapdispatch\.com\/og\.png"/i);
   assert.match(html, /Every subscription is an independent account\./i);
-  assert.match(html, /Other dispatchers and carriers cannot access your company records\./i);
+  assert.match(html, /No one else can access them\./i);
   assert.doesNotMatch(html, /codex-preview|Your site is taking shape/i);
 });
