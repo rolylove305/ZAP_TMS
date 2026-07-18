@@ -7,6 +7,7 @@
   let hosDrivers=[];
   let hosError="";
   let hiddenDriverNames=new Set();
+  window.eldHostData={getDrivers:()=>hosDrivers,getConnections:()=>connections};
 
   function driverKey(value){
     return String(value??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();

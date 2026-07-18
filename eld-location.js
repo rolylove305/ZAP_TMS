@@ -262,16 +262,19 @@
     fleetMap=L.map(element,{
       zoomControl:true,
       preferCanvas:true,
-      scrollWheelZoom:true,
+      scrollWheelZoom:false,
       doubleClickZoom:true,
       touchZoom:true,
       dragging:true,
-      boxZoom:true,
-      keyboard:true,
-      zoomSnap:.5,
-      zoomDelta:.5,
-      wheelPxPerZoomLevel:90
+      boxZoom:false,
+      keyboard:false,
+      zoomSnap:1,
+      zoomDelta:1,
+      wheelPxPerZoomLevel:120
     }).setView([39.5,-98.35],4);
+    fleetMap.dragging.disable();
+    fleetMap.on('click',()=>{if(!fleetMap._isHandlingDrag)fleetMap.dragging.enable()});
+    fleetMap.on('dragend',()=>setTimeout(()=>fleetMap.dragging.disable(),300));
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
       maxZoom:19,
       attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'

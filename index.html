@@ -9,6 +9,10 @@
   <link rel="stylesheet" href="styles.css?v=guided-tour-1" />
   <link rel="stylesheet" href="mobile-fix.css?v=5100" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynhtfRMU6MZehJczd3eVFf/Mml7o=" crossorigin="anonymous" />
+  <style>
+    @keyframes slideInRight{from{transform:translateX(400px);opacity:0}to{transform:translateX(0);opacity:1}}
+    @keyframes slideOutRight{from{transform:translateX(0);opacity:1}to{transform:translateX(400px);opacity:0}}
+  </style>
 </head>
 <body>
 <div class="auth-shell" id="authShell">
@@ -64,7 +68,7 @@
 
   <main>
     <section class="screen active" id="dashboard">
-      <div style="margin-bottom:20px"><h2 style="margin:0 0 12px;font-size:18px">Today command center</h2><div id="todayAlerts" class="grid two" style="margin-bottom:12px"></div><div id="todayMoney" class="grid two" style="margin-bottom:16px"></div><div id="todayLoads" style="margin-bottom:16px"></div></div>
+      <div style="margin-bottom:20px"><h2 style="margin:0 0 12px;font-size:18px">Today command center</h2><div id="todayAlerts" class="grid two" style="margin-bottom:12px"></div><div id="todayMoney" class="grid two" style="margin-bottom:16px"></div><div id="todayLoads" style="margin-bottom:16px"></div><div id="eldStatus" style="margin-bottom:16px"></div></div>
       <div class="hero-card">
         <div>
           <p class="eyebrow">Today’s board</p>
@@ -100,49 +104,79 @@
 
     <section class="screen" id="loads">
       <div class="section-title"><h2>Load Board</h2><button id="addLoad" class="small-btn">Save load</button></div>
+      <button id="restoreDraftBtn" class="small-btn" style="display:none;background:var(--blue);margin:0 0 12px 0;width:100%">✎ Draft</button>
       <div class="card">
-        <div class="form-grid">
-          <label id="dispatcherCarrierField" class="dispatcher-only">Carrier<select id="loadCarrier"></select></label>
-          <label>Broker<select id="loadBroker"></select></label>
-          <label>Pickup city/state<input id="pickup" placeholder="Miami, FL"></label>
-          <label>Delivery city/state<input id="delivery" placeholder="Atlanta, GA"></label>
-          <label>Pickup date<input id="pickupDate" type="date"></label>
-          <label>Delivery date<input id="deliveryDate" type="date"></label>
-          <label>Pickup time<input id="pickupTime" type="time"></label>
-          <label>Delivery time<input id="deliveryTime" type="time"></label>
-          <label>Pickup #<input id="pickupNumber" placeholder="PU / confirmation #"></label>
-          <label>Delivery #<input id="deliveryNumber" placeholder="Delivery / PO #"></label>
-          <label>Equipment<select id="equipment"><option>Reefer</option><option>Dry Van</option><option>Flatbed</option><option>Step Deck</option><option>Hotshot</option></select></label>
-          <label>Status<select id="loadStatus"><option>Booked</option><option>Dispatched</option><option>Picked Up</option><option>Delivered</option><option>Invoiced</option><option>Paid</option><option>Cancelled</option></select></label>
-          <label>Rate $<input id="rate" type="number" step="0.01"></label>
-          <label id="dispatcherCommissionField" class="dispatcher-only">Agreed dispatch % — locked<input id="commissionPct" type="number" step="0.1" readonly placeholder="Select carrier first"><small class="muted">This percentage comes from the carrier record.</small></label>
-          <label>Miles<input id="loadMiles" type="number" min="0" step="1" placeholder="Loaded miles"></label>
-          <label>Saved driver<select id="driverPick"><option value="">— New driver / type below —</option></select></label>
-          <label>Driver name<input id="driverName" placeholder="Driver on this load"></label>
-          <label>Driver cell<input id="driverPhone" type="tel" placeholder="(555) 555-5555"></label>
-          <label>Truck #<input id="truckNumber" placeholder="Truck #"></label>
-          <label>Trailer #<input id="trailerNumber" placeholder="Trailer #"></label>
-          <label>Load #<input id="loadNumber" placeholder="Broker load #"></label>
-          <label>Notes<input id="loadNotes" placeholder="Temp, appt, lumper, etc."></label>
+        <div style="margin-bottom:8px">
+          <button type="button" id="rateconUploadBtn" class="small-btn" style="background:var(--green);width:100%;margin-bottom:8px">📎 Upload Rate Confirmation (PDF)</button>
+          <input type="file" id="rateconFile" accept=".pdf" style="display:none">
         </div>
-        <div class="carrier-only load-cost-box">
-          <div class="section-title"><h3>Cost per mile calculator</h3><span class="pill green" id="newLoadProfit">Profit $0.00</span></div>
-          <div class="form-grid">
-            <label>Fuel $<input id="fuelCost" type="number" min="0" step="0.01" value="0"></label>
-            <label>Driver / Owner Op pay $<input id="driverCost" type="number" min="0" step="0.01" value="0"></label>
-            <label>Tolls $<input id="tollsCost" type="number" min="0" step="0.01" value="0"></label>
-            <label>Maintenance reserve $<input id="maintenanceCost" type="number" min="0" step="0.01" value="0"></label>
-            <label>Other load costs $<input id="otherCost" type="number" min="0" step="0.01" value="0"></label>
-          </div>
-          <div class="cost-preview">
-            <div><span>Total cost</span><strong id="newLoadTotalCost">$0.00</strong></div>
-            <div><span>Cost per mile</span><strong id="newLoadCpm">$0.00</strong></div>
-            <div><span>Revenue per mile</span><strong id="newLoadRpm">$0.00</strong></div>
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
+          <div style="padding:12px;border-bottom:1px solid var(--border);background:var(--bg-secondary);font-weight:500;cursor:pointer;user-select:none" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none';this.classList.toggle('expanded')">✓ Essentials</div>
+          <div style="padding:12px;display:block">
+            <div class="form-grid">
+              <label id="dispatcherCarrierField" class="dispatcher-only">Carrier<select id="loadCarrier"></select></label>
+              <label>Broker<select id="loadBroker"></select></label>
+              <label>Pickup<input id="pickup" placeholder="Miami, FL"></label>
+              <label>Delivery<input id="delivery" placeholder="Atlanta, GA"></label>
+              <label>Pickup date<input id="pickupDate" type="date"></label>
+              <label>Delivery date<input id="deliveryDate" type="date"></label>
+              <label>Rate $<input id="rate" type="number" step="0.01"></label>
+              <label id="dispatcherCommissionField" class="dispatcher-only">Dispatch %<input id="commissionPct" type="number" step="0.1" readonly placeholder="Auto"><small class="muted">Locked from carrier</small></label>
+            </div>
           </div>
         </div>
-        <div style="margin-top:12px">
-          <div class="section-title" style="margin-bottom:6px"><h3 style="margin:0;font-size:15px">Additional stops (optional)</h3><button type="button" class="small-btn" id="addStopBtn">+ Add stop</button></div>
-          <div id="newLoadStops"></div>
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">
+          <div style="padding:12px;border-bottom:1px solid var(--border);background:var(--bg-secondary);font-weight:500;cursor:pointer;user-select:none" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">⋮ Details</div>
+          <div style="padding:12px;display:none">
+            <div class="form-grid">
+              <label>Pickup time<input id="pickupTime" type="time"></label>
+              <label>Delivery time<input id="deliveryTime" type="time"></label>
+              <label>Pickup #<input id="pickupNumber" placeholder="PU confirmation #"></label>
+              <label>Delivery #<input id="deliveryNumber" placeholder="PO #"></label>
+              <label>Equipment<select id="equipment"><option>Reefer</option><option>Dry Van</option><option>Flatbed</option><option>Step Deck</option><option>Hotshot</option></select></label>
+              <label>Status<select id="loadStatus"><option>Booked</option><option>Dispatched</option><option>Picked Up</option><option>Delivered</option><option>Invoiced</option><option>Paid</option><option>Cancelled</option></select></label>
+              <label>Miles<input id="loadMiles" type="number" min="0" step="1" placeholder="Loaded miles"></label>
+              <label>Load #<input id="loadNumber" placeholder="Broker load #"></label>
+              <label style="grid-column:1/-1">Notes<input id="loadNotes" placeholder="Temp, appt, lumper, etc."></label>
+            </div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">
+          <div style="padding:12px;border-bottom:1px solid var(--border);background:var(--bg-secondary);font-weight:500;cursor:pointer;user-select:none" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">👤 Driver & Truck</div>
+          <div style="padding:12px;display:none">
+            <div class="form-grid">
+              <label style="grid-column:1/-1">Saved driver<select id="driverPick"><option value="">— New driver / type below —</option></select></label>
+              <label>Driver name<input id="driverName" placeholder="Full name"></label>
+              <label>Driver cell<input id="driverPhone" type="tel" placeholder="(555) 555-5555"></label>
+              <label>Truck #<input id="truckNumber" placeholder="Truck #"></label>
+              <label>Trailer #<input id="trailerNumber" placeholder="Trailer #"></label>
+            </div>
+          </div>
+        </div>
+        <div class="carrier-only" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">
+          <div style="padding:12px;border-bottom:1px solid var(--border);background:var(--bg-secondary);font-weight:500;cursor:pointer;user-select:none" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">💰 Costs</div>
+          <div style="padding:12px;display:none">
+            <div class="form-grid">
+              <label>Fuel $<input id="fuelCost" type="number" min="0" step="0.01" value="0"></label>
+              <label>Driver / Op pay $<input id="driverCost" type="number" min="0" step="0.01" value="0"></label>
+              <label>Tolls $<input id="tollsCost" type="number" min="0" step="0.01" value="0"></label>
+              <label>Maintenance $<input id="maintenanceCost" type="number" min="0" step="0.01" value="0"></label>
+              <label>Other $<input id="otherCost" type="number" min="0" step="0.01" value="0"></label>
+            </div>
+            <div class="cost-preview">
+              <div><span>Total cost</span><strong id="newLoadTotalCost">$0.00</strong></div>
+              <div><span>Cost per mile</span><strong id="newLoadCpm">$0.00</strong></div>
+              <div><span>Revenue per mile</span><strong id="newLoadRpm">$0.00</strong></div>
+              <div><span>Profit</span><strong id="newLoadProfit" style="color:var(--green)">$0.00</strong></div>
+            </div>
+          </div>
+        </div>
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;margin-top:8px">
+          <div style="padding:12px;border-bottom:1px solid var(--border);background:var(--bg-secondary);font-weight:500;cursor:pointer;user-select:none" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">+ Stops (optional)</div>
+          <div style="padding:12px;display:none">
+            <div style="margin-bottom:8px"><button type="button" class="small-btn" id="addStopBtn">+ Add stop</button></div>
+            <div id="newLoadStops"></div>
+          </div>
         </div>
       </div>
       <div id="loadsList" class="list"></div>
