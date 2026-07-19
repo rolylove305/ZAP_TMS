@@ -6,6 +6,6 @@ setTimeout(()=>{
  load('storageUploadHelper','storage-upload.js?v=5700');
  load('storageManageHelper','storage-manage.js?v=5500');
  load('cardStabilizerHelper','card-stabilizer.js?v=5600');
- load('invoiceSelectHelper','invoice-select.js?v=4300');
+ load('invoiceSelectHelper','invoice-select.js?v=zap-logo-1');
 },700);
 })();

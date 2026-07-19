@@ -36,7 +36,7 @@ function render(ctx){
     '<tr><td>'+esc(r.loadNumber)+'</td><td>'+esc(r.lane)+'</td><td>'+esc(r.date)+'</td><td>'+money(r.rate)+'</td><td>'+esc(r.pctLabel)+'</td><td>'+money(r.due)+'</td></tr>'
   ).join('');
   const grossTotal=ctx.rows.reduce((sum,r)=>sum+Number(r.rate||0),0);
-  const logo=ctx.st.logo_url?'<img src="'+esc(ctx.st.logo_url)+'" style="max-height:65px;max-width:180px;margin-bottom:10px">':'';
+  const logo='<img src="'+esc(ctx.st.logo_url||'https://app.zapdispatch.com/zap-logo-light.png')+'" onerror="this.onerror=null;this.src=\'https://app.zapdispatch.com/zap-logo-light.png\'" style="max-height:65px;max-width:180px;margin-bottom:10px">';
   const contact=[ctx.st.email,ctx.st.phone].filter(Boolean).map(esc).join('<br>');
   const pay=ctx.st.zelle_info?esc(ctx.st.zelle_info):'Zelle payment details not set.';
   document.title='Invoice '+(ctx.invoice.invoice_number||'')+' - '+(ctx.invoice.carrier||'');

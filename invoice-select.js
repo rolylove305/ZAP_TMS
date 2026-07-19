@@ -41,7 +41,7 @@ function showPrintableOverlay(ctx){
   let o=document.getElementById('zpInvoiceOverlay');
   if(!o){o=document.createElement('div');o.id='zpInvoiceOverlay';o.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:10000;display:flex;align-items:flex-start;justify-content:center;padding:18px;overflow:auto';document.body.appendChild(o)}
   const hasRows=!!(ctx.rows&&ctx.rows.length);
-  const logo=ctx.st.logo_url?'<img src="'+esc(ctx.st.logo_url)+'" style="max-height:65px;max-width:180px;margin-bottom:10px">':'';
+  const logo='<img src="'+esc(ctx.st.logo_url||'https://app.zapdispatch.com/zap-logo-light.png')+'" onerror="this.onerror=null;this.src=\'https://app.zapdispatch.com/zap-logo-light.png\'" style="max-height:65px;max-width:180px;margin-bottom:10px">';
   const contact=[ctx.st.email,ctx.st.phone].filter(Boolean).map(esc).join('<br>');
   const pay=ctx.st.zelle_info?esc(ctx.st.zelle_info):'Zelle payment details not set.';
   const warningHtml=ctx.warning?'<p style="color:#92400e;background:#fffbeb;border:1px solid #fde68a;padding:10px;border-radius:6px;margin:14px 0">'+esc(ctx.warning)+'</p>':'';
