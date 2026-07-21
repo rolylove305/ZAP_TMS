@@ -268,8 +268,8 @@
             <strong>${esc(formatMinutes(driver.break_minutes))}</strong>
           </div>
           <div class="hos-reset-item">
-            <div><span class="hos-tomorrow-icon">🛌</span><span>Time in sleeper/off</span></div>
-            <strong>${driver.duty_status_duration||"—"}</strong>
+            <div><span class="hos-tomorrow-icon">🛌</span><span>Current status</span></div>
+            <strong>${(driver.duty_status||"Unknown").replace(/_/g," ")}</strong>
           </div>
         </div>
       </div>`;
