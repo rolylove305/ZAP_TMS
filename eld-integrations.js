@@ -262,16 +262,8 @@
         ${hosGauge("Cycle",driver.cycle_minutes,cycleLimitMinutes(driver),driver.duty_status)}
       </div>
       <div class="hos-tomorrow">
-        <div class="hos-reset-grid">
-          <div class="hos-reset-item">
-            <div><span class="hos-tomorrow-icon">⏱</span><span>Time to new shift</span></div>
-            <strong>${esc(formatMinutes(driver.break_minutes))}</strong>
-          </div>
-          <div class="hos-reset-item">
-            <div><span class="hos-tomorrow-icon">🛌</span><span>Current status</span></div>
-            <strong>${(driver.duty_status||"Unknown").replace(/_/g," ")}</strong>
-          </div>
-        </div>
+        <div><span class="hos-tomorrow-icon">🛌</span><span>Current status</span></div>
+        <strong>${(driver.duty_status||"Unknown").replace(/_/g," ")}</strong>
       </div>`;
   }
 
