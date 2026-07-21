@@ -47,10 +47,12 @@ label{font-size:13px;color:var(--muted)}label input,label select{margin-top:6px}
 .hos-gauge--warning .hos-gauge-ring{--gauge-color:var(--yellow)}
 .hos-gauge--critical .hos-gauge-ring{--gauge-color:var(--red)}
 .hos-gauge--unknown .hos-gauge-ring{--gauge-color:#64748b}
-.hos-tomorrow{display:flex;align-items:center;justify-content:space-between;gap:12px;max-width:860px;margin:0 auto;padding:15px 17px;border-radius:17px;border:1px solid rgba(56,189,248,.22);background:linear-gradient(90deg,rgba(56,189,248,.13),rgba(34,197,94,.09))}
-.hos-tomorrow>div{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:850}
-.hos-tomorrow-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:rgba(56,189,248,.2);color:var(--blue);font-size:20px}
-.hos-tomorrow strong{font-size:22px;color:var(--text)}
+.hos-tomorrow{max-width:860px;margin:0 auto;padding:15px 17px;border-radius:17px;border:1px solid rgba(56,189,248,.22);background:linear-gradient(90deg,rgba(56,189,248,.13),rgba(34,197,94,.09))}
+.hos-reset-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:stretch}
+.hos-reset-item{display:flex;flex-direction:column;justify-content:center;gap:6px;padding:8px 0}
+.hos-reset-item>div{display:flex;align-items:center;gap:9px;font-size:13px;font-weight:850}
+.hos-tomorrow-icon{width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:rgba(56,189,248,.2);color:var(--blue);font-size:18px}
+.hos-reset-item strong{font-size:20px;color:var(--text)}
 @media(min-width:760px){
   .hos-gauge-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
   .hos-gauge-ring{width:158px}
@@ -59,7 +61,7 @@ label{font-size:13px;color:var(--muted)}label input,label select{margin-top:6px}
   .hos-gauge-grid{gap:16px 6px}
   .hos-gauge-ring{width:min(36vw,142px)}
   .hos-gauge-ring:after{inset:11px}
-  .hos-tomorrow{align-items:flex-start;flex-direction:column}
+  .hos-reset-grid{grid-template-columns:1fr}
 }
 
 /* Fleet Command Center */

@@ -1,0 +1,58 @@
+<svg viewBox="0 0 380 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="hzMetal" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f9e4b7;stop-opacity:1" />
+      <stop offset="15%" style="stop-color:#f2cf68;stop-opacity:1" />
+      <stop offset="40%" style="stop-color:#d6a62b;stop-opacity:1" />
+      <stop offset="70%" style="stop-color:#b89623;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8a6f15;stop-opacity:1" />
+    </linearGradient>
+
+    <linearGradient id="hzShine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f9e4b7;stop-opacity:0.5" />
+      <stop offset="50%" style="stop-color:#f2cf68;stop-opacity:0.3" />
+      <stop offset="100%" style="stop-color:#8a6f15;stop-opacity:0" />
+    </linearGradient>
+
+    <filter id="hzShadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+      <feOffset dx="0" dy="2" result="offsetblur"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.35"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+
+    <style>
+      .hz-main-text { font-family: 'Arial Black', sans-serif; font-weight: 900; font-style: italic; fill: url(#hzMetal); }
+      .hz-sub-text { font-family: 'Arial Black', sans-serif; font-weight: 800; letter-spacing: 1.5px; fill: url(#hzMetal); }
+      .hz-line { stroke: url(#hzMetal); stroke-width: 2; stroke-linecap: round; }
+    </style>
+  </defs>
+
+  <!-- Left seal mini circle -->
+  <circle cx="45" cy="60" r="28" fill="none" stroke="url(#hzMetal)" stroke-width="2.5" filter="url(#hzShadow)" opacity="0.9"/>
+  <circle cx="45" cy="60" r="28" fill="none" stroke="url(#hzShine)" stroke-width="1.5" opacity="0.5"/>
+
+  <!-- Z inside mini circle -->
+  <text x="45" y="73" class="hz-main-text" font-size="38" text-anchor="middle" filter="url(#hzShadow)" opacity="0.95">Z</text>
+
+  <!-- Main ZAP (large, bold, italic) -->
+  <text x="155" y="85" class="hz-main-text" font-size="62" text-anchor="middle" letter-spacing="-2" filter="url(#hzShadow)">ZAP</text>
+
+  <!-- Vertical divider -->
+  <line x1="235" y1="30" x2="235" y2="90" class="hz-line" filter="url(#hzShadow)" opacity="0.8"/>
+
+  <!-- DISPATCH & TMS (right side, stacked) -->
+  <text x="310" y="75" class="hz-sub-text" font-size="20" text-anchor="middle" letter-spacing="1.5" filter="url(#hzShadow)">DISPATCH</text>
+  <text x="310" y="102" class="hz-sub-text" font-size="14" text-anchor="middle" letter-spacing="1.5" filter="url(#hzShadow)" opacity="0.85">TMS</text>
+
+  <!-- Right accent dot -->
+  <circle cx="360" cy="60" r="4" fill="url(#hzMetal)" filter="url(#hzShadow)" opacity="0.8"/>
+
+  <!-- Top highlight on ZAP -->
+  <ellipse cx="155" cy="35" rx="80" ry="15" fill="url(#hzShine)" opacity="0.3"/>
+</svg>

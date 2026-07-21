@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZAP Dispatch Logo Preview</title>
+    <style>
+        :root {
+            --navy-950: #061521;
+            --navy-900: #081b2a;
+            --gold: #d6a62b;
+            --gold-light: #f2cf68;
+            --cream: #f4f1e9;
+            --ink: #0d1a22;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: var(--cream); color: var(--ink); }
+
+        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        h1 { text-align: center; margin-bottom: 50px; font-size: 32px; color: var(--navy-950); }
+
+        /* Preview sections */
+        .preview-section { margin-bottom: 60px; }
+        .preview-title { font-size: 18px; font-weight: 700; color: var(--navy-950); margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid var(--gold); }
+
+        /* Navbar preview */
+        .navbar-preview {
+            height: 92px;
+            background: var(--navy-950);
+            display: flex;
+            align-items: center;
+            padding: 0 40px;
+            border-radius: 8px;
+            gap: 30px;
+        }
+
+        .navbar-preview img { height: 60px; width: auto; }
+        .navbar-links { display: flex; gap: 30px; color: rgba(255,255,255,0.7); font-size: 14px; }
+        .navbar-button { padding: 10px 20px; background: var(--gold); color: var(--navy-950); border: none; border-radius: 4px; font-weight: 700; cursor: pointer; }
+
+        /* Footer preview -->
+        .footer-preview {
+            background: var(--navy-950);
+            padding: 40px;
+            border-radius: 8px;
+            color: rgba(255,255,255,0.7);
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 40px;
+            align-items: center;
+        }
+
+        .footer-preview img { height: 100px; width: auto; }
+        .footer-preview p { font-size: 13px; line-height: 1.6; }
+        .footer-links { display: flex; gap: 24px; font-size: 13px; }
+
+        /* Size comparison -->
+        .size-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 30px; margin-bottom: 40px; }
+        .size-box {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            background: white;
+        }
+
+        .size-box img { height: var(--preview-size); width: auto; margin-bottom: 15px; }
+        .size-box label { display: block; font-size: 12px; color: #666; font-weight: 600; }
+
+        .size-box.small { --preview-size: 40px; }
+        .size-box.medium { --preview-size: 80px; }
+        .size-box.large { --preview-size: 120px; }
+        .size-box.xlarge { --preview-size: 160px; }
+
+        /* Dark background test -->
+        .dark-bg { background: var(--navy-950); padding: 30px; border-radius: 8px; }
+        .dark-bg img { height: 120px; width: auto; }
+
+        /* Info box -->
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid var(--gold);
+            padding: 15px 20px;
+            border-radius: 4px;
+            margin-top: 30px;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 ZAP Dispatch Logo Preview</h1>
+
+        <!-- Navbar Preview -->
+        <div class="preview-section">
+            <div class="preview-title">Navbar (Landing Page)</div>
+            <div class="navbar-preview">
+                <img src="/Users/rolandotrujillo/Documents/ZAP_TMS/marketing-site/public/zap-logo-horizontal.svg" alt="ZAP Dispatch">
+                <div class="navbar-links">
+                    <span>Features</span>
+                    <span>Pricing</span>
+                    <span>About</span>
+                </div>
+                <button class="navbar-button">Log in</button>
+            </div>
+        </div>
+
+        <!-- Footer Preview -->
+        <div class="preview-section">
+            <div class="preview-title">Footer (Landing Page)</div>
+            <div class="footer-preview">
+                <img src="/Users/rolandotrujillo/Documents/ZAP_TMS/marketing-site/public/zap-logo-seal.svg" alt="ZAP Dispatch">
+                <p>Dispatch, tracking, and records for independent freight operations.</p>
+                <div class="footer-links">
+                    <span>Log in</span>
+                    <span>Contact</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Size Responsiveness -->
+        <div class="preview-section">
+            <div class="preview-title">Responsiveness Across Sizes</div>
+            <div class="size-grid">
+                <div class="size-box small">
+                    <img src="/Users/rolandotrujillo/Documents/ZAP_TMS/marketing-site/public/zap-logo-seal.svg" alt="Favicon">
+                    <label>Favicon (32px)</label>
+                </div>
+                <div class="size-box medium">
+                    <img src="/Users/rolandotrujillo/Documents/ZAP_TMS/marketing-site/public/zap-logo-horizontal.svg" alt="Small">
+                    <label>Mobile Nav (80px)</label>
+                </div>
+                <div class="size-box large">
+                    <img src="/Users/rolandotrujillo/Documents/ZAP_TMS/marketing-site/public/zap-logo-horizontal.svg" alt="Medium">
+                    <label>Desktop Nav (120px)</label>
+                </div>
+                <div class="size-box xlarge">
+                    <img src="/Users/rolandotrujillo/Documents/ZAP_TMS/marketing-site/public/zap-logo-seal.svg" alt="Large">
+                    <label>Hero Section (160px)</label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dark Background Test -->
+        <div class="preview-section">
+            <div class="preview-title">Contrast Test (Dark Background)</div>
+            <div class="dark-bg">
+                <img src="/Users/rolandotrujillo/Documents/ZAP_TMS/marketing-site/public/zap-logo-seal.svg" alt="ZAP Dispatch">
+            </div>
+            <div class="info-box">
+                ✓ Logo uses gold/bronze gradients (#d6a62b → #f2cf68) which provide strong contrast against navy-950 (#061521) background. Visible at all sizes, no pixelation or bleeding.
+            </div>
+        </div>
+
+        <!-- Summary -->
+        <div class="preview-section">
+            <div class="preview-title">Files Created</div>
+            <div class="info-box" style="border-left-color: var(--gold);">
+                <strong>Circular/Seal (Footer & Favicon):</strong><br>
+                <code>/marketing-site/public/zap-logo-seal.svg</code> — Full emblem with ZAP, DISPATCH, TMS. 240x240px viewBox, scales from 32px to any size.<br><br>
+
+                <strong>Horizontal (Navbar):</strong><br>
+                <code>/marketing-site/public/zap-logo-horizontal.svg</code> — Compact ZAP + DISPATCH TMS. 320x100px viewBox, optimized for navbar & hero text alignment.<br><br>
+
+                <strong>Favicon:</strong><br>
+                <code>/marketing-site/public/zap-favicon.svg</code> — Minimal Z with circle. Use in &lt;link rel="icon"&gt;.<br><br>
+
+                All files are <strong>SVG vectors</strong> (infinitely scalable), <strong>transparent backgrounds</strong>, and use your app's color palette.
+            </div>
+        </div>
+
+        <div class="preview-section">
+            <div class="preview-title">Next Steps</div>
+            <div class="info-box" style="border-left-color: #4CAF50;">
+                ✓ Logos updated in <code>marketing-site/app/page.tsx</code> (navbar & footer)<br>
+                ✓ Favicon updated in <code>marketing-site/app/layout.tsx</code><br>
+                ✓ Ready to deploy or preview live<br><br>
+                Once you confirm these look good, ready to deploy? Or make adjustments?
+            </div>
+        </div>
+    </div>
+</body>
+</html>

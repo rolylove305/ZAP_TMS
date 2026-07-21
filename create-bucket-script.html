@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Load Documents Bucket</title>
+    <style>
+        body { font-family: system-ui; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .status { padding: 15px; border-radius: 8px; margin-top: 20px; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #e7d4f5; color: #663399; border: 1px solid #d4a5e7; }
+        button { padding: 10px 20px; background: #0066cc; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #0052a3; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Create Load Documents Bucket</h1>
+    <p><strong>Steps:</strong></p>
+    <ol>
+        <li>Go to <a href="https://app.supabase.com/project/nhttbtvjcwtkecdlxpzk/storage/buckets" target="_blank">Supabase Storage (your project)</a></li>
+        <li>Copy this code and paste it into your browser console (F12 → Console tab)</li>
+        <li>Hit Enter and wait for confirmation</li>
+    </ol>
+
+    <h2>Option 1: Browser Console (Recommended)</h2>
+    <p>Copy this entire code block, paste into your browser console (F12), and press Enter:</p>
+    <pre id="codeBlock">// Run this in your Supabase Storage dashboard console
+const createBucket = async () => {
+  const projectRef = 'nhttbtvjcwtkecdlxpzk';
+  const anonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5odHRidnZqY3d0a2VjZGx4cHprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjQxNDkzMTcsImV4cCI6MjA0MDAwMzMxN30.lKDxJcT0vR2Vm-N3rhmQKDxJcTwtkcdlxpzkK4KDxJcT';
+
+  try {
+    const res = await fetch(`https://${projectRef}.supabase.co/rest/v1/storage/buckets`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': anonKey,
+        'Authorization': `Bearer ${anonKey}`
+      },
+      body: JSON.stringify({
+        id: 'load-documents',
+        name: 'load-documents',
+        public: false,
+        file_size_limit: 10485760,
+        allowed_mime_types: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+      })
+    });
+
+    const data = await res.json();
+    if (res.ok) {
+      console.log('✓ Bucket created successfully!', data);
+      alert('Bucket "load-documents" created! Refresh the page.');
+    } else {
+      console.error('✗ Error:', data);
+      if (data.message?.includes('already')) {
+        alert('Bucket already exists. Ready to upload documents!');
+      } else {
+        alert('Error: ' + JSON.stringify(data));
+      }
+    }
+  } catch (err) {
+    console.error('Network error:', err);
+    alert('Error: ' + err.message);
+  }
+};
+
+createBucket();</pre>
+
+    <h2>Option 2: Click Button (if you paste the key below)</h2>
+    <label>Your Supabase Anon Key (from your project settings):
+        <input type="password" id="anonKey" placeholder="eyJhbGc..." style="width: 100%; max-width: 400px; padding: 8px;">
+    </label>
+    <br><br>
+    <button onclick="createBucketViaForm()">Create Bucket Now</button>
+
+    <div id="status"></div>
+
+    <script>
+        async function createBucketViaForm() {
+            const key = document.getElementById('anonKey').value.trim();
+            const status = document.getElementById('status');
+
+            if (!key) {
+                status.className = 'status error';
+                status.innerHTML = '❌ Please enter your Anon Key first';
+                return;
+            }
+
+            status.className = 'status info';
+            status.innerHTML = '⏳ Creating bucket...';
+
+            try {
+                const res = await fetch('https://nhttbtvjcwtkecdlxpzk.supabase.co/rest/v1/storage/buckets', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'apikey': key,
+                        'Authorization': `Bearer ${key}`
+                    },
+                    body: JSON.stringify({
+                        id: 'load-documents',
+                        name: 'load-documents',
+                        public: false,
+                        file_size_limit: 10485760,
+                        allowed_mime_types: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+                    })
+                });
+
+                const data = await res.json();
+                if (res.ok) {
+                    status.className = 'status success';
+                    status.innerHTML = '✅ <strong>Bucket created successfully!</strong><br>The upload feature should work now.';
+                } else if (data.message?.includes('already exists')) {
+                    status.className = 'status success';
+                    status.innerHTML = '✅ <strong>Bucket already exists!</strong><br>The upload feature should work now.';
+                } else {
+                    status.className = 'status error';
+                    status.innerHTML = '❌ <strong>Error:</strong><br>' + JSON.stringify(data, null, 2);
+                }
+            } catch (err) {
+                status.className = 'status error';
+                status.innerHTML = '❌ <strong>Network Error:</strong><br>' + err.message;
+            }
+        }
+    </script>
+</body>
+</html>

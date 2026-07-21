@@ -9,7 +9,7 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://zapdispatch.com"),
   title: "ZAP Dispatch TMS | Dispatch, Tracking & HOS",
   description: "A focused TMS for independent dispatchers and small carriers. Manage loads, drivers, tracking, HOS, documents, invoices, and revenue in one place.",
-  icons: { icon: "/zap-icon.svg", shortcut: "/zap-icon.svg" },
+  icons: { icon: "/zap-favicon.svg", shortcut: "/zap-favicon.svg" },
   openGraph: {
     title: "ZAP Dispatch TMS",
     description: "Run dispatch. Track every load. Stay in control.",

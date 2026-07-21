@@ -262,8 +262,16 @@
         ${hosGauge("Cycle",driver.cycle_minutes,cycleLimitMinutes(driver),driver.duty_status)}
       </div>
       <div class="hos-tomorrow">
-        <div><span class="hos-tomorrow-icon">↻</span><span>Cycle Available Tomorrow</span></div>
-        <strong>${esc(formatMinutes(driver.cycle_tomorrow_minutes))}</strong>
+        <div class="hos-reset-grid">
+          <div class="hos-reset-item">
+            <div><span class="hos-tomorrow-icon">⏱</span><span>Time to new shift</span></div>
+            <strong>${esc(formatMinutes(driver.cycle_tomorrow_minutes))}</strong>
+          </div>
+          <div class="hos-reset-item">
+            <div><span class="hos-tomorrow-icon">↻</span><span>Time for reset</span></div>
+            <strong>${esc(formatMinutes(driver.cycle_tomorrow_minutes))}</strong>
+          </div>
+        </div>
       </div>`;
   }
 
