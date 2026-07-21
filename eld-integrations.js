@@ -265,10 +265,10 @@
         <div class="hos-reset-grid">
           <div class="hos-reset-item">
             <div><span class="hos-tomorrow-icon">⏱</span><span>Time to new shift</span></div>
-            <strong>${esc(formatMinutes(driver.cycle_tomorrow_minutes))}</strong>
+            <strong>${esc(formatMinutes(driver.break_minutes))}</strong>
           </div>
           <div class="hos-reset-item">
-            <div><span class="hos-tomorrow-icon">↻</span><span>Time for reset</span></div>
+            <div><span class="hos-tomorrow-icon">↻</span><span>Time for 34h reset</span></div>
             <strong>${esc(formatMinutes(driver.cycle_tomorrow_minutes))}</strong>
           </div>
         </div>
