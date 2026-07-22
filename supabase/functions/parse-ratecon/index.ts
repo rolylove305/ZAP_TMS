@@ -686,6 +686,36 @@ function sleep(
   );
 }
 
+/*
+ * El "thinking" se controla distinto según la generación del modelo:
+ *
+ * - Gemini 2.5 usa el presupuesto numérico `thinkingBudget` (0 lo desactiva).
+ * - Gemini 3.x RECHAZA `thinkingBudget` (HTTP 400 "invalid argument") y exige
+ *   el enum `thinkingLevel`. Los alias que rotan (`*-latest`) ya apuntan a 3.x,
+ *   así que también deben tratarse como 3.x.
+ *
+ * Mandar el campo equivocado provoca el 400 que rompía la lectura de Rate Cons.
+ */
+function thinkingConfigFor(
+  model: string,
+): Record<string, unknown> {
+  const normalized = model.toLowerCase();
+
+  const isGen3OrRollingAlias =
+    /gemini-3/.test(normalized) ||
+    normalized.includes("latest");
+
+  if (isGen3OrRollingAlias) {
+    // "low" es el nivel más bajo aceptado en toda la familia 3.x
+    // (3.5-flash soporta minimal/low/medium/high; otros arrancan en low).
+    // Mantiene la latencia baja para no reventar el límite de la Edge Function.
+    return { thinkingLevel: "low" };
+  }
+
+  // Gemini 2.5 y anteriores: desactivar el thinking para responder rápido.
+  return { thinkingBudget: 0 };
+}
+
 async function authenticateUser(
   req: Request,
   config: EnvConfig,
@@ -806,7 +836,9 @@ async function callGemini(
       Boolean(m) && arr.indexOf(m) === i,
   );
 
-  const requestBody = {
+  // El cuerpo depende del modelo (cada generación controla el "thinking" con un
+  // campo distinto), así que lo construimos por modelo dentro del bucle.
+  const buildRequestBody = (model: string) => ({
     contents: [
       {
         role: "user",
@@ -835,18 +867,18 @@ async function callGemini(
       maxOutputTokens: 4096,
 
       // La extracción es una tarea de salida estructurada, no de razonamiento.
-      // Desactivar el "thinking" hace que Gemini responda mucho más rápido y
-      // evita que la Edge Function exceda su límite de tiempo (error 546 WORKER_LIMIT).
-      thinkingConfig: {
-        thinkingBudget: 0,
-      },
+      // Bajar el "thinking" hace que Gemini responda mucho más rápido y evita
+      // que la Edge Function exceda su límite de tiempo (error 546 WORKER_LIMIT).
+      // El campo correcto varía por generación de modelo (ver thinkingConfigFor).
+      thinkingConfig:
+        thinkingConfigFor(model),
 
       responseMimeType:
         "application/json",
 
       responseSchema,
     },
-  };
+  });
 
   // Presupuesto de tiempo acotado: cada llamada se corta a los 30s y hay un
   // presupuesto TOTAL para TODA la cascada (modelos × intentos), de modo que la
@@ -901,7 +933,9 @@ async function callGemini(
             },
 
             body:
-              JSON.stringify(requestBody),
+              JSON.stringify(
+                buildRequestBody(model),
+              ),
 
             // AbortSignal.timeout aborta el fetch si Gemini se cuelga o va lento,
             // en vez de dejar el worker esperando hasta que la plataforma lo mate.
