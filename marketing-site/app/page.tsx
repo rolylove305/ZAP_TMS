@@ -95,7 +95,7 @@ export default function Home() {
     <main>
       <nav className="nav shell" aria-label="Primary navigation">
         <a className="brand" href="#top" aria-label="ZAP Dispatch home">
-          <img src="/zap-logo-horizontal.svg" alt="ZAP Dispatch" />
+          <img src="/zap-logo-dark.png" alt="ZAP Dispatch" />
         </a>
         <div className="nav-links">
           <a href="#features">Features</a>
@@ -342,7 +342,7 @@ export default function Home() {
 
       <footer>
         <div className="shell footer-inner">
-          <img src="/zap-logo-seal.svg" alt="ZAP Dispatch" />
+          <img src="/zap-icon-square.png" alt="ZAP Dispatch" />
           <p>Dispatch, tracking, and records for independent freight operations.</p>
           <div>
             <a href={appUrl}>Log in</a>
