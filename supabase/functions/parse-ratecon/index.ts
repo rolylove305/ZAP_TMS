@@ -12,7 +12,7 @@ const MAX_PDF_BYTES = 10 * 1024 * 1024;
 
 // Modelo estable actual.
 // Puede cambiarse sin modificar código usando el secret GEMINI_MODEL.
-const DEFAULT_GEMINI_MODEL = "gemini-2.0-flash";
+const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
 
 const RETRYABLE_GEMINI_STATUSES = new Set([
   429,
@@ -795,7 +795,7 @@ async function callGemini(
   // responder — la app se auto-repara sin depender de un único modelo.
   const FALLBACK_MODELS = [
     "gemini-flash-latest",
-    "gemini-3.5-flash-lite",
+    "gemini-2.5-flash-lite",
     "gemini-flash-lite-latest",
   ];
   const models = [
