@@ -77,8 +77,14 @@ Deno.serve(async (req) => {
       throw new HttpError(400, "Deactivate the user before deleting them.");
     }
 
-    const { error: deleteError } = await admin.auth.admin.deleteUser(targetId);
+    const { error: deleteError } = await admin.auth.admin.deleteUser(targetId, true);
     if (deleteError) throw new HttpError(500, deleteError.message);
+
+    const { error: profileDeleteError } = await admin
+      .from("profiles")
+      .delete()
+      .eq("id", targetId);
+    if (profileDeleteError) throw new HttpError(500, profileDeleteError.message);
 
     return json({ ok: true, deleted_user_id: targetId, email: target.email });
   } catch (e) {
