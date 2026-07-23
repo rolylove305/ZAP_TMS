@@ -3,7 +3,9 @@
      users. Isolated overlay. Security is enforced server-side by RLS
      (profiles: read own-or-admin, update admin-only + has_access checks
      is_active); this only shows the UI when the logged-in user is an admin.
-     Deactivating a user immediately blocks their access to all TMS data. */
+     Deactivating a user immediately blocks their access to all TMS data.
+     Inactive non-admin users can also be deleted through the delete-user Edge
+     Function, which removes the Auth user server-side. */
 
   let checked=false, isAdmin=false;
 
@@ -41,6 +43,9 @@
       }else{
         actions='<button class="small-btn zau-comp" data-id="'+esc2(u.id)+'" data-comp="'+(u.comp_access?'1':'0')+'">'+(u.comp_access?'Remove free':'Grant free')+'</button>'
           +' <button class="small-btn zau-toggle" data-id="'+esc2(u.id)+'" data-active="'+(u.is_active?'1':'0')+'">'+(u.is_active?'Deactivate':'Reactivate')+'</button>';
+        if(!u.is_active&&u.role!=='admin'){
+          actions+=' <button class="small-btn zau-delete" data-id="'+esc2(u.id)+'" data-email="'+esc2(u.email)+'" style="border-color:rgba(251,113,133,.45);color:#fda4af">Delete</button>';
+        }
       }
       html+='<tr style="border-bottom:1px solid rgba(255,255,255,.07)">'
         +'<td style="padding:8px 6px">'+esc2(u.email)+'</td>'
@@ -53,7 +58,7 @@
         +'<td style="white-space:nowrap">'+actions+'</td></tr>';
     });
     html+='</tbody></table></div><p class="muted" style="margin-top:10px;font-size:12px">'
-      +rows.length+' user(s). "Grant free" gives complimentary access (no charge). Deactivating blocks a user\'s access immediately. All enforced server-side.</p>';
+      +rows.length+' user(s). "Grant free" gives complimentary access (no charge). Deactivating blocks a user\'s access immediately. Delete is only available after a user is disabled. All enforced server-side.</p>';
     body.innerHTML=html;
     body.querySelectorAll('.zau-toggle').forEach(b=>{
       b.onclick=async()=>{
@@ -82,6 +87,24 @@
         b.disabled=true;b.textContent='…';
         const up=await sb.from('profiles').update({comp_access:!cur}).eq('id',id).select().single();
         if(up.error){alert('Update failed: '+up.error.message);b.disabled=false;b.textContent=cur?'Remove free':'Grant free';return}
+        await renderList(body);
+      };
+    });
+    body.querySelectorAll('.zau-delete').forEach(b=>{
+      b.onclick=async()=>{
+        const id=b.dataset.id, email=b.dataset.email||'this user';
+        if(!confirm('Permanently delete '+email+'?\n\nThis removes their login account and cannot be undone. Only disabled, non-admin users can be deleted.'))return;
+        b.disabled=true;b.textContent='…';
+        const res=await sb.functions.invoke('delete-user',{body:{user_id:id}});
+        if(res.error){
+          let msg=res.error.message||String(res.error);
+          if(res.error.context&&typeof res.error.context.json==='function'){
+            try{const payload=await res.error.context.json();if(payload&&payload.error)msg=payload.error}catch(e){}
+          }
+          alert('Delete failed: '+msg);
+          b.disabled=false;b.textContent='Delete';
+          return;
+        }
         await renderList(body);
       };
     });
