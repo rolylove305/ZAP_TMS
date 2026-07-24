@@ -4,6 +4,9 @@ node_modules/
 supabase/.temp/
 .wrangler/
 
+# Admin-only local tools — not part of the deployed app
+admin-eld-requests.html
+
 # Secrets — must never be committed
 *.pem
 *.key
