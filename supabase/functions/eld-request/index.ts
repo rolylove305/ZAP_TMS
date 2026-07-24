@@ -60,7 +60,7 @@ async function notifyAdmin(request: {
     return;
   }
 
-  const to = Deno.env.get("ELD_NOTIFY_TO") || "rytransport.llc@gmail.com";
+  const to = Deno.env.get("ELD_NOTIFY_TO") || "rolylove305@gmail.com";
   const from = Deno.env.get("ELD_NOTIFY_FROM") || "ZAP Dispatch <onboarding@resend.dev>";
 
   const rows: Array<[string, string]> = [
