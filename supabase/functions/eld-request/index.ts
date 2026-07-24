@@ -33,6 +33,75 @@ function serviceClient() {
   });
 }
 
+function escapeHtml(value: unknown): string {
+  return String(value ?? "").replace(/[&<>"']/g, (m) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[m] as string)
+  );
+}
+
+/*
+ * Email notification via Resend. Best-effort: if RESEND_API_KEY is not set
+ * or the send fails, the request is still saved — we only log the problem.
+ * With the sandbox sender (onboarding@resend.dev) Resend only delivers to
+ * the email that owns the Resend account; verify the zapdispatch.com domain
+ * in Resend to use ELD_NOTIFY_FROM=notifications@zapdispatch.com and any TO.
+ */
+async function notifyAdmin(request: {
+  eld_name: string;
+  eld_website: string | null;
+  api_documentation: string | null;
+  notes: string | null;
+  company_id: string;
+  id: string;
+}, requesterEmail: string | undefined): Promise<void> {
+  const apiKey = Deno.env.get("RESEND_API_KEY");
+  if (!apiKey) {
+    console.log("RESEND_API_KEY not set; skipping email notification");
+    return;
+  }
+
+  const to = Deno.env.get("ELD_NOTIFY_TO") || "rytransport.llc@gmail.com";
+  const from = Deno.env.get("ELD_NOTIFY_FROM") || "ZAP Dispatch <onboarding@resend.dev>";
+
+  const rows: Array<[string, string]> = [
+    ["ELD", request.eld_name],
+    ["Requested by", requesterEmail || "unknown"],
+    ["Company", request.company_id],
+    ["Website", request.eld_website || "—"],
+    ["API docs", request.api_documentation || "—"],
+    ["Notes", request.notes || "—"],
+    ["Request ID", request.id],
+  ];
+
+  const html =
+    `<h2>New ELD integration request</h2><table cellpadding="6" style="border-collapse:collapse">` +
+    rows.map(([k, v]) =>
+      `<tr><td style="font-weight:bold;border:1px solid #ddd">${escapeHtml(k)}</td>` +
+      `<td style="border:1px solid #ddd">${escapeHtml(v)}</td></tr>`
+    ).join("") +
+    `</table><p>Review it in the local admin dashboard (admin-eld-requests.html).</p>`;
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject: `ELD request: ${request.eld_name}`,
+      html,
+    }),
+  });
+
+  if (!res.ok) {
+    console.error(`Resend error ${res.status}: ${(await res.text()).slice(0, 500)}`);
+  } else {
+    console.log(`Notification email sent to ${to}`);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -81,6 +150,12 @@ Deno.serve(async (req) => {
     }
 
     console.log(`New ELD request: ${payload.eld_name} from ${userData.user.email}`);
+
+    try {
+      await notifyAdmin(request, userData.user.email);
+    } catch (notifyError) {
+      console.error("Email notification failed:", notifyError);
+    }
 
     return json({
       success: true,
