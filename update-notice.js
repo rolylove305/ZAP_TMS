@@ -19,7 +19,7 @@ function loadHosReady(){
     const existing=document.querySelector('script[data-zap-hos-ready]');
     if(existing){existing.addEventListener('load',()=>resolve(window.ZapHosReady));existing.addEventListener('error',reject);return}
     const s=document.createElement('script');
-    s.src='hos-ready.js?v=ready-at-1';
+    s.src='hos-ready.js?v=ready-at-2';
     s.async=false;
     s.dataset.zapHosReady='1';
     s.onload=()=>resolve(window.ZapHosReady);
@@ -44,6 +44,10 @@ function selectedHosDriver(){
   return drivers[index]||drivers[0]||null;
 }
 
+function escapeHtml(value){
+  return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
 function renderSelectedReadyAt(){
   if(!window.ZapHosReady)return;
   const summary=document.getElementById('eldHosSummary');
@@ -58,12 +62,11 @@ function renderSelectedReadyAt(){
     summary.appendChild(box);
   }
   const icon=result.state==='ready_now'?'🟢':result.state==='ready_at'?'🟡':result.state==='manual_review'?'⚠️':'⚪';
+  const signature=[result.state,result.status_text,result.secondary_text,result.earliest_ready_at||''].join('|');
+  if(box.dataset.signature===signature)return;
+  box.dataset.signature=signature;
   box.className=`hos-alert hos-alert--${readyTone(result.state)}`;
   box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><span class="muted" style="display:block;font-size:12px">Driver availability</span><strong style="display:block;font-size:18px;margin-top:2px">${icon} ${escapeHtml(result.status_text)}</strong><span class="muted" style="display:block;margin-top:4px">${escapeHtml(result.secondary_text)}</span></div>${result.earliest_ready_at?`<span class="pill">${escapeHtml(new Date(result.earliest_ready_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))}</span>`:''}</div>`;
-}
-
-function escapeHtml(value){
-  return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
 
 function renderDashboardReadyAt(){
@@ -74,30 +77,49 @@ function renderDashboardReadyAt(){
   const cards=[...list.querySelectorAll('.card')];
   cards.forEach((card,index)=>{
     const driver=drivers[index];
-    if(!driver||card.querySelector('[data-ready-at-pill]'))return;
+    if(!driver)return;
     const result=window.ZapHosReady.formatReadyAt(driver);
     const row=card.querySelector('div[style*="display:flex"]');
     if(!row)return;
-    const pill=document.createElement('span');
-    pill.className='pill';
-    pill.dataset.readyAtPill='1';
+    let pill=card.querySelector('[data-ready-at-pill]');
+    if(!pill){
+      pill=document.createElement('span');
+      pill.className='pill';
+      pill.dataset.readyAtPill='1';
+      row.appendChild(pill);
+    }
+    const signature=[result.status_text,result.secondary_text].join('|');
+    if(pill.dataset.signature===signature)return;
+    pill.dataset.signature=signature;
     pill.textContent=result.status_text;
     pill.title=result.secondary_text;
-    row.appendChild(pill);
   });
 }
 
-function refreshReadyAt(){
-  renderSelectedReadyAt();
-  renderDashboardReadyAt();
+let refreshTimer=null;
+function scheduleReadyAtRefresh(){
+  clearTimeout(refreshTimer);
+  refreshTimer=setTimeout(()=>{
+    renderSelectedReadyAt();
+    renderDashboardReadyAt();
+  },40);
 }
 
 loadHosReady().then(()=>{
-  refreshReadyAt();
-  document.addEventListener('change',event=>{if(event.target?.id==='eldHosDriver')setTimeout(refreshReadyAt,0)});
-  const observer=new MutationObserver(()=>setTimeout(refreshReadyAt,0));
+  scheduleReadyAtRefresh();
+  document.addEventListener('change',event=>{if(event.target?.id==='eldHosDriver')scheduleReadyAtRefresh()});
+  const observer=new MutationObserver(records=>{
+    const relevant=records.some(record=>{
+      const target=record.target;
+      return target instanceof Element&&(
+        target.id==='eldHosSummary'||target.id==='eldStatus'||
+        target.closest?.('#eldHosSummary, #eldStatus')
+      );
+    });
+    if(relevant)scheduleReadyAtRefresh();
+  });
   observer.observe(document.body,{childList:true,subtree:true});
-  setInterval(refreshReadyAt,60*1000);
+  setInterval(scheduleReadyAtRefresh,60*1000);
 }).catch(error=>console.warn('hos-ready-loader',error));
 
 /* When a new service worker version is deployed, show a small "New version available"
