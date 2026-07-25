@@ -44,6 +44,25 @@ function selectedHosDriver(){
   return drivers[index]||drivers[0]||null;
 }
 
+function normalizeDuty(value){
+  return String(value||'').toUpperCase().replace(/[\s_-]+/g,'');
+}
+
+function dutyIcon(value){
+  const duty=normalizeDuty(value);
+  if(['D','DRIVING'].includes(duty))return '🚛';
+  if(['ON','ONDUTY','YM','YARDMOVE'].includes(duty))return '🟡';
+  if(['SB','SLEEPER','SLEEPERBERTH'].includes(duty))return '🛏️';
+  if(['OFF','OFFDUTY'].includes(duty))return '🌙';
+  return '⚪';
+}
+
+function updateCurrentStatusIcon(){
+  const driver=selectedHosDriver();
+  const icon=document.querySelector('#eldHosClocks .hos-tomorrow-icon');
+  if(driver&&icon)icon.textContent=dutyIcon(driver.duty_status);
+}
+
 function escapeHtml(value){
   return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 }
@@ -58,15 +77,22 @@ function renderSelectedReadyAt(){
   if(!box){
     box=document.createElement('div');
     box.id='eldReadyAtBox';
-    box.style.cssText='margin-top:12px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg-secondary)';
     summary.appendChild(box);
   }
-  const icon=result.state==='ready_now'?'🟢':result.state==='ready_at'?'🟡':result.state==='manual_review'?'⚠️':'⚪';
-  const signature=[result.state,result.status_text,result.secondary_text,result.earliest_ready_at||''].join('|');
+  const icon=dutyIcon(driver.duty_status);
+  const signature=[result.state,result.status_text,result.secondary_text,result.earliest_ready_at||'',driver.duty_status||''].join('|');
   if(box.dataset.signature===signature)return;
   box.dataset.signature=signature;
   box.className=`hos-alert hos-alert--${readyTone(result.state)}`;
-  box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><span class="muted" style="display:block;font-size:12px">Driver availability</span><strong style="display:block;font-size:18px;margin-top:2px">${icon} ${escapeHtml(result.status_text)}</strong><span class="muted" style="display:block;margin-top:4px">${escapeHtml(result.secondary_text)}</span></div>${result.earliest_ready_at?`<span class="pill">${escapeHtml(new Date(result.earliest_ready_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))}</span>`:''}</div>`;
+  const compact=result.state==='not_resetting';
+  box.style.cssText=compact
+    ?'margin-top:8px;padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-secondary)'
+    :'margin-top:12px;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--bg-secondary)';
+  if(compact){
+    box.innerHTML=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><span aria-hidden="true">${icon}</span><strong>${escapeHtml(result.status_text)}</strong><span class="muted">${escapeHtml(result.secondary_text)}</span></div>`;
+  }else{
+    box.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;flex-wrap:wrap"><div><span class="muted" style="display:block;font-size:12px">Driver availability</span><strong style="display:block;font-size:18px;margin-top:2px">${icon} ${escapeHtml(result.status_text)}</strong><span class="muted" style="display:block;margin-top:4px">${escapeHtml(result.secondary_text)}</span></div>${result.earliest_ready_at?`<span class="pill">${escapeHtml(new Date(result.earliest_ready_at).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}))}</span>`:''}</div>`;
+  }
 }
 
 function renderDashboardReadyAt(){
@@ -102,6 +128,7 @@ function scheduleReadyAtRefresh(){
   refreshTimer=setTimeout(()=>{
     renderSelectedReadyAt();
     renderDashboardReadyAt();
+    updateCurrentStatusIcon();
   },40);
 }
 
@@ -112,8 +139,8 @@ loadHosReady().then(()=>{
     const relevant=records.some(record=>{
       const target=record.target;
       return target instanceof Element&&(
-        target.id==='eldHosSummary'||target.id==='eldStatus'||
-        target.closest?.('#eldHosSummary, #eldStatus')
+        target.id==='eldHosSummary'||target.id==='eldStatus'||target.id==='eldHosClocks'||
+        target.closest?.('#eldHosSummary, #eldStatus, #eldHosClocks')
       );
     });
     if(relevant)scheduleReadyAtRefresh();
