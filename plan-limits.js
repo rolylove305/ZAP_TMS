@@ -14,7 +14,7 @@
       loadsPerMonth:200,
       carriers:25,
       fleetPeople:25,
-      features:{aiRatecon:false,eldHos:false,customBranding:false}
+      features:{aiRatecon:false,eldHos:true,customBranding:false}
     },
     pro:{
       name:"Pro",
@@ -22,7 +22,7 @@
       loadsPerMonth:1000,
       carriers:100,
       fleetPeople:100,
-      features:{aiRatecon:true,eldHos:false,customBranding:false}
+      features:{aiRatecon:true,eldHos:true,customBranding:false}
     },
     premium:{
       name:"Premium",
@@ -53,7 +53,7 @@
     if(feature==="carriers")return `${p.name} includes ${limitLabel(p.carriers)} carriers. Upgrade to add more carriers.`;
     if(feature==="fleetPeople")return `${p.name} includes ${limitLabel(p.fleetPeople)} drivers / owner operators. Upgrade to add more.`;
     if(feature==="aiRatecon")return "AI RateCon reading is available on Pro and Premium.";
-    if(feature==="eldHos")return "ELD/HOS readiness is available on Premium.";
+    if(feature==="eldHos")return "ELD/HOS readiness is available on Starter and higher.";
     return "This feature requires a higher Zap Dispatch plan.";
   }
   function showUpgrade(message){

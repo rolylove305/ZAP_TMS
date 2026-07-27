@@ -74,7 +74,7 @@ const pricingPlans = [
       "Dispatch board, map, and tracking",
       "Driver portal, documents, and invoices",
       "Revenue and commission tracking",
-      "Upgrade path for AI and ELD/HOS tools",
+      "Upgrade path for ELD/HOS and AI tools",
     ],
     cta: "Start free",
   },
@@ -87,7 +87,7 @@ const pricingPlans = [
     features: [
       "Everything in Founder",
       "More carrier and driver capacity",
-      "Cleaner team workflow for active accounts",
+      "ELD/HOS readiness tools",
       "Built for steady monthly operations",
     ],
     cta: "Start free",
@@ -102,7 +102,7 @@ const pricingPlans = [
       "Everything in Starter",
       "AI Rate Confirmation import",
       "Higher operating limits",
-      "Priority workflow support",
+      "ELD/HOS readiness included",
     ],
     cta: "Start free",
     featured: true,
@@ -357,7 +357,7 @@ export default function Home() {
           <div className="pricing-copy">
             <span className="founder-pill">30 DAYS FREE</span>
             <h2>Choose the plan<br /><em>that fits today.</em></h2>
-            <p>Start low-cost, prove the workflow, then upgrade when your operation needs more capacity, AI, or ELD/HOS readiness.</p>
+            <p>Start low-cost, prove the workflow, then upgrade when your operation needs ELD/HOS readiness, more capacity, or AI.</p>
           </div>
           <div className="pricing-grid">
             {pricingPlans.map((plan) => (
