@@ -51,6 +51,15 @@
       const card=document.createElement("div");
       card.className="card";
       card.id="eldIntegrationsCard";
+      if(window.zapPlanLimits&&!window.zapPlanLimits.canUse("eldHos")){
+        card.innerHTML=`
+          <div class="section-title"><h2>ELD Integrations</h2></div>
+          <p class="muted">ELD/HOS readiness is available on Premium. Upgrade when you are ready to connect providers and see driver readiness.</p>`;
+        const refreshCard=settings.querySelector("#syncNow")?.closest(".card");
+        if(refreshCard)refreshCard.before(card);else settings.appendChild(card);
+        ensureHosUi();
+        return;
+      }
       card.innerHTML=`
         <div class="section-title"><h2>ELD Integrations</h2><button type="button" class="small-btn" id="eldRefresh">Refresh</button></div>
         <p class="muted">Connect each carrier to its own ELD provider. API keys are encrypted and used only by Supabase Edge Functions.</p>
@@ -384,10 +393,10 @@
     try{await api("POST",{action:"delete_connection",connection_id:connectionId});say("ELD connection removed.");await loadConnections()}catch(error){say(error.message,true)}
   }
 
-  function boot(){ensureUi();fillCarriers();setTimeout(loadConnections,800)}
-  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",boot);else boot();
+  async function boot(){if(window.zapPlanLimits)await window.zapPlanLimits.loadPlan();ensureUi();fillCarriers();if(!window.zapPlanLimits||window.zapPlanLimits.canUse("eldHos"))setTimeout(loadConnections,800)}
+  if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{boot()});else boot();
   document.addEventListener("click",event=>{
-    if(event.target.closest('[data-screen="settings"]'))setTimeout(()=>{ensureUi();fillCarriers();loadConnections()},250);
+    if(event.target.closest('[data-screen="settings"]'))setTimeout(()=>{ensureUi();fillCarriers();if(!window.zapPlanLimits||window.zapPlanLimits.canUse("eldHos"))loadConnections()},250);
     if(event.target.closest('[data-screen="dashboard"]'))setTimeout(()=>{ensureHosUi();renderHosDashboard()},150);
   });
 })();

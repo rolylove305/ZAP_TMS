@@ -105,7 +105,9 @@ Deno.serve(async (req) => {
       success_url: APP_URL + "/?paid=1",
       cancel_url: APP_URL + "/?checkout=cancel",
       client_reference_id: user.id,
+      "metadata[plan]": "founder",
       "subscription_data[metadata][user_id]": user.id,
+      "subscription_data[metadata][plan]": "founder",
       allow_promotion_codes: "true",
     });
 

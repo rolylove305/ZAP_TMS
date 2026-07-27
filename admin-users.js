@@ -26,13 +26,13 @@
   async function renderList(body){
     const meId=await sessionUserId();
     const r=await sb.from('profiles')
-      .select('id,email,role,account_type,is_active,comp_access,subscription_status,trial_ends_at,created_at')
+      .select('id,email,role,account_type,plan,is_active,comp_access,subscription_status,trial_ends_at,created_at')
       .order('created_at',{ascending:true});
     if(r.error){body.innerHTML='<p class="muted">Could not load users: '+esc2(r.error.message)+'</p>';return}
     const rows=r.data||[];
     let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
       +'<thead><tr style="text-align:left;border-bottom:1px solid rgba(255,255,255,.18)">'
-      +'<th style="padding:8px 6px">Email</th><th>Account</th><th>Role</th><th>Status</th><th>Free access</th><th>Subscription</th><th>Trial ends</th><th>Joined</th><th></th></tr></thead><tbody>';
+      +'<th style="padding:8px 6px">Email</th><th>Account</th><th>Plan</th><th>Role</th><th>Status</th><th>Free access</th><th>Subscription</th><th>Trial ends</th><th>Joined</th><th></th></tr></thead><tbody>';
     rows.forEach(u=>{
       const isMe=u.id===meId;
       const badge=u.is_active?'<span class="pill green">Active</span>':'<span class="pill red">Disabled</span>';
@@ -50,6 +50,12 @@
       html+='<tr style="border-bottom:1px solid rgba(255,255,255,.07)">'
         +'<td style="padding:8px 6px">'+esc2(u.email)+'</td>'
         +'<td><select class="zau-type" data-id="'+esc2(u.id)+'" '+(isMe?'disabled':'')+' style="min-width:112px;padding:7px"><option value="dispatcher" '+(u.account_type==='carrier'?'':'selected')+'>Dispatcher</option><option value="carrier" '+(u.account_type==='carrier'?'selected':'')+'>Carrier</option></select></td>'
+        +'<td><select class="zau-plan" data-id="'+esc2(u.id)+'" '+(isMe?'disabled':'')+' style="min-width:102px;padding:7px">'
+        +'<option value="founder" '+((u.plan||'founder')==='founder'?'selected':'')+'>Founder</option>'
+        +'<option value="starter" '+(u.plan==='starter'?'selected':'')+'>Starter</option>'
+        +'<option value="pro" '+(u.plan==='pro'?'selected':'')+'>Pro</option>'
+        +'<option value="premium" '+(u.plan==='premium'?'selected':'')+'>Premium</option>'
+        +'</select></td>'
         +'<td>'+esc2(u.role)+'</td><td>'+badge+'</td>'
         +'<td>'+comp+'</td>'
         +'<td>'+esc2(u.subscription_status)+'</td>'
@@ -76,6 +82,16 @@
         if(!confirm('Change this user to a '+next+' account? Their data stays private; only their TMS tools and navigation change.')){await renderList(body);return}
         select.disabled=true;
         const up=await sb.from('profiles').update({account_type:next}).eq('id',select.dataset.id).select().single();
+        if(up.error){alert('Update failed: '+up.error.message);await renderList(body);return}
+        await renderList(body);
+      };
+    });
+    body.querySelectorAll('.zau-plan').forEach(select=>{
+      select.onchange=async()=>{
+        const next=['founder','starter','pro','premium'].includes(select.value)?select.value:'founder';
+        if(!confirm('Change this user to the '+next+' plan? This changes their TMS limits immediately.')){await renderList(body);return}
+        select.disabled=true;
+        const up=await sb.from('profiles').update({plan:next}).eq('id',select.dataset.id).select().single();
         if(up.error){alert('Update failed: '+up.error.message);await renderList(body);return}
         await renderList(body);
       };

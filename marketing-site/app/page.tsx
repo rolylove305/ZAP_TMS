@@ -39,7 +39,7 @@ const features = [
   {
     number: "02",
     title: "Live fleet visibility",
-    copy: "See trucks on one map, review driver HOS clocks, and connect supported ELD providers without switching systems.",
+    copy: "See fleet activity on one map, with an upgrade path for supported ELD/HOS provider connections.",
   },
   {
     number: "03",
@@ -49,7 +49,7 @@ const features = [
   {
     number: "04",
     title: "Documents & AI",
-    copy: "Keep load documents organized and turn Rate Confirmations into draft loads with AI-assisted data entry.",
+    copy: "Keep load documents organized, with an upgrade path for AI-assisted Rate Confirmation entry.",
   },
   {
     number: "05",
@@ -298,18 +298,19 @@ export default function Home() {
           <div className="pricing-copy">
             <span className="founder-pill">FOUNDING PLAN</span>
             <h2>Serious tools.<br /><em>Simple price.</em></h2>
-            <p>Full access to ZAP Dispatch TMS for one independent business account.</p>
+            <p>Core ZAP Dispatch TMS tools for one independent business account.</p>
           </div>
           <div className="price-card">
-            <span>FULL PLATFORM ACCESS</span>
+            <span>FOUNDER ACCESS</span>
             <div className="price"><sup>$</sup><b>29</b><div><strong>.99</strong><small>/ month</small></div></div>
             <p>Start with 30 days free. No credit card required.</p>
             <ul>
-              <li>✓ Unlimited load records</li>
-              <li>✓ Dispatch, tracking, HOS, and map</li>
+              <li>✓ 100 load records per month</li>
+              <li>✓ Up to 10 carriers</li>
+              <li>✓ Dispatch, tracking, and map</li>
               <li>✓ Driver portal and documents</li>
               <li>✓ Invoices and revenue tracking</li>
-              <li>✓ AI-assisted Rate Con import</li>
+              <li>✓ Upgrade path for AI and ELD/HOS tools</li>
             </ul>
             <a className="button button-primary price-button" href={appUrl}>Start my free trial <span>↗</span></a>
             <small>Month to month. Cancel anytime.</small>

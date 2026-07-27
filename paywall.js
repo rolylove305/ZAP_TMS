@@ -6,14 +6,14 @@
      lapsed user sees a clear paywall instead of an empty app. Admins and
      active/trial users never see it. */
 
-  const PRICE_LABEL='$29.99/month';
+  const PRICE_LABEL='$29.99/month Founder';
 
   async function getProfile(){
     try{
       const s=(await sb.auth.getSession()).data.session;
       if(!s)return {none:true};
       const r=await sb.from('profiles')
-        .select('role,is_active,trial_ends_at,subscription_status')
+        .select('role,is_active,trial_ends_at,subscription_status,plan')
         .eq('id',s.user.id).single();
       if(r.error)return null;
       return r.data;
@@ -62,7 +62,7 @@
     el.style.cssText='position:fixed;inset:0;z-index:100000;background:#061827;display:flex;align-items:center;justify-content:center;padding:20px';
     const buy=suspended?''
       :'<p style="font-size:28px;font-weight:800;margin:16px 0 4px">'+PRICE_LABEL+'</p>'
-       +'<p class="muted" style="font-size:12px;margin-top:0">Cancel anytime.</p>'
+       +'<p class="muted" style="font-size:12px;margin-top:0">Includes 100 loads/month, 10 carriers, and core dispatch tools. Cancel anytime.</p>'
        +'<button class="primary-btn" id="zapSubBtn" style="width:100%;margin-top:8px">Subscribe — '+PRICE_LABEL+'</button>'
        +'<p style="margin-top:16px;font-size:13px"><a href="#" id="zapPwRefresh" class="muted">I already paid — refresh</a></p>';
     el.innerHTML='<div class="card" style="max-width:460px;width:100%;text-align:center">'

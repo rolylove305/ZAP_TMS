@@ -107,11 +107,15 @@ Deno.serve(async (req) => {
     const userId = (obj.client_reference_id as string) ||
       (meta.user_id as string) || null;
     const customerId = (obj.customer as string) || null;
+    const plan = ["founder", "starter", "pro", "premium"].includes(String(meta.plan || ""))
+      ? String(meta.plan)
+      : null;
 
     switch (type) {
       case "checkout.session.completed": {
         const fields = {
           subscription_status: "active",
+          ...(plan ? { plan } : { plan: "founder" }),
           ...(customerId ? { stripe_customer_id: customerId } : {}),
         };
         if (userId) await updateByUser(userId, fields);
@@ -122,6 +126,7 @@ Deno.serve(async (req) => {
       case "customer.subscription.updated": {
         const fields: Record<string, unknown> = {
           subscription_status: mapStatus(String(obj.status || "")),
+          ...(plan ? { plan } : {}),
           current_period_end: obj.current_period_end
             ? new Date(Number(obj.current_period_end) * 1000).toISOString()
             : null,

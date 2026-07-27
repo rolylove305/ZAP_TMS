@@ -510,6 +510,13 @@ Deno.serve(async (req) => {
   try {
     const { user, admin } = await authenticatedUser(req);
 
+    const { data: allowed, error: planError } = await admin.rpc("can_use_feature", {
+      p_user_id: user.id,
+      p_feature: "eld_hos",
+    });
+    if (planError) throw new HttpError(500, planError.message);
+    if (!allowed) throw new HttpError(402, "ELD/HOS readiness is available on Premium.");
+
     if (req.method === "GET") {
       const url = new URL(req.url);
       const connectionId = url.searchParams.get("connection_id");

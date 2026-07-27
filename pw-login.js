@@ -35,7 +35,7 @@
 
     login.textContent='Log in';
     signup.textContent='Create account';
-    document.querySelectorAll('.small-copy').forEach(p=>p.textContent='Create an account with a strong password and confirm your email to activate your 30-day free trial. No payment is required to start. After 30 days, continue for $29.99/month.');
+    document.querySelectorAll('.small-copy').forEach(p=>p.textContent='Create an account with a strong password and confirm your email to activate your 30-day free trial. No payment is required to start. After 30 days, continue on the Founder plan for $29.99/month with fair-use limits.');
 
     async function run(create){
       const e=(email.value||'').trim().toLowerCase();

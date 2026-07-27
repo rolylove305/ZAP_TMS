@@ -404,6 +404,13 @@ Deno.serve(async (req) => {
     const { user, admin } = await userAndAdmin(req);
     if (req.method !== "GET" && req.method !== "POST") throw new HttpError(405, "Method not allowed");
 
+    const { data: allowed, error: planError } = await admin.rpc("can_use_feature", {
+      p_user_id: user.id,
+      p_feature: "eld_hos",
+    });
+    if (planError) throw new HttpError(500, planError.message);
+    if (!allowed) throw new HttpError(402, "ELD/HOS readiness is available on Premium.");
+
     const url = new URL(req.url);
     const body = req.method === "POST"
       ? await req.json().catch(() => ({})) as Record<string, unknown>

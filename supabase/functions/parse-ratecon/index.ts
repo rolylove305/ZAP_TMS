@@ -1220,6 +1220,18 @@ Deno.serve(
         },
       );
 
+      const { data: allowed, error: planError } = await admin.rpc(
+        "can_use_feature",
+        { p_user_id: user.id, p_feature: "ai_ratecon" },
+      );
+      if (planError) throw new AppError(500, planError.message);
+      if (!allowed) {
+        throw new AppError(
+          402,
+          "AI RateCon reading is available on Pro and Premium plans.",
+        );
+      }
+
       /*
        * Verifica que el storage_path corresponda
        * a un documento registrado por este usuario.

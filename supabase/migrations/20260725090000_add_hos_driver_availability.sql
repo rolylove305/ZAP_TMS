@@ -17,15 +17,17 @@ set search_path = public
 as $$
 declare
   normalized_status text;
+  duration_value numeric;
   status_minutes integer;
   remaining_minutes integer;
   calculation_source text;
   availability jsonb;
 begin
   normalized_status := upper(regexp_replace(coalesce(new.duty_status, ''), '[[:space:]_-]+', '', 'g'));
+  duration_value := nullif(regexp_replace(coalesce(new.duty_status_duration, ''), '[^0-9.]+', '', 'g'), '')::numeric;
 
-  if new.duty_status_duration is not null and new.duty_status_duration > 0 then
-    status_minutes := greatest(0, floor(new.duty_status_duration)::integer);
+  if duration_value is not null and duration_value > 0 then
+    status_minutes := greatest(0, floor(duration_value)::integer);
     calculation_source := 'duty_status_duration';
   elsif new.last_activity_at is not null and new.last_activity_at <= clock_timestamp() then
     status_minutes := greatest(
@@ -58,7 +60,7 @@ begin
       new.earliest_ready_at := clock_timestamp() + make_interval(mins => remaining_minutes);
     end if;
 
-    new.duty_status_duration := status_minutes;
+    new.duty_status_duration := status_minutes::text;
   end if;
 
   availability := jsonb_build_object(
