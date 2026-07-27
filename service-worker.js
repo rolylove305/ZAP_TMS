@@ -1,4 +1,4 @@
-const CACHE_NAME="zap-dispatch-tms-v90";
+const CACHE_NAME="zap-dispatch-tms-v91";
 const FILES=["index.html","styles.css?v=guided-tour-1","app.js?v=ratecon-quick-4","onboarding-tour.js?v=guided-tour-1","carrier-operations.js?v=admin-dual-mode-1","driver-picker.js?v=2","zap-upgrades.js?v=4500","ai-ratecon-safe.js?v=6","card-edit.js?v=commission-lock-1","admin-users.js?v=4","paywall.js?v=1","manage-subscription.js?v=1","pw-login.js?v=carrier-accounts-1","update-notice.js?v=2","eld-integrations.js?v=hos-reset-labels-1","eld-request.js?v=eld-request-1","eld-location.js?v=map-responsive-1","refresh.js?v=map-controls-1","config.js","manifest.json","zap-icon.svg","zap-logo-dark.png","zap-logo-light.png","apple-touch-icon.png","icon-192.png","icon-512.png","loadlink.js?v=zap-logo-1","vendor/supabase-js-2.110.2.js"];
 /* Security headers, kept in sync with /_headers. The SW rewrites index.html into a fresh
    Response that would otherwise drop the edge headers, so we re-add them here for the shell. */
