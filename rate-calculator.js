@@ -1,7 +1,7 @@
 (()=>{
 const $=id=>document.getElementById(id);
 const n=v=>{const x=Number(v);return Number.isFinite(x)?x:0};
-const usd=v=>'$'+n(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const usd=v=>{const x=n(v);return (x<0?'-$':'$')+Math.abs(x).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})};
 async function user(){return (await sb.auth.getSession()).data.session?.user}
 
 async function loadDefaultCpm(){
@@ -22,6 +22,7 @@ function compute(){
   if($('rcRpm'))$('rcRpm').textContent=usd(rpm)+'/mi';
   if($('rcTotalCost'))$('rcTotalCost').textContent=usd(totalCost);
   if($('rcProfit')){$('rcProfit').textContent=usd(profit);$('rcProfit').style.color=profit<0?'var(--red)':'var(--green)'}
+  if($('rcProfitBadge'))$('rcProfitBadge').style.display=profit<0?'inline-block':'none';
   if($('rcProfitPerMile')){$('rcProfitPerMile').textContent=usd(profitPerMile)+'/mi';$('rcProfitPerMile').style.color=profitPerMile<0?'var(--red)':'var(--green)'}
 }
 
@@ -62,7 +63,7 @@ async function panel(){
       +'<div><span>Total miles</span><strong id="rcTotalMiles">0</strong></div>'
       +'<div><span>Rate per loaded mile</span><strong id="rcRpm">$0.00/mi</strong></div>'
       +'<div><span>Total operating cost</span><strong id="rcTotalCost">$0.00</strong></div>'
-      +'<div><span>Net profit</span><strong id="rcProfit" style="color:var(--green)">$0.00</strong></div>'
+      +'<div><span>Net profit</span><strong id="rcProfit" style="color:var(--green)">$0.00</strong><span id="rcProfitBadge" class="pill red" style="display:none;margin-top:4px;width:fit-content">⚠ LOSS</span></div>'
       +'<div><span>Profit per mile</span><strong id="rcProfitPerMile" style="color:var(--green)">$0.00/mi</strong></div>'
     +'</div>'
     +'<div class="card-actions">'
