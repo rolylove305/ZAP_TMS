@@ -65,6 +65,7 @@ const features = [
 
 const pricingPlans = [
   {
+    code: "founder",
     name: "Founder",
     badge: "START HERE",
     price: "29.99",
@@ -79,6 +80,7 @@ const pricingPlans = [
     cta: "Start free",
   },
   {
+    code: "starter",
     name: "Starter",
     badge: "GROWING",
     price: "49.99",
@@ -93,6 +95,7 @@ const pricingPlans = [
     cta: "Start free",
   },
   {
+    code: "pro",
     name: "Pro",
     badge: "BEST VALUE",
     price: "99.99",
@@ -108,6 +111,7 @@ const pricingPlans = [
     featured: true,
   },
   {
+    code: "premium",
     name: "Premium",
     badge: "FULL OPS",
     price: "149.99",
@@ -376,7 +380,7 @@ export default function Home() {
                     <li key={feature}>✓ {feature}</li>
                   ))}
                 </ul>
-                <a className="button button-primary price-button" href={appUrl}>{plan.cta} <span>↗</span></a>
+                <a className="button button-primary price-button" href={`${appUrl}/?plan=${plan.code}`}>{plan.cta} <span>↗</span></a>
               </article>
             ))}
           </div>

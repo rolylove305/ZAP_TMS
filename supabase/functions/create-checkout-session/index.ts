@@ -4,6 +4,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2.95.0";
 
 const APP_URL = "https://app.zapdispatch.com";
+const PLAN_PRICE_ENV: Record<string, string> = {
+  founder: "STRIPE_PRICE_FOUNDER_ID",
+  starter: "STRIPE_PRICE_STARTER_ID",
+  pro: "STRIPE_PRICE_PRO_ID",
+  premium: "STRIPE_PRICE_PREMIUM_ID",
+};
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -23,6 +29,26 @@ function jsonResponse(obj: unknown, status = 200): Response {
     status,
     headers: { ...cors, "Content-Type": "application/json" },
   });
+}
+
+async function requestJson(req: Request): Promise<Record<string, unknown>> {
+  try {
+    return await req.json();
+  } catch {
+    return {};
+  }
+}
+
+function checkoutPlan(value: unknown): string {
+  const plan = String(value || "founder").toLowerCase();
+  return Object.prototype.hasOwnProperty.call(PLAN_PRICE_ENV, plan)
+    ? plan
+    : "founder";
+}
+
+function priceIdForPlan(plan: string): string {
+  const envName = PLAN_PRICE_ENV[plan] || PLAN_PRICE_ENV.founder;
+  return Deno.env.get(envName) || env("STRIPE_PRICE_ID");
 }
 
 // Minimal Stripe REST helper (form-encoded), no SDK needed.
@@ -54,6 +80,8 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const body = await requestJson(req);
+    const plan = checkoutPlan(body.plan);
     const authHeader = req.headers.get("Authorization") || "";
     const token = /^Bearer\s+(.+)$/i.exec(authHeader.trim())?.[1];
     if (!token) return jsonResponse({ error: "Missing authorization." }, 401);
@@ -100,14 +128,14 @@ Deno.serve(async (req) => {
     const session = await stripe("checkout/sessions", {
       mode: "subscription",
       customer: customerId,
-      "line_items[0][price]": env("STRIPE_PRICE_ID"),
+      "line_items[0][price]": priceIdForPlan(plan),
       "line_items[0][quantity]": "1",
-      success_url: APP_URL + "/?paid=1",
-      cancel_url: APP_URL + "/?checkout=cancel",
+      success_url: APP_URL + "/?paid=1&plan=" + encodeURIComponent(plan),
+      cancel_url: APP_URL + "/?checkout=cancel&plan=" + encodeURIComponent(plan),
       client_reference_id: user.id,
-      "metadata[plan]": "founder",
+      "metadata[plan]": plan,
       "subscription_data[metadata][user_id]": user.id,
-      "subscription_data[metadata][plan]": "founder",
+      "subscription_data[metadata][plan]": plan,
       allow_promotion_codes: "true",
     });
 
