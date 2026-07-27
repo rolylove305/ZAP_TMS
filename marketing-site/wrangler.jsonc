@@ -8,6 +8,16 @@
     "not_found_handling": "none",
     "binding": "ASSETS"
   },
+  "routes": [
+    {
+      "pattern": "zapdispatch.com/*",
+      "zone_name": "zapdispatch.com"
+    },
+    {
+      "pattern": "www.zapdispatch.com/*",
+      "zone_name": "zapdispatch.com"
+    }
+  ],
   "images": {
     "binding": "IMAGES"
   }
