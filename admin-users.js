@@ -1,11 +1,7 @@
 (()=>{
   /* Admin panel: lists all profiles and lets an admin deactivate/reactivate
-     users. Isolated overlay. Security is enforced server-side by RLS
-     (profiles: read own-or-admin, update admin-only + has_access checks
-     is_active); this only shows the UI when the logged-in user is an admin.
-     Deactivating a user immediately blocks their access to all TMS data.
-     Inactive non-admin users can also be deleted through the delete-user Edge
-     Function, which removes the Auth user server-side. */
+     users. Admins are the product owners and always have unlimited access,
+     regardless of the billing plan value stored for customer reporting. */
 
   let checked=false, isAdmin=false;
 
@@ -35,8 +31,20 @@
       +'<th style="padding:8px 6px">Email</th><th>Account</th><th>Plan</th><th>Role</th><th>Status</th><th>Free access</th><th>Subscription</th><th>Trial ends</th><th>Joined</th><th></th></tr></thead><tbody>';
     rows.forEach(u=>{
       const isMe=u.id===meId;
+      const isOwner=u.role==='admin';
       const badge=u.is_active?'<span class="pill green">Active</span>':'<span class="pill red">Disabled</span>';
-      const comp=u.comp_access?'<span class="pill green">Free</span>':'<span class="muted" style="font-size:12px">—</span>';
+      const comp=isOwner?'<span class="pill green">Included</span>':(u.comp_access?'<span class="pill green">Free</span>':'<span class="muted" style="font-size:12px">—</span>');
+      const planCell=isOwner
+        ?'<span class="pill" style="white-space:nowrap">Owner · Unlimited</span>'
+        :'<select class="zau-plan" data-id="'+esc2(u.id)+'" style="min-width:102px;padding:7px">'
+          +'<option value="founder" '+((u.plan||'founder')==='founder'?'selected':'')+'>Founder</option>'
+          +'<option value="starter" '+(u.plan==='starter'?'selected':'')+'>Starter</option>'
+          +'<option value="pro" '+(u.plan==='pro'?'selected':'')+'>Pro</option>'
+          +'<option value="premium" '+(u.plan==='premium'?'selected':'')+'>Premium</option>'
+          +'</select>';
+      const roleCell=isOwner?'<span class="pill">owner</span>':esc2(u.role);
+      const subscriptionCell=isOwner?'Not required':esc2(u.subscription_status);
+      const trialCell=isOwner?'—':fmtDate(u.trial_ends_at);
       let actions;
       if(isMe){
         actions='<span class="muted" style="font-size:12px">(you)</span>';
@@ -50,21 +58,16 @@
       html+='<tr style="border-bottom:1px solid rgba(255,255,255,.07)">'
         +'<td style="padding:8px 6px">'+esc2(u.email)+'</td>'
         +'<td><select class="zau-type" data-id="'+esc2(u.id)+'" '+(isMe?'disabled':'')+' style="min-width:112px;padding:7px"><option value="dispatcher" '+(u.account_type==='carrier'?'':'selected')+'>Dispatcher</option><option value="carrier" '+(u.account_type==='carrier'?'selected':'')+'>Carrier</option></select></td>'
-        +'<td><select class="zau-plan" data-id="'+esc2(u.id)+'" '+(isMe?'disabled':'')+' style="min-width:102px;padding:7px">'
-        +'<option value="founder" '+((u.plan||'founder')==='founder'?'selected':'')+'>Founder</option>'
-        +'<option value="starter" '+(u.plan==='starter'?'selected':'')+'>Starter</option>'
-        +'<option value="pro" '+(u.plan==='pro'?'selected':'')+'>Pro</option>'
-        +'<option value="premium" '+(u.plan==='premium'?'selected':'')+'>Premium</option>'
-        +'</select></td>'
-        +'<td>'+esc2(u.role)+'</td><td>'+badge+'</td>'
+        +'<td>'+planCell+'</td>'
+        +'<td>'+roleCell+'</td><td>'+badge+'</td>'
         +'<td>'+comp+'</td>'
-        +'<td>'+esc2(u.subscription_status)+'</td>'
-        +'<td>'+fmtDate(u.trial_ends_at)+'</td>'
+        +'<td>'+subscriptionCell+'</td>'
+        +'<td>'+trialCell+'</td>'
         +'<td>'+fmtDate(u.created_at)+'</td>'
         +'<td style="white-space:nowrap">'+actions+'</td></tr>';
     });
     html+='</tbody></table></div><p class="muted" style="margin-top:10px;font-size:12px">'
-      +rows.length+' user(s). "Grant free" gives complimentary access (no charge). Deactivating blocks a user\'s access immediately. Delete is only available after a user is disabled. All enforced server-side.</p>';
+      +rows.length+' user(s). Owner accounts always have unlimited access and never require billing. "Grant free" gives complimentary access to a customer account. Deactivating blocks access immediately.</p>';
     body.innerHTML=html;
     body.querySelectorAll('.zau-toggle').forEach(b=>{
       b.onclick=async()=>{
@@ -117,9 +120,7 @@
           if(res.error.context&&typeof res.error.context.json==='function'){
             try{const payload=await res.error.context.json();if(payload&&payload.error)msg=payload.error}catch(e){}
           }
-          alert('Delete failed: '+msg);
-          b.disabled=false;b.textContent='Delete';
-          return;
+          alert('Delete failed: '+msg);b.disabled=false;b.textContent='Delete';return;
         }
         await renderList(body);
       };
@@ -128,19 +129,8 @@
 
   async function openPanel(){
     let modal=document.getElementById('zapAdminModal');
-    if(!modal){
-      modal=document.createElement('div');
-      modal.id='zapAdminModal';
-      modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px';
-      document.body.appendChild(modal);
-    }
-    modal.innerHTML='<div class="card" style="width:min(940px,97vw);max-height:90vh;overflow:auto">'
-      +'<div class="section-title"><h2>Admin — Users</h2><button class="small-btn" id="zauClose">Close</button></div>'
-      +'<h3 style="margin:4px 0 6px;font-size:15px">Free-access invites</h3>'
-      +'<div id="zciBody"><p class="muted">Loading…</p></div>'
-      +'<h3 style="margin:18px 0 6px;font-size:15px">Users</h3>'
-      +'<div id="zauBody"><p class="muted">Loading users…</p></div>'
-      +'</div>';
+    if(!modal){modal=document.createElement('div');modal.id='zapAdminModal';modal.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px';document.body.appendChild(modal)}
+    modal.innerHTML='<div class="card" style="width:min(940px,97vw);max-height:90vh;overflow:auto"><div class="section-title"><h2>Admin — Users</h2><button class="small-btn" id="zauClose">Close</button></div><h3 style="margin:4px 0 6px;font-size:15px">Free-access invites</h3><div id="zciBody"><p class="muted">Loading…</p></div><h3 style="margin:18px 0 6px;font-size:15px">Users</h3><div id="zauBody"><p class="muted">Loading users…</p></div></div>';
     modal.querySelector('#zauClose').onclick=()=>modal.remove();
     await renderInvites(modal.querySelector('#zciBody'));
     await renderList(modal.querySelector('#zauBody'));
@@ -149,53 +139,13 @@
   async function renderInvites(box){
     const r=await sb.from('comp_invites').select('email,created_at').order('created_at',{ascending:false});
     const rows=(r&&!r.error&&r.data)?r.data:[];
-    const list=rows.length
-      ? rows.map(x=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.07)"><span>'+esc2(x.email)+'</span><button class="small-btn zci-del" data-email="'+esc2(x.email)+'">Remove</button></div>').join('')
-      : '<p class="muted" style="font-size:12px">No free-access invites yet.</p>';
-    box.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><input id="zciEmail" type="email" placeholder="person@email.com" style="flex:1;min-width:240px"><button class="small-btn" id="zciAdd">Add free invite</button></div>'
-      +'<div>'+list+'</div>'
-      +'<p class="muted" style="font-size:11px;margin-top:6px">Invited emails get free access automatically when they sign up (just share app.zapdispatch.com — no payment required for them).</p>';
-    box.querySelector('#zciAdd').onclick=async()=>{
-      const inp=box.querySelector('#zciEmail');
-      const email=(inp.value||'').trim().toLowerCase();
-      if(!email||email.indexOf('@')<1){alert('Enter a valid email.');return}
-      const meId=await sessionUserId();
-      const up=await sb.from('comp_invites').upsert({email:email,invited_by:meId},{onConflict:'email'});
-      if(up.error){alert('Could not add invite: '+up.error.message);return}
-      inp.value='';
-      await renderInvites(box);
-    };
-    box.querySelectorAll('.zci-del').forEach(b=>{
-      b.onclick=async()=>{
-        const email=b.dataset.email;
-        if(!confirm('Remove the free-access invite for '+email+'?\n(If they already signed up, their access stays — use "Remove free" on their row to revoke it.)'))return;
-        const d=await sb.from('comp_invites').delete().eq('email',email);
-        if(d.error){alert('Could not remove: '+d.error.message);return}
-        await renderInvites(box);
-      };
-    });
+    const list=rows.length?rows.map(x=>'<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.07)"><span>'+esc2(x.email)+'</span><button class="small-btn zci-del" data-email="'+esc2(x.email)+'">Remove</button></div>').join(''):'<p class="muted" style="font-size:12px">No free-access invites yet.</p>';
+    box.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px"><input id="zciEmail" type="email" placeholder="person@email.com" style="flex:1;min-width:240px"><button class="small-btn" id="zciAdd">Add free invite</button></div><div>'+list+'</div><p class="muted" style="font-size:11px;margin-top:6px">Invited emails get free access automatically when they sign up.</p>';
+    box.querySelector('#zciAdd').onclick=async()=>{const inp=box.querySelector('#zciEmail');const email=(inp.value||'').trim().toLowerCase();if(!email||email.indexOf('@')<1){alert('Enter a valid email.');return}const meId=await sessionUserId();const up=await sb.from('comp_invites').upsert({email,invited_by:meId},{onConflict:'email'});if(up.error){alert('Could not add invite: '+up.error.message);return}inp.value='';await renderInvites(box)};
+    box.querySelectorAll('.zci-del').forEach(b=>{b.onclick=async()=>{const email=b.dataset.email;if(!confirm('Remove the free-access invite for '+email+'?'))return;const d=await sb.from('comp_invites').delete().eq('email',email);if(d.error){alert('Could not remove: '+d.error.message);return}await renderInvites(box)}});
   }
 
-  function injectButton(){
-    if(document.getElementById('zapAdminBtn'))return;
-    const actions=document.querySelector('.top-actions');
-    if(!actions)return;
-    const btn=document.createElement('button');
-    btn.id='zapAdminBtn';
-    btn.className='small-btn';
-    btn.textContent='Admin';
-    btn.onclick=openPanel;
-    actions.insertBefore(btn,actions.firstChild);
-  }
-
-  async function tick(){
-    if(typeof sb==='undefined'||!sb)return;
-    const uid=await sessionUserId();
-    if(!uid){checked=false;isAdmin=false;return}
-    if(!checked){isAdmin=await amIAdmin(uid);checked=true;}
-    if(isAdmin)injectButton();
-  }
-
-  setInterval(tick,2000);
-  tick();
+  function injectButton(){if(document.getElementById('zapAdminBtn'))return;const actions=document.querySelector('.top-actions');if(!actions)return;const btn=document.createElement('button');btn.id='zapAdminBtn';btn.className='small-btn';btn.textContent='Admin';btn.onclick=openPanel;actions.insertBefore(btn,actions.firstChild)}
+  async function tick(){if(typeof sb==='undefined'||!sb)return;const uid=await sessionUserId();if(!uid){checked=false;isAdmin=false;return}if(!checked){isAdmin=await amIAdmin(uid);checked=true}if(isAdmin)injectButton()}
+  setInterval(tick,2000);tick();
 })();
