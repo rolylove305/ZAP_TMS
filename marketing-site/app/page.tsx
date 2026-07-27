@@ -63,10 +63,70 @@ const features = [
   },
 ];
 
+const pricingPlans = [
+  {
+    name: "Founder",
+    badge: "START HERE",
+    price: "29.99",
+    fit: "For a solo dispatcher or small carrier starting clean.",
+    limit: "100 loads/month · 10 carriers · 10 fleet people",
+    features: [
+      "Dispatch board, map, and tracking",
+      "Driver portal, documents, and invoices",
+      "Revenue and commission tracking",
+      "Upgrade path for AI and ELD/HOS tools",
+    ],
+    cta: "Start free",
+  },
+  {
+    name: "Starter",
+    badge: "GROWING",
+    price: "49.99",
+    fit: "For a dispatch desk that is booking more freight every week.",
+    limit: "200 loads/month · 25 carriers · 25 fleet people",
+    features: [
+      "Everything in Founder",
+      "More carrier and driver capacity",
+      "Cleaner team workflow for active accounts",
+      "Built for steady monthly operations",
+    ],
+    cta: "Start free",
+  },
+  {
+    name: "Pro",
+    badge: "BEST VALUE",
+    price: "99.99",
+    fit: "For active operations that need speed and less manual entry.",
+    limit: "1,000 loads/month · 100 carriers · 100 fleet people",
+    features: [
+      "Everything in Starter",
+      "AI Rate Confirmation import",
+      "Higher operating limits",
+      "Priority workflow support",
+    ],
+    cta: "Start free",
+    featured: true,
+  },
+  {
+    name: "Premium",
+    badge: "FULL OPS",
+    price: "149.99",
+    fit: "For serious carrier operations that need readiness tools.",
+    limit: "Unlimited fair-use loads, carriers, and fleet people",
+    features: [
+      "Everything in Pro",
+      "ELD/HOS readiness tools",
+      "AI-supported dispatch workflow",
+      "Premium account support",
+    ],
+    cta: "Start free",
+  },
+];
+
 const faqs = [
   {
     question: "Do I need a credit card to start?",
-    answer: "No. Start with full access for 30 days. Subscribe only when you are ready to continue.",
+    answer: "No. Start free for 30 days. Your account begins with Founder access, and higher plans are available as your operation grows.",
   },
   {
     question: "Is ZAP TMS for dispatchers or carriers?",
@@ -293,28 +353,34 @@ export default function Home() {
       </section>
 
       <section className="pricing-section" id="pricing">
-        <div className="pricing-glow" />
         <div className="shell pricing-inner">
           <div className="pricing-copy">
-            <span className="founder-pill">FOUNDING PLAN</span>
-            <h2>Serious tools.<br /><em>Simple price.</em></h2>
-            <p>Core ZAP Dispatch TMS tools for one independent business account.</p>
+            <span className="founder-pill">30 DAYS FREE</span>
+            <h2>Choose the plan<br /><em>that fits today.</em></h2>
+            <p>Start low-cost, prove the workflow, then upgrade when your operation needs more capacity, AI, or ELD/HOS readiness.</p>
           </div>
-          <div className="price-card">
-            <span>FOUNDER ACCESS</span>
-            <div className="price"><sup>$</sup><b>29</b><div><strong>.99</strong><small>/ month</small></div></div>
-            <p>Start with 30 days free. No credit card required.</p>
-            <ul>
-              <li>✓ 100 load records per month</li>
-              <li>✓ Up to 10 carriers</li>
-              <li>✓ Dispatch, tracking, and map</li>
-              <li>✓ Driver portal and documents</li>
-              <li>✓ Invoices and revenue tracking</li>
-              <li>✓ Upgrade path for AI and ELD/HOS tools</li>
-            </ul>
-            <a className="button button-primary price-button" href={appUrl}>Start my free trial <span>↗</span></a>
-            <small>Month to month. Cancel anytime.</small>
+          <div className="pricing-grid">
+            {pricingPlans.map((plan) => (
+              <article className={`price-card plan-card${plan.featured ? " plan-featured" : ""}`} key={plan.name}>
+                <span>{plan.badge}</span>
+                <h3>{plan.name}</h3>
+                <p className="plan-fit">{plan.fit}</p>
+                <div className="price plan-price">
+                  <sup>$</sup>
+                  <b>{plan.price.split(".")[0]}</b>
+                  <div><strong>.{plan.price.split(".")[1]}</strong><small>/ month</small></div>
+                </div>
+                <p className="plan-limit">{plan.limit}</p>
+                <ul>
+                  {plan.features.map((feature) => (
+                    <li key={feature}>✓ {feature}</li>
+                  ))}
+                </ul>
+                <a className="button button-primary price-button" href={appUrl}>{plan.cta} <span>↗</span></a>
+              </article>
+            ))}
           </div>
+          <p className="pricing-note">All plans start with a 30-day free trial. Month to month. Cancel anytime.</p>
         </div>
       </section>
 
