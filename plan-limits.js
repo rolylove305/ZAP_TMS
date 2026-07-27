@@ -36,8 +36,8 @@
   let currentPlan="founder";
   let loaded=false;
 
-  function isAdmin(){
-    return window.zapIsAdmin===true;
+  function isOwner(){
+    return window.zapIsOwner===true||window.zapIsAdmin===true;
   }
   function monthKey(dateValue){
     const d=dateValue?new Date(dateValue):new Date();
@@ -49,7 +49,7 @@
     return ((window.appData&&window.appData.loads)||[]).filter(l=>monthKey(l.createdAt||l.created_at)===key).length;
   }
   function limitLabel(limit){return limit==null?"unlimited":String(limit)}
-  function plan(){return isAdmin()?PLAN_LIMITS.premium:(PLAN_LIMITS[currentPlan]||PLAN_LIMITS.founder)}
+  function plan(){return isOwner()?PLAN_LIMITS.premium:(PLAN_LIMITS[currentPlan]||PLAN_LIMITS.founder)}
   function upgradeMessage(feature){
     const p=plan();
     if(feature==="loads")return `${p.name} includes ${limitLabel(p.loadsPerMonth)} loads per month. Upgrade to keep adding loads.`;
@@ -71,13 +71,19 @@
       if(typeof sb==="undefined")return currentPlan;
       const s=(await sb.auth.getSession()).data.session;
       if(!s)return currentPlan;
-      const r=await sb.from("profiles").select("plan").eq("id",s.user.id).maybeSingle();
-      if(!r.error&&r.data&&PLAN_LIMITS[r.data.plan])currentPlan=r.data.plan;
+      const r=await sb.from("profiles").select("plan,role").eq("id",s.user.id).maybeSingle();
+      if(!r.error&&r.data){
+        if(r.data.role==="owner"||r.data.role==="admin"){
+          window.zapIsOwner=true;
+          window.zapIsAdmin=true;
+        }
+        if(PLAN_LIMITS[r.data.plan])currentPlan=r.data.plan;
+      }
     }catch(e){}
     return currentPlan;
   }
   function canUse(feature){
-    if(isAdmin())return true;
+    if(isOwner())return true;
     const p=plan();
     if(feature==="loads")return p.loadsPerMonth==null||thisMonthLoads()<p.loadsPerMonth;
     if(feature==="carriers")return p.carriers==null||((window.appData&&window.appData.carriers)||[]).length<p.carriers;
@@ -98,8 +104,8 @@
     const b=document.createElement("span");
     b.className="pill";
     b.id="planBadge";
-    b.textContent=isAdmin()?"Owner access · Unlimited":`${plan().name} plan`;
+    b.textContent=isOwner()?"Owner · Unlimited":`${plan().name} plan`;
     target.after(b);
   }
-  window.zapPlanLimits={PLAN_LIMITS,loadPlan,requireFeature,canUse,renderBadge,getPlan:()=>isAdmin()?"owner":currentPlan,isAdmin};
+  window.zapPlanLimits={PLAN_LIMITS,loadPlan,requireFeature,canUse,renderBadge,getPlan:()=>isOwner()?"owner":currentPlan,isAdmin:isOwner,isOwner};
 })();
