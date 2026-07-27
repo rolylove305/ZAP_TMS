@@ -21,8 +21,8 @@ function compute(){
   if($('rcTotalMiles'))$('rcTotalMiles').textContent=totalMiles.toLocaleString();
   if($('rcRpm'))$('rcRpm').textContent=usd(rpm)+'/mi';
   if($('rcTotalCost'))$('rcTotalCost').textContent=usd(totalCost);
-  if($('rcProfit')){$('rcProfit').textContent=usd(profit);$('rcProfit').classList.toggle('red',profit<0);$('rcProfit').classList.toggle('green',profit>=0)}
-  if($('rcProfitPerMile')){$('rcProfitPerMile').textContent=usd(profitPerMile)+'/mi';$('rcProfitPerMile').classList.toggle('red',profitPerMile<0);$('rcProfitPerMile').classList.toggle('green',profitPerMile>=0)}
+  if($('rcProfit')){$('rcProfit').textContent=usd(profit);$('rcProfit').style.color=profit<0?'var(--red)':'var(--green)'}
+  if($('rcProfitPerMile')){$('rcProfitPerMile').textContent=usd(profitPerMile)+'/mi';$('rcProfitPerMile').style.color=profitPerMile<0?'var(--red)':'var(--green)'}
 }
 
 function closeCard(){const c=$('rateCalcCard');if(c)c.style.display='none'}
@@ -62,8 +62,8 @@ async function panel(){
       +'<div><span>Total miles</span><strong id="rcTotalMiles">0</strong></div>'
       +'<div><span>Rate per loaded mile</span><strong id="rcRpm">$0.00/mi</strong></div>'
       +'<div><span>Total operating cost</span><strong id="rcTotalCost">$0.00</strong></div>'
-      +'<div><span>Net profit</span><strong id="rcProfit" class="green">$0.00</strong></div>'
-      +'<div><span>Profit per mile</span><strong id="rcProfitPerMile" class="green">$0.00/mi</strong></div>'
+      +'<div><span>Net profit</span><strong id="rcProfit" style="color:var(--green)">$0.00</strong></div>'
+      +'<div><span>Profit per mile</span><strong id="rcProfitPerMile" style="color:var(--green)">$0.00/mi</strong></div>'
     +'</div>'
     +'<div class="card-actions">'
       +'<button id="rcSaveDefault" class="small-btn" type="button">Save as my default cost/mile</button>'
