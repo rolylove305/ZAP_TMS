@@ -36,6 +36,9 @@
   let currentPlan="founder";
   let loaded=false;
 
+  function isAdmin(){
+    return window.zapIsAdmin===true;
+  }
   function monthKey(dateValue){
     const d=dateValue?new Date(dateValue):new Date();
     if(Number.isNaN(d.getTime()))return "";
@@ -46,7 +49,7 @@
     return ((window.appData&&window.appData.loads)||[]).filter(l=>monthKey(l.createdAt||l.created_at)===key).length;
   }
   function limitLabel(limit){return limit==null?"unlimited":String(limit)}
-  function plan(){return PLAN_LIMITS[currentPlan]||PLAN_LIMITS.founder}
+  function plan(){return isAdmin()?PLAN_LIMITS.premium:(PLAN_LIMITS[currentPlan]||PLAN_LIMITS.founder)}
   function upgradeMessage(feature){
     const p=plan();
     if(feature==="loads")return `${p.name} includes ${limitLabel(p.loadsPerMonth)} loads per month. Upgrade to keep adding loads.`;
@@ -74,6 +77,7 @@
     return currentPlan;
   }
   function canUse(feature){
+    if(isAdmin())return true;
     const p=plan();
     if(feature==="loads")return p.loadsPerMonth==null||thisMonthLoads()<p.loadsPerMonth;
     if(feature==="carriers")return p.carriers==null||((window.appData&&window.appData.carriers)||[]).length<p.carriers;
@@ -94,8 +98,8 @@
     const b=document.createElement("span");
     b.className="pill";
     b.id="planBadge";
-    b.textContent=`${plan().name} plan`;
+    b.textContent=isAdmin()?"Owner access · Unlimited":`${plan().name} plan`;
     target.after(b);
   }
-  window.zapPlanLimits={PLAN_LIMITS,loadPlan,requireFeature,canUse,renderBadge,getPlan:()=>currentPlan};
+  window.zapPlanLimits={PLAN_LIMITS,loadPlan,requireFeature,canUse,renderBadge,getPlan:()=>isAdmin()?"owner":currentPlan,isAdmin};
 })();
