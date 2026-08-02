@@ -28,6 +28,10 @@ function addTop(){if(q('#invoiceSelectedBtn'))return;const bar=q('#folderBar')||
 async function revokeLink(id){if(!confirm('Revoke driver link for this load? The driver portal link will stop working.'))return;const r=await sb.rpc('revoke_driver_link',{p_load_id:id});if(r.error)return alert(r.error.message);alert('Driver link revoked. Generate a new Driver Link if needed.')}
 function markCards(){const arr=loads();qa('#loadsList .list-card').forEach((card,i)=>{const l=arr[i];if(!l)return;if(ok(l.status)){let box=card.querySelector('.invoice-select-box');if(!box){box=document.createElement('label');box.className='invoice-select-box';box.style.cssText='display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800;color:#86efac';box.innerHTML='<input type="checkbox" class="invoice-select"> Select for invoice';card.prepend(box)}box.querySelector('input').dataset.id=l.id}let acts=card.querySelector('.card-actions');if(!acts){acts=document.createElement('div');acts.className='card-actions';card.appendChild(acts)}if(!card.querySelector('.revoke-link-btn')){const b=document.createElement('button');b.className='small-btn revoke-link-btn';b.textContent='Revoke Link';b.onclick=()=>revokeLink(l.id);acts.appendChild(b)}})}
 async function carrierEmail(carrier){const r=await sb.from('carriers').select('email').eq('name',carrier).maybeSingle();return r.data?.email||''}
+async function pendingCharges(carrier){const r=await sb.from('carrier_charges').select('*').eq('carrier',carrier).eq('status','pending').order('charge_date',{ascending:true});if(r.error){alert('Could not load pending charges: '+r.error.message);return []}return r.data||[]}
+function chargeRows(charges){return (charges||[]).map(c=>({type:'charge',loadNumber:c.category||'Additional Fee',lane:c.description||'Additional service',date:c.charge_date||'',rate:0,pctLabel:'Fee',due:Number(c.amount||0),chargeId:c.id}))}
+function chargeText(charges){return (charges||[]).map(c=>(c.category||'Additional Fee')+' | '+(c.description||'Additional service')+' | '+money(c.amount)).join('\n')}
+async function markChargesInvoiced(charges,invoiceId){const ids=(charges||[]).map(c=>c.id).filter(Boolean);if(!ids.length)return;const r=await sb.from('carrier_charges').update({status:'invoiced',invoice_id:invoiceId}).in('id',ids).eq('status','pending');if(r.error)alert('Invoice was created, but pending charges were not marked invoiced: '+r.error.message+'. Review Charges before creating another invoice.')}
 function gmailUrl(to,subject,body){return 'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(to||'')+'&su='+encodeURIComponent(subject||'')+'&body='+encodeURIComponent(body||'')}
 function ensurePrintStyle(){
   if(document.getElementById('zpPrintStyle'))return;
@@ -49,6 +53,7 @@ function showPrintableOverlay(ctx){
   if(hasRows){
     const rows=ctx.rows.map(r=>'<tr><td>'+esc(r.loadNumber)+'</td><td>'+esc(r.lane)+'</td><td>'+esc(r.date)+'</td><td>'+money(r.rate)+'</td><td>'+esc(r.pctLabel)+'</td><td>'+money(r.due)+'</td></tr>').join('');
     const grossTotal=ctx.rows.reduce((s,r)=>s+Number(r.rate||0),0);
+    const chargeTotal=ctx.rows.filter(r=>r.type==='charge').reduce((s,r)=>s+Number(r.due||0),0);
     bodyHtml='<table style="width:100%;border-collapse:collapse;margin-top:22px"><thead><tr>'
       +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Load #</th>'
       +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Lane</th>'
@@ -57,7 +62,8 @@ function showPrintableOverlay(ctx){
       +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Dispatch %</th>'
       +'<th style="border:1px solid #ccc;padding:9px;background:#f2f2f2;text-align:left;font-size:13px">Amount Due</th>'
     +'</tr></thead><tbody style="font-size:13px">'+rows+'</tbody></table>'
-    +'<div style="text-align:right;font-size:18px;font-weight:800;margin-top:18px">Total Load Rates: '+money(grossTotal)+'</div>';
+    +'<div style="text-align:right;font-size:18px;font-weight:800;margin-top:18px">Total Load Rates: '+money(grossTotal)+'</div>'
+    +(chargeTotal?'<div style="text-align:right;font-size:16px;font-weight:800;margin-top:6px">Additional Fees: '+money(chargeTotal)+'</div>':'');
   } else {
     bodyHtml='<p style="margin-top:22px;padding:14px;border:1px solid #ddd;background:#fafafa;border-radius:6px;color:#555">'+esc(ctx.emptyMessage||'No load details found for this saved invoice.')+'</p>';
   }
@@ -84,6 +90,7 @@ function showInvoiceModal(ctx){
   let m=document.getElementById('ziModal');
   if(!m){m=document.createElement('div');m.id='ziModal';m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';document.body.appendChild(m)}
   const lines=ctx.items.map(x=>'<p class="muted" style="margin:4px 0">Load # '+esc(x.load_number||'-')+' • '+esc((x.pickup||'')+' → '+(x.delivery||''))+' • '+money(x.__due)+'</p>').join('');
+  const chargeLines=(ctx.charges||[]).map(c=>'<p class="muted" style="margin:4px 0">'+esc(c.category||'Additional Fee')+' • '+esc(c.description||'Additional service')+' • '+money(c.amount)+'</p>').join('');
   const note=isIOS
     ? 'On iPhone: use Copy email text and paste it into the Gmail app, or tap View / Print invoice for the PDF.'
     : 'Use Open Gmail draft to prefill an email, View / Print invoice for the PDF, or Copy email text to paste it elsewhere.';
@@ -91,6 +98,7 @@ function showInvoiceModal(ctx){
     +'<div class="section-title"><h2>Invoice '+esc(ctx.invoiceNumber)+'</h2><button class="small-btn" id="ziClose">Close</button></div>'
     +'<p class="muted">'+esc(ctx.carrier)+' • '+ctx.items.length+' load(s)'+(ctx.email?' • Carrier email: '+esc(ctx.email):' • No carrier email on file')+'</p>'
     +lines
+    +(chargeLines?'<h3 style="margin:12px 0 6px">Additional Fees</h3>'+chargeLines:'')
     +'<p style="font-weight:800;font-size:18px;margin:10px 0">Total Due: '+money(ctx.total)+'</p>'
     +'<div class="card-actions" style="flex-wrap:wrap">'
       +(isIOS?'':'<a class="small-btn" id="ziGmail" href="'+esc(ctx.gUrl)+'" target="_blank" rel="noopener">Open Gmail draft</a>')
@@ -139,9 +147,13 @@ async function invoiceSelected(){
  let total=0;
  items.forEach(x=>{const rate=Number(x.rate||0),pct=Number(x.commission_pct);x.__due=rate*pct/100;total+=x.__due});
  const carrier=carriers[0]||'Carrier';
+ const charges=await pendingCharges(carrier);
+ const chargesTotal=charges.reduce((s,c)=>s+Number(c.amount||0),0);
+ total+=chargesTotal;
  const inv=await sb.from('invoices').insert({user_id:u.id,invoice_number:invoiceNumber,carrier,total}).select('id').single();
  if(inv.error)return alert(inv.error.message);
  const invoiceId=inv.data.id;
+ await markChargesInvoiced(charges,invoiceId);
  const ilIns=await sb.from('invoice_loads').insert(items.map(x=>({invoice_id:invoiceId,load_id:x.id,amount_due:x.__due}))).select('load_id,amount_due');
  if(ilIns.error)alert('Invoice '+invoiceNumber+' was created, but saving its load line items failed: '+ilIns.error.message+'. The invoice is incomplete — check Saved Invoices before sending it.');
  else{
@@ -149,12 +161,14 @@ async function invoiceSelected(){
    if(createdCount!==items.length)alert('Invoice '+invoiceNumber+': only '+createdCount+' of '+items.length+' load line item(s) were saved. The invoice shown now uses the full selected load data, but Saved Invoices may show it as incomplete later.');
  }
  const email=await carrierEmail(carrier);
- const lineText=items.map(x=>'Load # '+(x.load_number||'-')+' | '+(x.pickup||'')+' to '+(x.delivery||'')+' | Dispatch fee: '+money(x.__due)).join('\n');
+ const loadLineText=items.map(x=>'Load # '+(x.load_number||'-')+' | '+(x.pickup||'')+' to '+(x.delivery||'')+' | Dispatch fee: '+money(x.__due)).join('\n');
+ const feeLineText=chargeText(charges);
+ const lineText=loadLineText+(feeLineText?'\n\nAdditional Fees:\n'+feeLineText:'');
  const subject='Invoice '+invoiceNumber+' - '+carrier;
  const body='Hello,\n\nPlease see invoice details below. I will attach the PDF invoice before sending.\n\nInvoice: '+invoiceNumber+'\nCarrier: '+carrier+'\n\n'+lineText+'\n\nTotal Due: '+money(total)+'\n\nPayment Info:\n'+(st.zelle_info||'')+'\n\nThank you,\n'+(st.company_name||'Zap Dispatch');
  const gUrl=gmailUrl(email,subject,body); /* only linked from the modal when !isIOS */
- const rows=items.map(x=>{const rate=Number(x.rate||0),due=x.__due;const pct=rate>0?((due/rate)*100).toFixed(1).replace(/\.0$/,'')+'%':'-';return{loadNumber:x.load_number||'-',lane:(x.pickup||'')+' → '+(x.delivery||''),date:x.delivery_date||x.pickup_date||'',rate,pctLabel:pct,due}});
- showInvoiceModal({ids,items,carrier,email,total,invoiceNumber,invoiceId,subject,body,gUrl,rows,st});
+ const rows=items.map(x=>{const rate=Number(x.rate||0),due=x.__due;const pct=rate>0?((due/rate)*100).toFixed(1).replace(/\.0$/,'')+'%':'-';return{type:'load',loadNumber:x.load_number||'-',lane:(x.pickup||'')+' → '+(x.delivery||''),date:x.delivery_date||x.pickup_date||'',rate,pctLabel:pct,due}}).concat(chargeRows(charges));
+ showInvoiceModal({ids,items,charges,carrier,email,total,invoiceNumber,invoiceId,subject,body,gUrl,rows,st});
 }
 setInterval(()=>{loadCompanySettings();addTop();markCards()},1500);
 })();
