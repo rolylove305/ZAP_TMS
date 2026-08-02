@@ -28,9 +28,10 @@ function addTop(){if(q('#invoiceSelectedBtn'))return;const bar=q('#folderBar')||
 async function revokeLink(id){if(!confirm('Revoke driver link for this load? The driver portal link will stop working.'))return;const r=await sb.rpc('revoke_driver_link',{p_load_id:id});if(r.error)return alert(r.error.message);alert('Driver link revoked. Generate a new Driver Link if needed.')}
 function markCards(){const arr=loads();qa('#loadsList .list-card').forEach((card,i)=>{const l=arr[i];if(!l)return;if(ok(l.status)){let box=card.querySelector('.invoice-select-box');if(!box){box=document.createElement('label');box.className='invoice-select-box';box.style.cssText='display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800;color:#86efac';box.innerHTML='<input type="checkbox" class="invoice-select"> Select for invoice';card.prepend(box)}box.querySelector('input').dataset.id=l.id}let acts=card.querySelector('.card-actions');if(!acts){acts=document.createElement('div');acts.className='card-actions';card.appendChild(acts)}if(!card.querySelector('.revoke-link-btn')){const b=document.createElement('button');b.className='small-btn revoke-link-btn';b.textContent='Revoke Link';b.onclick=()=>revokeLink(l.id);acts.appendChild(b)}})}
 async function carrierEmail(carrier){const r=await sb.from('carriers').select('email').eq('name',carrier).maybeSingle();return r.data?.email||''}
-async function pendingCharges(carrier){const r=await sb.from('carrier_charges').select('*').eq('carrier',carrier).eq('status','pending').order('charge_date',{ascending:true});if(r.error){alert('Could not load pending charges: '+r.error.message);return []}return r.data||[]}
-function chargeRows(charges){return (charges||[]).map(c=>({type:'charge',loadNumber:c.category||'Additional Fee',lane:c.description||'Additional service',date:c.charge_date||'',rate:0,pctLabel:'Fee',due:Number(c.amount||0),chargeId:c.id}))}
-function chargeText(charges){return (charges||[]).map(c=>(c.category||'Additional Fee')+' | '+(c.description||'Additional service')+' | '+money(c.amount)).join('\n')}
+async function pendingGeneralCharges(carrier){const r=await sb.from('carrier_charges').select('*').eq('carrier',carrier).eq('status','pending').is('load_id',null).order('charge_date',{ascending:true});if(r.error){alert('Could not load pending weekly/general charges: '+r.error.message);return []}return r.data||[]}
+async function pendingLoadCharges(loadIds){if(!loadIds||!loadIds.length)return [];const r=await sb.from('carrier_charges').select('*').eq('status','pending').in('load_id',loadIds).order('charge_date',{ascending:true});if(r.error){alert('Could not load load-specific charges: '+r.error.message);return []}return r.data||[]}
+function chargeRows(charges,loadsById={}){return (charges||[]).map(c=>{const l=c.load_id&&loadsById[c.load_id];const label=l?('Load # '+(l.load_number||'-')):(c.category||'Additional Fee');const lane=(c.category||'Additional Fee')+(c.description?' - '+c.description:'');return{type:'charge',loadNumber:label,lane,date:c.charge_date||'',rate:0,pctLabel:'Fee',due:Number(c.amount||0),chargeId:c.id,loadId:c.load_id||null}})}
+function chargeText(charges,loadsById={}){return (charges||[]).map(c=>{const l=c.load_id&&loadsById[c.load_id];const scope=l?('Load # '+(l.load_number||'-')+' | '):'';return scope+(c.category||'Additional Fee')+' | '+(c.description||'Additional service')+' | '+money(c.amount)}).join('\n')}
 async function markChargesInvoiced(charges,invoiceId){const ids=(charges||[]).map(c=>c.id).filter(Boolean);if(!ids.length)return;const r=await sb.from('carrier_charges').update({status:'invoiced',invoice_id:invoiceId}).in('id',ids).eq('status','pending');if(r.error)alert('Invoice was created, but pending charges were not marked invoiced: '+r.error.message+'. Review Charges before creating another invoice.')}
 function gmailUrl(to,subject,body){return 'https://mail.google.com/mail/?view=cm&fs=1&to='+encodeURIComponent(to||'')+'&su='+encodeURIComponent(subject||'')+'&body='+encodeURIComponent(body||'')}
 function ensurePrintStyle(){
@@ -90,7 +91,7 @@ function showInvoiceModal(ctx){
   let m=document.getElementById('ziModal');
   if(!m){m=document.createElement('div');m.id='ziModal';m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px';document.body.appendChild(m)}
   const lines=ctx.items.map(x=>'<p class="muted" style="margin:4px 0">Load # '+esc(x.load_number||'-')+' • '+esc((x.pickup||'')+' → '+(x.delivery||''))+' • '+money(x.__due)+'</p>').join('');
-  const chargeLines=(ctx.charges||[]).map(c=>'<p class="muted" style="margin:4px 0">'+esc(c.category||'Additional Fee')+' • '+esc(c.description||'Additional service')+' • '+money(c.amount)+'</p>').join('');
+  const chargeLines=(ctx.charges||[]).map(c=>{const l=ctx.loadsById&&c.load_id&&ctx.loadsById[c.load_id];const scope=l?('Load # '+(l.load_number||'-')+' • '):'';return '<p class="muted" style="margin:4px 0">'+esc(scope+(c.category||'Additional Fee'))+' • '+esc(c.description||'Additional service')+' • '+money(c.amount)+'</p>'}).join('');
   const note=isIOS
     ? 'On iPhone: use Copy email text and paste it into the Gmail app, or tap View / Print invoice for the PDF.'
     : 'Use Open Gmail draft to prefill an email, View / Print invoice for the PDF, or Copy email text to paste it elsewhere.';
@@ -147,7 +148,10 @@ async function invoiceSelected(){
  let total=0;
  items.forEach(x=>{const rate=Number(x.rate||0),pct=Number(x.commission_pct);x.__due=rate*pct/100;total+=x.__due});
  const carrier=carriers[0]||'Carrier';
- const charges=await pendingCharges(carrier);
+ const loadsById={};items.forEach(x=>{loadsById[x.id]=x});
+ const generalCharges=await pendingGeneralCharges(carrier);
+ const loadCharges=await pendingLoadCharges(ids);
+ const charges=[...loadCharges,...generalCharges];
  const chargesTotal=charges.reduce((s,c)=>s+Number(c.amount||0),0);
  total+=chargesTotal;
  const inv=await sb.from('invoices').insert({user_id:u.id,invoice_number:invoiceNumber,carrier,total}).select('id').single();
@@ -162,13 +166,13 @@ async function invoiceSelected(){
  }
  const email=await carrierEmail(carrier);
  const loadLineText=items.map(x=>'Load # '+(x.load_number||'-')+' | '+(x.pickup||'')+' to '+(x.delivery||'')+' | Dispatch fee: '+money(x.__due)).join('\n');
- const feeLineText=chargeText(charges);
+ const feeLineText=chargeText(charges,loadsById);
  const lineText=loadLineText+(feeLineText?'\n\nAdditional Fees:\n'+feeLineText:'');
  const subject='Invoice '+invoiceNumber+' - '+carrier;
  const body='Hello,\n\nPlease see invoice details below. I will attach the PDF invoice before sending.\n\nInvoice: '+invoiceNumber+'\nCarrier: '+carrier+'\n\n'+lineText+'\n\nTotal Due: '+money(total)+'\n\nPayment Info:\n'+(st.zelle_info||'')+'\n\nThank you,\n'+(st.company_name||'Zap Dispatch');
  const gUrl=gmailUrl(email,subject,body); /* only linked from the modal when !isIOS */
- const rows=items.map(x=>{const rate=Number(x.rate||0),due=x.__due;const pct=rate>0?((due/rate)*100).toFixed(1).replace(/\.0$/,'')+'%':'-';return{type:'load',loadNumber:x.load_number||'-',lane:(x.pickup||'')+' → '+(x.delivery||''),date:x.delivery_date||x.pickup_date||'',rate,pctLabel:pct,due}}).concat(chargeRows(charges));
- showInvoiceModal({ids,items,charges,carrier,email,total,invoiceNumber,invoiceId,subject,body,gUrl,rows,st});
+ const rows=items.map(x=>{const rate=Number(x.rate||0),due=x.__due;const pct=rate>0?((due/rate)*100).toFixed(1).replace(/\.0$/,'')+'%':'-';return{type:'load',loadNumber:x.load_number||'-',lane:(x.pickup||'')+' → '+(x.delivery||''),date:x.delivery_date||x.pickup_date||'',rate,pctLabel:pct,due}}).concat(chargeRows(charges,loadsById));
+ showInvoiceModal({ids,items,charges,loadsById,carrier,email,total,invoiceNumber,invoiceId,subject,body,gUrl,rows,st});
 }
 setInterval(()=>{loadCompanySettings();addTop();markCards()},1500);
 })();

@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" href="zap-icon.svg">
   <meta name="theme-color" content="#061827">
-  <link rel="stylesheet" href="styles.css?v=charges-ui-1" />
+  <link rel="stylesheet" href="styles.css?v=load-charge-1" />
   <link rel="stylesheet" href="mobile-fix.css?v=5100" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIINfQ3ynhtfRMU6MZehJczd3eVFf/Mml7o=" crossorigin="anonymous" />
   <style>
@@ -262,12 +262,13 @@
           <label>Date<input id="chargeDate" type="date"></label>
           <label>Category<select id="chargeCategory"><option>Permit</option><option>Document Preparation</option><option>KY Permit</option><option>NY HUT</option><option>NM Permit</option><option>OR Permit</option><option>UCR</option><option>BOC-3</option><option>Drug Consortium</option><option>ELD Setup</option><option>Factoring Setup</option><option>Fuel Advance</option><option>Toll</option><option>Lumper</option><option>Washout</option><option>Insurance</option><option>Escrow</option><option>Other Service</option></select></label>
           <label>Amount $<input id="chargeAmount" type="number" min="0" step="0.01"></label>
+          <label style="grid-column:1/-1">Apply to<select id="chargeLoad"><option value="">Weekly / General charge</option></select></label>
           <label style="grid-column:1/-1">Description<input id="chargeDescription" placeholder="Example: KY permit filing, document creation, receipt reimbursement"></label>
           <label style="grid-column:1/-1">Optional backup<input id="chargeAttachment" type="file" accept="image/*,.pdf"></label>
         </div>
       </div>
       <div class="card carrier-only">
-        <p class="muted">These are additional service charges from dispatch. Pending charges are included automatically on your weekly invoice.</p>
+        <p class="muted">These are additional service charges from dispatch. Load-specific charges appear on that load invoice. General pending charges are included on your weekly invoice.</p>
       </div>
       <div id="chargesList" class="list"></div>
     </section>
@@ -275,7 +276,7 @@
     <section class="screen" id="invoices">
       <div class="section-title"><h2>Invoices / Payments</h2></div>
       <div class="card">
-        <p class="muted">Weekly invoices include selected delivered loads plus any pending Charges / Additional Fees for that carrier.</p>
+        <p class="muted">Invoices include selected delivered loads, load-specific charges for those loads, and any pending Weekly / General charges for that carrier.</p>
       </div>
       <div class="section-title"><h2>Saved Invoices</h2></div>
       <div id="savedInvoicesList" class="list"></div>
@@ -321,9 +322,9 @@
 <script src="config.js"></script>
 <script src="vendor/supabase-js-2.110.2.js"></script>
 <script src="plan-limits.js?v=1"></script>
-<script src="app.js?v=charges-1"></script>
+<script src="app.js?v=load-charge-1"></script>
 <script src="pw-login.js?v=founder-plan-1"></script>
-<script src="loadlink.js?v=charges-1"></script>
+<script src="loadlink.js?v=load-charge-1"></script>
 <script id="eldIntegrationsModule" src="eld-integrations.js?v=plan-gate-1"></script>
 <script src="eld-request.js?v=eld-request-1"></script>
 <script src="refresh.js?v=map-controls-1"></script>

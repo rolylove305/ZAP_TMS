@@ -76,12 +76,12 @@ async function viewPrintableInvoice(inv,btn){
     }
     const chR=await sb.from('carrier_charges').select('*').eq('invoice_id',inv.id).order('charge_date',{ascending:true});
     if(chR.error)throw new Error(chR.error.message);
-    const chargeRows=(chR.data||[]).map(c=>({type:'charge',loadNumber:c.category||'Additional Fee',lane:c.description||'Additional service',date:c.charge_date||'',rate:0,pctLabel:'Fee',due:Number(c.amount||0)}));
-    if(!invoiceLoads.length&&!chargeRows.length){
+    const charges=chR.data||[];
+    if(!invoiceLoads.length&&!charges.length){
       showPrintableOverlay({invoiceNumber:inv.invoice_number,carrier:inv.carrier,createdAt:inv.created_at?new Date(inv.created_at).toLocaleDateString():'',rows:[],total:inv.total,st,emptyMessage:'No load or fee details found for this saved invoice.'});
       return;
     }
-    const loadIds=invoiceLoads.map(x=>x.load_id).filter(Boolean);
+    const loadIds=[...new Set(invoiceLoads.map(x=>x.load_id).concat(charges.map(x=>x.load_id)).filter(Boolean))];
     let loadsById={};
     if(loadIds.length){
       const lR=await sb.from('loads').select('*').in('id',loadIds);
@@ -89,6 +89,7 @@ async function viewPrintableInvoice(inv,btn){
       (lR.data||[]).forEach(l=>{loadsById[l.id]=l});
     }
     let missingCount=0;
+    const chargeRows=charges.map(c=>{const l=c.load_id&&loadsById[c.load_id];return{type:'charge',loadNumber:l?('Load # '+(l.load_number||'-')):(c.category||'Additional Fee'),lane:(c.category||'Additional Fee')+(c.description?' - '+c.description:''),date:c.charge_date||'',rate:0,pctLabel:'Fee',due:Number(c.amount||0)}});
     const rows=invoiceLoads.map(il=>{
       const l=loadsById[il.load_id];
       if(!l)missingCount++;
