@@ -42,14 +42,12 @@ as $$
 $$;
 
 -- The original product-owner account remains `admin` internally for compatibility
--- with existing frontend and RLS code. Keep `plan` inside the existing commercial
--- plan check constraint while access/billing are bypassed by role and comp_access.
+-- with existing frontend and RLS code. Keep billing/trial fields unchanged so
+-- this migration stays compatible with older NOT NULL constraints.
 update public.profiles
 set
   is_active = true,
   comp_access = true,
-  subscription_status = null,
-  trial_ends_at = null,
   plan = 'premium'
 where role in ('owner', 'admin');
 
@@ -62,8 +60,6 @@ begin
   if new.role in ('owner', 'admin') then
     new.is_active := true;
     new.comp_access := true;
-    new.subscription_status := null;
-    new.trial_ends_at := null;
     new.plan := 'premium';
   end if;
   return new;
@@ -72,7 +68,7 @@ $$;
 
 drop trigger if exists trg_normalize_owner_profile on public.profiles;
 create trigger trg_normalize_owner_profile
-before insert or update of role, is_active, comp_access, subscription_status, trial_ends_at, plan
+before insert or update of role, is_active, comp_access, plan
 on public.profiles
 for each row
 execute function public.normalize_owner_profile();
@@ -80,4 +76,4 @@ execute function public.normalize_owner_profile();
 comment on function public.has_access() is
   'Returns true for owner/admin unconditionally; customer access requires active complimentary, subscription, or trial access.';
 comment on function public.normalize_owner_profile() is
-  'Prevents owner/admin accounts from receiving customer billing, trial, or suspension restrictions while keeping plan compatible with existing constraints.';
+  'Prevents owner/admin accounts from suspension and plan-limit restrictions while leaving existing billing/trial fields unchanged.';
