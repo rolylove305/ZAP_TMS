@@ -42,14 +42,15 @@ as $$
 $$;
 
 -- The original product-owner account remains `admin` internally for compatibility
--- with existing frontend and RLS code, but is normalized as a non-billable owner.
+-- with existing frontend and RLS code. Keep `plan` inside the existing commercial
+-- plan check constraint while access/billing are bypassed by role and comp_access.
 update public.profiles
 set
   is_active = true,
   comp_access = true,
   subscription_status = null,
   trial_ends_at = null,
-  plan = null
+  plan = 'premium'
 where role in ('owner', 'admin');
 
 create or replace function public.normalize_owner_profile()
@@ -63,7 +64,7 @@ begin
     new.comp_access := true;
     new.subscription_status := null;
     new.trial_ends_at := null;
-    new.plan := null;
+    new.plan := 'premium';
   end if;
   return new;
 end;
@@ -79,4 +80,4 @@ execute function public.normalize_owner_profile();
 comment on function public.has_access() is
   'Returns true for owner/admin unconditionally; customer access requires active complimentary, subscription, or trial access.';
 comment on function public.normalize_owner_profile() is
-  'Prevents owner/admin accounts from receiving customer billing, trial, plan, or suspension restrictions.';
+  'Prevents owner/admin accounts from receiving customer billing, trial, or suspension restrictions while keeping plan compatible with existing constraints.';
