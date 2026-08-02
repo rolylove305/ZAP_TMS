@@ -94,6 +94,7 @@
           <button class="primary-btn jump dispatcher-only" data-screen="carriers">Add Carrier</button>
           <button class="primary-btn jump carrier-only" data-screen="fleet">Add Driver / Owner Op</button>
           <button class="primary-btn jump" data-screen="brokers">Add Broker</button>
+          <button class="primary-btn jump" data-screen="charges">Charges</button>
           <button class="primary-btn jump" data-screen="invoices">Invoices</button>
         </div>
       </div>
@@ -253,10 +254,28 @@
       <div id="expensesList" class="list"></div>
     </section>
 
+    <section class="screen" id="charges">
+      <div class="section-title"><h2>Charges / Additional Fees</h2><button id="addCharge" class="small-btn dispatcher-only">Save charge</button></div>
+      <div class="card dispatcher-only">
+        <div class="form-grid">
+          <label>Carrier<select id="chargeCarrier"></select></label>
+          <label>Date<input id="chargeDate" type="date"></label>
+          <label>Category<select id="chargeCategory"><option>Permit</option><option>Document Preparation</option><option>KY Permit</option><option>NY HUT</option><option>NM Permit</option><option>OR Permit</option><option>UCR</option><option>BOC-3</option><option>Drug Consortium</option><option>ELD Setup</option><option>Factoring Setup</option><option>Fuel Advance</option><option>Toll</option><option>Lumper</option><option>Washout</option><option>Insurance</option><option>Escrow</option><option>Other Service</option></select></label>
+          <label>Amount $<input id="chargeAmount" type="number" min="0" step="0.01"></label>
+          <label style="grid-column:1/-1">Description<input id="chargeDescription" placeholder="Example: KY permit filing, document creation, receipt reimbursement"></label>
+          <label style="grid-column:1/-1">Optional backup<input id="chargeAttachment" type="file" accept="image/*,.pdf"></label>
+        </div>
+      </div>
+      <div class="card carrier-only">
+        <p class="muted">These are additional service charges from dispatch. Pending charges are included automatically on your weekly invoice.</p>
+      </div>
+      <div id="chargesList" class="list"></div>
+    </section>
+
     <section class="screen" id="invoices">
       <div class="section-title"><h2>Invoices / Payments</h2></div>
       <div class="card">
-        <p class="muted">Use this section to track loads that are delivered, invoiced, and paid. Change load status inside Load Board.</p>
+        <p class="muted">Weekly invoices include selected delivered loads plus any pending Charges / Additional Fees for that carrier.</p>
       </div>
       <div class="section-title"><h2>Saved Invoices</h2></div>
       <div id="savedInvoicesList" class="list"></div>
@@ -293,6 +312,7 @@
     <button class="nav-btn carrier-only" data-screen="fleet">👥<span>Fleet</span></button>
     <button class="nav-btn" data-screen="brokers">🏢<span>Brokers</span></button>
     <button class="nav-btn" data-screen="expenses">⛽<span>Costs</span></button>
+    <button class="nav-btn" data-screen="charges">💵<span>Charges</span></button>
     <button class="nav-btn" data-screen="invoices">🧾<span>Pay</span></button>
     <button class="nav-btn" data-screen="settings">⚙️<span>Settings</span></button>
   </nav>
@@ -301,9 +321,9 @@
 <script src="config.js"></script>
 <script src="vendor/supabase-js-2.110.2.js"></script>
 <script src="plan-limits.js?v=1"></script>
-<script src="app.js?v=plan-limits-1"></script>
+<script src="app.js?v=charges-1"></script>
 <script src="pw-login.js?v=founder-plan-1"></script>
-<script src="loadlink.js?v=zap-logo-1"></script>
+<script src="loadlink.js?v=charges-1"></script>
 <script id="eldIntegrationsModule" src="eld-integrations.js?v=plan-gate-1"></script>
 <script src="eld-request.js?v=eld-request-1"></script>
 <script src="refresh.js?v=map-controls-1"></script>

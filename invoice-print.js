@@ -36,6 +36,7 @@ function render(ctx){
     '<tr><td>'+esc(r.loadNumber)+'</td><td>'+esc(r.lane)+'</td><td>'+esc(r.date)+'</td><td>'+money(r.rate)+'</td><td>'+esc(r.pctLabel)+'</td><td>'+money(r.due)+'</td></tr>'
   ).join('');
   const grossTotal=ctx.rows.reduce((sum,r)=>sum+Number(r.rate||0),0);
+  const chargeTotal=ctx.rows.filter(r=>r.type==='charge').reduce((sum,r)=>sum+Number(r.due||0),0);
   const logo='<img src="'+esc(ctx.st.logo_url||'https://app.zapdispatch.com/zap-logo-light.png')+'" onerror="this.onerror=null;this.src=\'https://app.zapdispatch.com/zap-logo-light.png\'" style="max-height:65px;max-width:180px;margin-bottom:10px">';
   const contact=[ctx.st.email,ctx.st.phone].filter(Boolean).map(esc).join('<br>');
   const pay=ctx.st.zelle_info?esc(ctx.st.zelle_info):'Zelle payment details not set.';
@@ -51,6 +52,7 @@ function render(ctx){
       +'<b>Carrier:</b> '+esc(ctx.invoice.carrier||'-')+'</div></div>'
     +'<table><thead><tr><th>Load #</th><th>Lane</th><th>Date</th><th>Rate</th><th>Dispatch %</th><th>Amount Due</th></tr></thead><tbody>'+rows+'</tbody></table>'
     +'<div class="total" style="font-size:18px">Total Load Rates: '+money(grossTotal)+'</div>'
+    +(chargeTotal?'<div class="total" style="font-size:18px">Additional Fees: '+money(chargeTotal)+'</div>':'')
     +'<div class="total">Total Due: '+money(ctx.invoice.total)+'</div>'
     +'<div class="pay"><b>Payment Info:</b><br>'+pay+'</div>'
     +'<p class="muted">'+esc(ctx.st.invoice_footer||'Thank you for your business.')+'</p>';
@@ -75,6 +77,8 @@ async function main(){
   const ilR=await sb.from('invoice_loads').select('load_id,amount_due').eq('invoice_id',id);
   if(ilR.error)return showState('<p class="muted">Could not load invoice lines: '+esc(ilR.error.message)+'</p>');
   const invoiceLoads=ilR.data||[];
+  const chR=await sb.from('carrier_charges').select('*').eq('invoice_id',id).order('charge_date',{ascending:true});
+  if(chR.error)return showState('<p class="muted">Could not load additional fees: '+esc(chR.error.message)+'</p>');
   const loadIds=invoiceLoads.map(x=>x.load_id).filter(Boolean);
 
   let loads=[];
@@ -85,23 +89,34 @@ async function main(){
   }
   const byId={};loads.forEach(l=>{byId[l.id]=l});
 
+  const chargeRows=(chR.data||[]).map(c=>({
+    type:'charge',
+    loadNumber:c.category||'Additional Fee',
+    lane:c.description||'Additional service',
+    date:c.charge_date||'',
+    rate:0,
+    pctLabel:'Fee',
+    due:Number(c.amount||0)
+  }));
+
   const rows=invoiceLoads.map(il=>{
     const l=byId[il.load_id]||{};
     const rate=Number(l.rate||0);
     const due=Number(il.amount_due||0);
     const pct=rate>0?((due/rate)*100).toFixed(1).replace(/\.0$/,'')+'%':'-';
     return {
+      type:'load',
       loadNumber:l.load_number||'-',
       lane:(l.pickup||'')+' → '+(l.delivery||''),
       date:l.delivery_date||l.pickup_date||'',
       rate,pctLabel:pct,due
     };
-  }).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+  }).concat(chargeRows).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 
   const st=await companySettings(invoice.user_id);
   const email=await carrierEmail(invoice.carrier);
   const grossTotal=rows.reduce((sum,r)=>sum+Number(r.rate||0),0);
-  const lineText=rows.map(r=>'Load # '+r.loadNumber+' | '+r.lane+' | Rate: '+money(r.rate)+' | Dispatch fee: '+money(r.due)).join('\n');
+  const lineText=rows.map(r=>r.type==='charge'?(r.loadNumber+' | '+r.lane+' | Fee: '+money(r.due)):('Load # '+r.loadNumber+' | '+r.lane+' | Rate: '+money(r.rate)+' | Dispatch fee: '+money(r.due))).join('\n');
   const subject='Invoice '+(invoice.invoice_number||'')+' - '+(invoice.carrier||'');
   const body='Hello,\n\nPlease see invoice details below. I will attach the PDF invoice before sending.\n\nInvoice: '+(invoice.invoice_number||'')+'\nCarrier: '+(invoice.carrier||'')+'\n\n'+lineText+'\n\nTotal Load Rates: '+money(grossTotal)+'\nTotal Due: '+money(invoice.total)+'\n\nPayment Info:\n'+(st.zelle_info||'')+'\n\nThank you,\n'+(st.company_name||'Zap Dispatch');
   const gUrl=gmailUrl(email,subject,body);
