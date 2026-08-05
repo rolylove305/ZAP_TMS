@@ -42,7 +42,7 @@ function carrierKey(v){return String(v||"").trim().toLowerCase()}function carrie
 function data(){return appData}function cache(){tables.forEach(t=>store.set(t,appData[t]));store.set("settings",appData.settings)}
 async function loadCloud(){if(!currentUser)return;setBusy(true);try{for(const t of tables){const {data,error}=await sb.from(t).select("*").order("created_at",{ascending:false});if(error)throw error;appData[t]=(data||[]).map(map[t].fromDb)}cache();refresh()}catch(e){alert("Cloud sync error: "+e.message)}finally{setBusy(false)}}
 async function insertRow(t,row){setBusy(true);try{const {data,error}=await sb.from(t).insert(map[t].toDb(row)).select().single();if(error)throw error;appData[t]=[map[t].fromDb(data),...appData[t]];cache();refresh();const typeLabel=t==="loads"?"Load":t==="carriers"?"Carrier":t==="brokers"?"Broker":t==="expenses"?"Expense":t==="carrier_charges"?"Charge":t==="fleet_people"?"Driver":"Item";showToast(`✓ ${typeLabel} saved`,"success")}catch(e){alert("Save error: "+e.message)}finally{setBusy(false)}}
-async function updateRow(t,item){if(!item.id)return;setBusy(true);try{const {data,error}=await sb.from(t).update(map[t].toDb(item)).eq("id",item.id).select().single();if(error)throw error;const idx=appData[t].findIndex(x=>x.id===item.id);if(idx>-1){const oldStatus=appData[t][idx].status;appData[t][idx]=map[t].fromDb(data);if(t==="loads"&&item.status&&item.status!==oldStatus){const emoji=item.status==="Delivered"?"📦":item.status==="Paid"?"✅":item.status==="Invoiced"?"📄":"→";showToast(`${emoji} Load ${item.status.toLowerCase()}`,"success")}}cache();refresh()}catch(e){alert("Update error: "+e.message)}finally{setBusy(false)}}
+async function updateRow(t,item){if(!item.id)return;setBusy(true);try{const {data,error}=await sb.from(t).update(map[t].toDb(item)).eq("id",item.id).select().single();if(error)throw error;const idx=appData[t].findIndex(x=>x.id===item.id);if(idx>-1){const oldStatus=appData[t][idx].status;appData[t][idx]=map[t].fromDb(data);if(t==="loads"&&item.status&&item.status!==oldStatus){setSelectedLoadFolder(getLoadFolder(item.status));const emoji=item.status==="Delivered"?"📦":item.status==="Paid"?"✅":item.status==="Invoiced"?"📄":"→";showToast(`${emoji} Load ${item.status.toLowerCase()}`,"success")}}cache();refresh()}catch(e){alert("Update error: "+e.message)}finally{setBusy(false)}}
 async function removeItem(t,i){const item=appData[t][i];if(!item)return;if(!confirm("Delete this item?"))return;setBusy(true);try{if(item.id){const {error}=await sb.from(t).delete().eq("id",item.id);if(error)throw error}appData[t].splice(i,1);cache();refresh()}catch(e){alert("Delete error: "+e.message)}finally{setBusy(false)}}window.removeItem=removeItem;
 function refresh(){renderSelects();renderDashboard();renderCarriers();renderBrokers();renderLoads();renderExpenses();renderCharges();renderFleet();renderInvoices();renderSettings();if(typeof window.zapRenderCarrierOperations==="function")window.zapRenderCarrierOperations()}
 function renderDashboard(){
@@ -82,6 +82,71 @@ function renderCarriers(){const list=$("carriersList"),arr=data().carriers;list.
 function renderBrokers(){const list=$("brokersList"),arr=data().brokers;list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No brokers yet.</p></div>";arr.forEach((b,i)=>list.innerHTML+=card(b.name||"Unnamed broker",`${b.contact||""} • ${b.phone||""} • ${b.email||""}`,`<span class="pill">${esc(b.source||"Source")}</span>`,`<div class="card-actions"><button class="small-btn" onclick="removeItem('brokers',${i})">Delete</button></div>`))}
 /* ===== Load Board v2 (Step 1): stable cards, data-load-id, native actions, one delegated listener ===== */
 const LOAD_STATUSES=["Booked","Dispatched","Picked Up","Delivered","Invoiced","Paid"];
+const LOAD_FOLDERS=[
+  ["active","Active","Active Loads"],
+  ["completed","Completed","Completed Loads"],
+  ["paid","Paid","Paid Loads"],
+  ["archive","Archive","Archived Loads"]
+];
+function getLoadFolder(status){
+  const normalized=String(status||"").trim().toLowerCase();
+  if(normalized==="archived")return"archive";
+  if(normalized==="paid")return"paid";
+  if(normalized==="delivered"||normalized==="invoiced"||normalized==="cancelled")return"completed";
+  return"active";
+}
+window.getLoadFolder=getLoadFolder;
+function getSelectedLoadFolder(){
+  const saved=localStorage.getItem("zapFolder")||"active";
+  return LOAD_FOLDERS.some(f=>f[0]===saved)?saved:"active";
+}
+function setSelectedLoadFolder(folder){
+  const next=LOAD_FOLDERS.some(f=>f[0]===folder)?folder:"active";
+  localStorage.setItem("zapFolder",next);
+  return next;
+}
+function getLoadFolderCounts(loads){
+  return loads.reduce((counts,l)=>{counts[getLoadFolder(l.status)]++;return counts},{active:0,completed:0,paid:0,archive:0});
+}
+function ensureLoadFolderTabs(){
+  let bar=$("folderBar");
+  if(!bar){
+    const title=document.querySelector("#loads .section-title");
+    if(!title)return;
+    bar=document.createElement("div");
+    bar.id="folderBar";
+    bar.className="card";
+    bar.style.padding="12px";
+    bar.style.margin="0 0 12px";
+    bar.innerHTML='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px"></div><p id="folderNote" class="muted" style="margin:8px 0 0"></p>';
+    title.after(bar);
+  }
+  const grid=bar.querySelector("div");
+  if(grid&&!grid.dataset.bound){
+    grid.dataset.bound="1";
+    grid.innerHTML=LOAD_FOLDERS.map(([key,label])=>`<button type="button" class="small-btn fb" data-f="${key}">${label}</button>`).join("");
+    grid.addEventListener("click",e=>{
+      const btn=e.target.closest(".fb");
+      if(!btn)return;
+      setSelectedLoadFolder(btn.dataset.f);
+      renderLoads();
+    });
+  }
+}
+function updateLoadFolderTabs(loads,folder){
+  ensureLoadFolderTabs();
+  const counts=getLoadFolderCounts(loads);
+  document.querySelectorAll("#folderBar .fb").forEach(btn=>{
+    const key=btn.dataset.f;
+    const label=(LOAD_FOLDERS.find(f=>f[0]===key)||[])[1]||key;
+    btn.classList.toggle("active-tab",key===folder);
+    btn.textContent=`${label} (${counts[key]||0})`;
+  });
+  const note=$("folderNote");
+  if(note)note.textContent=(LOAD_FOLDERS.find(f=>f[0]===folder)||LOAD_FOLDERS[0])[2];
+}
+window.zapEnsureLoadFolderTabs=ensureLoadFolderTabs;
+window.zapRenderLoadFolderTabs=()=>updateLoadFolderTabs(data().loads,getSelectedLoadFolder());
 function loadById(id){return appData.loads.find(x=>x.id===id)}
 function buildLoadCard(l){
   const status=String(l.status||"Booked");
@@ -137,10 +202,14 @@ function buildLoadCard(l){
 function renderLoads(){
   const list=$("loadsList");if(!list)return;
   const arr=data().loads;
+  const folder=getSelectedLoadFolder();
+  updateLoadFolderTabs(arr,folder);
+  const visible=arr.filter(l=>getLoadFolder(l.status)===folder);
   list.textContent="";
   if(!arr.length){list.innerHTML="<div class='card'><p class='muted'>No loads yet.</p></div>";return}
+  if(!visible.length){list.innerHTML="<div class='card'><p class='muted'>No loads in this folder.</p></div>";return}
   const frag=document.createDocumentFragment();
-  arr.forEach(l=>frag.appendChild(buildLoadCard(l)));
+  visible.forEach(l=>frag.appendChild(buildLoadCard(l)));
   list.appendChild(frag);
 }
 function portalUrl(token){const base=location.origin+location.pathname.replace(/index\.html$/,"").replace(/\/$/,"/");return base+"portal.html?t="+token}
