@@ -11,10 +11,10 @@
      invoice-print.html. That standalone page rendered a blank page in
      production for reasons not yet solved; the overlay avoids the whole
      separate-page/separate-script-load path entirely.
-   - markCards()/revokeLink() are KEPT from main as-is: this release does
-     not include the app.js Load Board v2 rewrite, so checkbox and Revoke
-     Link rendering still needs to be injected here, index-based, same as
-     it works on main today. */
+   - markCards()/revokeLink() keep compatibility with older rendered cards,
+     but must bind by data-load-id when Load Board v2 renders a filtered
+     folder. Index-based binding can attach invoice controls to the wrong
+     card and make Delivered/Invoiced loads appear to vanish from Completed. */
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const q=s=>document.querySelector(s),qa=s=>[...document.querySelectorAll(s)];
 const loads=()=>{try{return JSON.parse(localStorage.getItem('loads')||'[]')}catch{return[]}};
@@ -26,7 +26,8 @@ async function settings(){const u=await currentUser();if(!u)return {};let r=awai
 function loadCompanySettings(){if(q('#companySettingsHelper'))return;const c=document.createElement('script');c.id='companySettingsHelper';c.src='company-settings.js?v=4300';document.body.appendChild(c)}
 function addTop(){if(q('#invoiceSelectedBtn'))return;const bar=q('#folderBar')||q('#loads .section-title');if(!bar)return;const b=document.createElement('button');b.id='invoiceSelectedBtn';b.className='primary-btn';b.textContent='Invoice selected';b.style.marginTop='10px';b.onclick=invoiceSelected;bar.appendChild(b)}
 async function revokeLink(id){if(!confirm('Revoke driver link for this load? The driver portal link will stop working.'))return;const r=await sb.rpc('revoke_driver_link',{p_load_id:id});if(r.error)return alert(r.error.message);alert('Driver link revoked. Generate a new Driver Link if needed.')}
-function markCards(){const arr=loads();qa('#loadsList .list-card').forEach((card,i)=>{const l=arr[i];if(!l)return;if(ok(l.status)){let box=card.querySelector('.invoice-select-box');if(!box){box=document.createElement('label');box.className='invoice-select-box';box.style.cssText='display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800;color:#86efac';box.innerHTML='<input type="checkbox" class="invoice-select"> Select for invoice';card.prepend(box)}box.querySelector('input').dataset.id=l.id}let acts=card.querySelector('.card-actions');if(!acts){acts=document.createElement('div');acts.className='card-actions';card.appendChild(acts)}if(!card.querySelector('.revoke-link-btn')){const b=document.createElement('button');b.className='small-btn revoke-link-btn';b.textContent='Revoke Link';b.onclick=()=>revokeLink(l.id);acts.appendChild(b)}})}
+function loadForCard(card,i,arr){const id=card?.dataset?.loadId;if(id){const byId=arr.find(l=>String(l.id)===String(id));if(byId)return byId}const fallback=arr[i];if(fallback?.id&&!card.dataset.loadId)card.dataset.loadId=fallback.id;return fallback}
+function markCards(){const arr=loads();qa('#loadsList .list-card').forEach((card,i)=>{const l=loadForCard(card,i,arr);if(!l)return;if(ok(l.status)){let box=card.querySelector('.invoice-select-box');if(!box){box=document.createElement('label');box.className='invoice-select-box';box.style.cssText='display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800;color:#86efac';box.innerHTML='<input type="checkbox" class="invoice-select"> Select for invoice';card.prepend(box)}box.querySelector('input').dataset.id=l.id}let acts=card.querySelector('.card-actions');if(!acts){acts=document.createElement('div');acts.className='card-actions';card.appendChild(acts)}if(!card.querySelector('.revoke-link-btn')){const b=document.createElement('button');b.className='small-btn revoke-link-btn';b.textContent='Revoke Link';b.onclick=()=>revokeLink(l.id);acts.appendChild(b)}})}
 async function carrierEmail(carrier){const r=await sb.from('carriers').select('email').eq('name',carrier).maybeSingle();return r.data?.email||''}
 async function pendingGeneralCharges(carrier){const r=await sb.from('carrier_charges').select('*').eq('carrier',carrier).eq('status','pending').is('load_id',null).order('charge_date',{ascending:true});if(r.error){alert('Could not load pending weekly/general charges: '+r.error.message);return []}return r.data||[]}
 async function pendingLoadCharges(loadIds){if(!loadIds||!loadIds.length)return [];const r=await sb.from('carrier_charges').select('*').eq('status','pending').in('load_id',loadIds).order('charge_date',{ascending:true});if(r.error){alert('Could not load load-specific charges: '+r.error.message);return []}return r.data||[]}
