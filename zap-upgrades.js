@@ -7,7 +7,7 @@ function run(){
      Auth is handled by pw-login.js. */
   load('rollbackHelpers','rollback-helpers.js?v=6100');
   load('actionsKeeper','actions-keeper.js?v=6300');
-  load('tmsDashboardStable','tms-dashboard-stable.js?v=completed-filter-1');
+  load('tmsDashboardStable','tms-dashboard-stable.js?v=active-loop-fix-1');
   load('driverLocate','driver-locate.js?v=4');
   load('driverPicker','driver-picker.js?v=3');
 }
