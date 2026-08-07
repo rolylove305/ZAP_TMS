@@ -3,7 +3,7 @@ function mark(id){if(document.getElementById(id))return;const x=document.createE
 ['tmsDocsStable','storageUploadHelper','storageManageHelper','cardStabilizerHelper','folderGuardHelper','invoiceSelectHelper'].forEach(mark);
 function load(id,src){if(document.getElementById(id)&&document.getElementById(id).tagName==='SCRIPT')return;const old=document.getElementById(id);if(old&&old.tagName!=='SCRIPT')old.remove();const s=document.createElement('script');s.id=id;s.src=src;document.body.appendChild(s)}
 function run(){
-  load('tmsDashboardStable','tms-dashboard-stable.js?v=completed-filter-1');
+  load('tmsDashboardStable','tms-dashboard-stable.js?v=active-loop-fix-1');
   load('docsQuietHelper','docs-quiet.js?v=6000');
   load('companySettingsHelper','company-settings.js?v=6000');
   load('rateCalculatorHelper','rate-calculator.js?v=3');
