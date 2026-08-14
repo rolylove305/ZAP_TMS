@@ -2,7 +2,11 @@
 /* "Saved driver" dropdown on the create-load form. Fills Driver, cell, truck,
    trailer, and equipment from saved fleet records when available. */
 const esc=v=>String(v??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
-const key=d=>(d.name+'|'+d.phone).toLowerCase();
+const normPhone=p=>String(p||'').replace(/\D/g,'');
+/* Match by phone digits when a phone is present — dispatchers/ELD sync often save the
+   same real driver under slightly different name spellings ("Francis" vs "FRANCIS
+   HEREDIA"), and matching by name would treat those as different people. */
+const key=d=>{const p=normPhone(d.phone);return p||String(d.name||'').trim().toLowerCase()};
 const loads=()=>{try{return JSON.parse(localStorage.getItem('loads')||'[]')}catch{return[]}};
 function cleanDriver(d){return{...d,name:String(d.name||'').trim(),phone:String(d.phone||'').trim(),truckNumber:d.truckNumber||'',trailerNumber:d.trailerNumber||'',equipment:d.equipment||'',fleetPersonId:d.fleetPersonId||d.id||''}}
 function mergeDriver(into,d){Object.keys(d).forEach(k=>{if(into[k]===undefined||into[k]===''||into[k]===null)into[k]=d[k]});return into}

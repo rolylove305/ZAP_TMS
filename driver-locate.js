@@ -2,22 +2,29 @@
 const q=s=>document.querySelector(s);
 const esc=v=>String(v??'').replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const loads=()=>{try{return JSON.parse(localStorage.getItem('loads')||'[]')}catch{return[]}};
-const key=d=>(d.name+'|'+d.phone).toLowerCase();
-function loadDrivers(){const seen={},out=[];loads().forEach(l=>{const name=(l.driverName||'').trim(),phone=(l.driverPhone||'').trim();if(!name)return;const k=(name+'|'+phone).toLowerCase();if(seen[k])return;seen[k]=1;out.push({name,phone})});return out}
+const normPhone=p=>String(p||'').replace(/\D/g,'');
+/* Match by phone digits when a phone is present — the same real driver often ends up
+   saved under slightly different name spellings ("Francis" vs "FRANCIS HEREDIA") across
+   loads or ELD syncs; matching by exact name+phone treated those as different people,
+   so removing one spelling left the other still active and the driver kept reappearing. */
+const key=d=>{const p=normPhone(d.phone);return p||String(d.name||'').trim().toLowerCase()};
+function loadDrivers(){const seen={},out=[];loads().forEach(l=>{const name=(l.driverName||'').trim(),phone=(l.driverPhone||'').trim();if(!name)return;const k=key({name,phone});if(seen[k])return;seen[k]=1;out.push({name,phone})});return out}
 /* The roster lives in driver_locates: one row per driver keeps them in the dropdown even
    after their loads are deleted; a driver whose rows are ALL active=false was removed by
-   the dispatcher and stays hidden (their locate links stop working too). */
+   the dispatcher and stays hidden (their locate links stop working too). Every underlying
+   row id that merges into one roster entry is tracked in `ids`, so Remove can deactivate
+   all of them at once regardless of name-spelling differences. */
 async function roster(userId){
-  const r=await sb.from('driver_locates').select('driver_name,driver_phone,active');
+  const r=await sb.from('driver_locates').select('id,driver_name,driver_phone,active');
   if(r.error)return{list:loadDrivers(),error:r.error.message};
-  const cloud={};(r.data||[]).forEach(x=>{const k=(String(x.driver_name||'').trim()+'|'+String(x.driver_phone||'').trim()).toLowerCase();if(!cloud[k])cloud[k]={name:String(x.driver_name||'').trim(),phone:String(x.driver_phone||'').trim(),anyActive:false,exists:true};if(x.active)cloud[k].anyActive=true});
+  const cloud={};(r.data||[]).forEach(x=>{const name=String(x.driver_name||'').trim(),phone=String(x.driver_phone||'').trim();const k=key({name,phone});if(!cloud[k])cloud[k]={name,phone,anyActive:false,exists:true,ids:[]};cloud[k].ids.push(x.id);if(x.active)cloud[k].anyActive=true});
   const fromLoads=loadDrivers();
   const missing=fromLoads.filter(d=>d.name&&!cloud[key(d)]);
   if(missing.length&&userId){
-    const ins=await sb.from('driver_locates').insert(missing.map(d=>({user_id:userId,driver_name:d.name,driver_phone:d.phone})));
-    if(!ins.error)missing.forEach(d=>{cloud[key(d)]={name:d.name,phone:d.phone,anyActive:true,exists:true}});
+    const ins=await sb.from('driver_locates').insert(missing.map(d=>({user_id:userId,driver_name:d.name,driver_phone:d.phone}))).select('id,driver_name,driver_phone');
+    if(!ins.error)(ins.data||[]).forEach(x=>{const name=String(x.driver_name||'').trim(),phone=String(x.driver_phone||'').trim();const k=key({name,phone});cloud[k]={name,phone,anyActive:true,exists:true,ids:[x.id]}});
   }
-  fromLoads.forEach(d=>{if(!cloud[key(d)])cloud[key(d)]={name:d.name,phone:d.phone,anyActive:true,exists:false}});
+  fromLoads.forEach(d=>{if(!cloud[key(d)])cloud[key(d)]={name:d.name,phone:d.phone,anyActive:true,exists:false,ids:[]}});
   return{list:Object.values(cloud).filter(d=>d.name&&d.anyActive).sort((a,b)=>a.name.localeCompare(b.name))};
 }
 function locateUrl(token){const base=location.origin+location.pathname.replace(/index\.html$/,'').replace(/\/$/,'/');return base+'locate.html?t='+token}
@@ -60,7 +67,10 @@ async function viewLoc(d){
 }
 async function removeDriver(d,userId,listEl){
   if(!confirm('Remove '+d.name+' from the drivers list? Their location links will stop working. Loads keep their name. You can add them back by asking Zap support or re-inviting via a new locate row.'))return;
-  const r=await sb.from('driver_locates').update({active:false}).eq('driver_name',d.name).eq('driver_phone',d.phone);
+  const ids=d.ids&&d.ids.length?d.ids:null;
+  const r=ids
+    ?await sb.from('driver_locates').update({active:false}).in('id',ids)
+    :await sb.from('driver_locates').update({active:false}).eq('driver_name',d.name).eq('driver_phone',d.phone); /* fallback for load-only entries with no row yet */
   if(r.error)return alert(r.error.message);
   rows(listEl,userId);
 }
