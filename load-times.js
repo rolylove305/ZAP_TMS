@@ -7,6 +7,7 @@ function run(){
   load('docsQuietHelper','docs-quiet.js?v=6000');
   load('companySettingsHelper','company-settings.js?v=6000');
   load('rateCalculatorHelper','rate-calculator.js?v=3');
+  load('eldFleetAddHelper','eld-fleet-add.js?v=1');
 }
 setTimeout(run,500);
 setTimeout(run,2500);
