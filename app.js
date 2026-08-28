@@ -150,9 +150,13 @@ function updateLoadFolderTabs(loads,folder){
 window.zapEnsureLoadFolderTabs=ensureLoadFolderTabs;
 window.zapRenderLoadFolderTabs=()=>updateLoadFolderTabs(data().loads,getSelectedLoadFolder());
 function loadById(id){return appData.loads.find(x=>x.id===id)}
+function loadStatusClass(status){
+  const key=String(status||"Booked").trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+  return "status-"+(key||"booked");
+}
 function buildLoadCard(l){
   const status=String(l.status||"Booked");
-  const color=status==="Paid"?"green":status==="Cancelled"?"red":(status==="Delivered"||status==="Invoiced")?"yellow":"orange";
+  const statusClass=loadStatusClass(status);
   const comm=num(l.rate)*loadCommissionPct(l)/100;
   const canInvoice=["Delivered","Invoiced","Paid"].includes(status);
   const isArchived=status==="Archived";
@@ -173,7 +177,7 @@ function buildLoadCard(l){
     `<h3>${esc((l.pickup||"Pickup")+" → "+(l.delivery||"Delivery"))}</h3>`+
     `<p class="muted">${esc(loadContext)}</p>`+
     (extra?`<p class="muted">${esc(extra)}</p>`:"")+
-    `<div class="pill-row"><span class="pill ${color}">${esc(status)}</span><span class="pill">${money(l.rate)}</span>${accountType==="carrier"?`<span class="pill red">Cost ${money(loadCost(l))}</span><span class="pill green">CPM ${money(l.miles?loadCost(l)/num(l.miles):0)} • Profit ${money(num(l.rate)-loadCost(l))}</span>`:`<span class="pill green">Comm ${money(comm)}</span>`}<span class="pill">${esc(l.equipment||"")}</span></div>`+
+    `<div class="pill-row"><span class="pill load-status-pill ${statusClass}">${esc(status)}</span><span class="pill">${money(l.rate)}</span>${accountType==="carrier"?`<span class="pill red">Cost ${money(loadCost(l))}</span><span class="pill green">CPM ${money(l.miles?loadCost(l)/num(l.miles):0)} • Profit ${money(num(l.rate)-loadCost(l))}</span>`:`<span class="pill green">Comm ${money(comm)}</span>`}<span class="pill">${esc(l.equipment||"")}</span></div>`+
     `<div class="card-actions">`+
       `<button type="button" class="small-btn load-link-btn" data-action="driver-link">Driver Link</button>`+
       `<button class="small-btn revoke-link-btn" data-action="revoke-link">Revoke Link</button>`+
