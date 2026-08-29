@@ -18,7 +18,7 @@ function addDriver(bucket,d,strictName=false){
   const phone=normPhone(d.phone),name=nameKey(d);
   const match=Object.keys(bucket).find(k=>{
     const x=bucket[k],xp=normPhone(x.phone),xn=nameKey(x);
-    return (d.fleetPersonId&&x.fleetPersonId===d.fleetPersonId)||(phone&&xp===phone)||(strictName&&name&&xn===name)||((!phone||!xp)&&name&&xn===name);
+    return (d.fleetPersonId&&x.fleetPersonId===d.fleetPersonId)||(phone&&xp===phone)||(name&&xn===name);
   });
   const k=match||d.fleetPersonId||phone||name;
   if(bucket[k])mergeDriver(bucket[k],d);
@@ -41,9 +41,9 @@ async function savedDrivers(){
   }
   if(window.zapAccountType==='carrier'&&fleetData.length)return uniqueDrivers(fleetData,true);
   const all={};
-  fromLoads().forEach(d=>addDriver(all,d));
-  if(!window.sb)return sortDrivers(Object.values(all));
+  if(!window.sb)return fromLoads();
   (await fromEldDrivers()).forEach(d=>addDriver(all,d));
+  fromLoads().forEach(d=>addDriver(all,d));
   const r=await sb.from('driver_locates').select('driver_name,driver_phone,active');
   if(!r.error)(r.data||[]).forEach(x=>{if(x.active)addDriver(all,{name:x.driver_name,phone:x.driver_phone})});
   return sortDrivers(Object.values(all));
