@@ -9,6 +9,15 @@ const normPhone=p=>String(p||'').replace(/\D/g,'');
    so removing one spelling left the other still active and the driver kept reappearing. */
 const key=d=>{const p=normPhone(d.phone);return p||String(d.name||'').trim().toLowerCase()};
 function loadDrivers(){const seen={},out=[];loads().forEach(l=>{const name=(l.driverName||'').trim(),phone=(l.driverPhone||'').trim();if(!name)return;const k=key({name,phone});if(seen[k])return;seen[k]=1;out.push({name,phone})});return out}
+function fleetDrivers(){return (window.appData?.fleet_people||[]).filter(p=>p&&p.active!==false).map(p=>({name:p.name,phone:p.phone||'',truckNumber:p.truckNumber||'',trailerNumber:p.trailerNumber||'',equipment:p.equipment||'',fleetPersonId:p.id||'',personType:p.personType||'company_driver'})).filter(p=>p.name)}
+function mergeDriver(into,d){Object.keys(d).forEach(k=>{if(into[k]===undefined||into[k]===''||into[k]===null)into[k]=d[k]});return into}
+function addToCloud(cloud,d){
+  const name=String(d.name||'').trim(),phone=String(d.phone||'').trim();
+  if(!name)return;
+  const k=key({name,phone});
+  if(!cloud[k])cloud[k]={name,phone,anyActive:true,exists:false,ids:[]};
+  mergeDriver(cloud[k],{...d,name,phone});
+}
 /* The roster lives in driver_locates: one row per driver keeps them in the dropdown even
    after their loads are deleted; a driver whose rows are ALL active=false was removed by
    the dispatcher and stays hidden (their locate links stop working too). Every underlying
@@ -18,7 +27,8 @@ async function roster(userId){
   const r=await sb.from('driver_locates').select('id,driver_name,driver_phone,active');
   if(r.error)return{list:loadDrivers(),error:r.error.message};
   const cloud={};(r.data||[]).forEach(x=>{const name=String(x.driver_name||'').trim(),phone=String(x.driver_phone||'').trim();const k=key({name,phone});if(!cloud[k])cloud[k]={name,phone,anyActive:false,exists:true,ids:[]};cloud[k].ids.push(x.id);if(x.active)cloud[k].anyActive=true});
-  const fromLoads=loadDrivers();
+  const fromLoads=loadDrivers(),fromFleet=fleetDrivers();
+  fromFleet.forEach(d=>addToCloud(cloud,d));
   const missing=fromLoads.filter(d=>d.name&&!cloud[key(d)]);
   if(missing.length&&userId){
     const ins=await sb.from('driver_locates').insert(missing.map(d=>({user_id:userId,driver_name:d.name,driver_phone:d.phone}))).select('id,driver_name,driver_phone');
@@ -74,21 +84,73 @@ async function removeDriver(d,userId,listEl){
   if(r.error)return alert(r.error.message);
   rows(listEl,userId);
 }
+async function ensureLocate(d,userId){
+  if(!d.name||!userId)return;
+  /* Match the same way the roster does (phone digits, name as fallback) — an exact
+     string match on driver_phone would miss the same person saved with a differently
+     formatted phone number and create a duplicate driver_locates row. */
+  const targetKey=key(d);
+  const all=await sb.from('driver_locates').select('id,driver_name,driver_phone');
+  if(all.error)return;
+  const match=(all.data||[]).find(x=>key({name:x.driver_name,phone:x.driver_phone})===targetKey);
+  if(match)return sb.from('driver_locates').update({active:true}).eq('id',match.id);
+  return sb.from('driver_locates').insert({user_id:userId,driver_name:d.name,driver_phone:d.phone||''});
+}
+function editModal(d,userId,listEl){
+  d=d||{};
+  let m=document.getElementById('zapDriverEditModal');
+  if(!m){m=document.createElement('div');m.id='zapDriverEditModal';m.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:10000;display:flex;align-items:center;justify-content:center;padding:18px';document.body.appendChild(m)}
+  m.innerHTML='<div class="card" style="width:min(620px,96vw)"><div class="section-title"><h2>'+(d.name?'Edit driver':'Add driver')+'</h2><button type="button" class="small-btn" id="zdeClose">Close</button></div>'
+    +'<div class="form-grid">'
+    +'<label>Name<input id="zdeName" value="'+esc(d.name||'')+'" placeholder="Full name"></label>'
+    +'<label>Cell<input id="zdePhone" type="tel" value="'+esc(d.phone||'')+'" placeholder="(555) 555-5555"></label>'
+    +'<label>Type<select id="zdePersonType"><option value="company_driver">Company Driver</option><option value="owner_operator">Owner Operator</option></select></label>'
+    +'<label>Truck #<input id="zdeTruck" value="'+esc(d.truckNumber||'')+'" placeholder="Truck #"></label>'
+    +'<label>Trailer #<input id="zdeTrailer" value="'+esc(d.trailerNumber||'')+'" placeholder="Trailer #"></label>'
+    +'<label>Equipment<select id="zdeEquipment"><option>Reefer</option><option>Dry Van</option><option>Flatbed</option><option>Step Deck</option><option>Hotshot</option></select></label>'
+    +'</div><div class="card-actions" style="margin-top:12px"><button type="button" class="primary-btn" id="zdeSave">Save driver</button></div></div>';
+  m.style.display='flex';
+  const equipment=m.querySelector('#zdeEquipment');if(d.equipment&&[...equipment.options].some(o=>o.value===d.equipment))equipment.value=d.equipment;
+  const personType=m.querySelector('#zdePersonType');if(d.personType)personType.value=d.personType;
+  m.querySelector('#zdeClose').onclick=()=>m.remove();
+  m.querySelector('#zdeSave').onclick=async()=>{
+    /* payType/payRate are deliberately left out — this quick modal only touches
+       identity/truck/trailer fields, so an existing driver's pay terms (set in My
+       Fleet) survive untouched; a brand-new driver gets the same safe defaults
+       insertRow already applies (per_mile / $0) until pay is set properly later. */
+    const row={name:m.querySelector('#zdeName').value.trim(),phone:m.querySelector('#zdePhone').value.trim(),truckNumber:m.querySelector('#zdeTruck').value.trim(),trailerNumber:m.querySelector('#zdeTrailer').value.trim(),equipment:equipment.value,personType:personType.value,active:true};
+    if(!row.name)return alert('Enter the driver name.');
+    const old=(window.appData?.fleet_people||[]).find(p=>p.id===d.fleetPersonId);
+    if(old&&typeof updateRow==='function')await updateRow('fleet_people',{...old,...row});
+    else if(typeof insertRow==='function')await insertRow('fleet_people',row);
+    await ensureLocate(row,userId);
+    m.remove();
+    rows(listEl,userId);
+  };
+}
 async function rows(listEl,userId){
   const res=await roster(userId);
   if(res.error){listEl.innerHTML='<p class="muted">'+esc(res.error)+'</p>';return}
   const ds=res.list;
-  listEl.dataset.count=String(loadDrivers().length);
-  if(!ds.length){listEl.innerHTML='<p class="muted">No drivers yet. Add a driver name and cell when you create a load and they appear here.</p>';return}
+  listEl.dataset.count=String(loadDrivers().length+fleetDrivers().length);
+  if(!ds.length){
+    listEl.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><p class="muted" style="margin:0;flex:1">No drivers yet.</p><button type="button" class="small-btn" id="driverLocateAdd">Add driver</button></div>';
+    listEl.querySelector('#driverLocateAdd').onclick=()=>editModal(null,userId,listEl);
+    return;
+  }
   const prev=listEl.querySelector('#driverLocateSelect')?.value;
   listEl.innerHTML='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-    +'<select id="driverLocateSelect" style="flex:1;min-width:200px">'+ds.map((d,i)=>`<option value="${i}">${esc(d.name)}${d.phone?' ('+esc(d.phone)+')':''}</option>`).join('')+'</select>'
+    +'<select id="driverLocateSelect" style="flex:1;min-width:200px">'+ds.map((d,i)=>`<option value="${i}">${esc(d.name)}${d.phone?' ('+esc(d.phone)+')':''}${d.truckNumber?' • Truck '+esc(d.truckNumber):''}${d.trailerNumber?' • Trailer '+esc(d.trailerNumber):''}</option>`).join('')+'</select>'
+    +'<button type="button" class="small-btn" id="driverLocateAdd">Add driver</button>'
+    +'<button type="button" class="small-btn" id="driverLocateEdit">Edit driver</button>'
     +'<button type="button" class="small-btn" id="driverLocateReq">Request location</button>'
     +'<button type="button" class="small-btn" id="driverLocateView">View location</button>'
     +'<button type="button" class="small-btn" id="driverLocateDel" style="border-color:rgba(251,113,133,.4);color:#fda4af">Remove driver</button>'
     +'</div>';
   const sel=listEl.querySelector('#driverLocateSelect');
   if(prev&&+prev<ds.length)sel.value=prev;
+  listEl.querySelector('#driverLocateAdd').onclick=()=>editModal(null,userId,listEl);
+  listEl.querySelector('#driverLocateEdit').onclick=()=>editModal(ds[+sel.value],userId,listEl);
   listEl.querySelector('#driverLocateReq').onclick=()=>requestLoc(ds[+sel.value]);
   listEl.querySelector('#driverLocateView').onclick=()=>viewLoc(ds[+sel.value]);
   listEl.querySelector('#driverLocateDel').onclick=()=>removeDriver(ds[+sel.value],userId,listEl);
@@ -107,5 +169,5 @@ async function panel(){
   rows(q('#driverLocateList'),u.id);
 }
 setTimeout(panel,2200);
-setInterval(()=>{const list=q('#driverLocateList');if(!list)return panel();if(String(loadDrivers().length)!==list.dataset.count)rows(list,window.__zapLocateUser)},5000);
+setInterval(()=>{const list=q('#driverLocateList');if(!list)return panel();if(String(loadDrivers().length+fleetDrivers().length)!==list.dataset.count)rows(list,window.__zapLocateUser)},5000);
 })();
