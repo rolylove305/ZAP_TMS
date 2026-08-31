@@ -395,6 +395,10 @@
 
   async function boot(){if(window.zapPlanLimits)await window.zapPlanLimits.loadPlan();ensureUi();fillCarriers();if(!window.zapPlanLimits||window.zapPlanLimits.canUse("eldHos"))setTimeout(loadConnections,800)}
   if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",()=>{boot()});else boot();
+  /* The Driver HOS dropdown otherwise only loads once per page load — a driver added or
+     re-synced afterward (e.g. via the ELD server-side sync) wouldn't show up until the
+     user noticed and clicked Refresh HOS by hand. */
+  setInterval(()=>{if(connections.length)loadHos(false)},15000);
   document.addEventListener("click",event=>{
     if(event.target.closest('[data-screen="settings"]'))setTimeout(()=>{ensureUi();fillCarriers();if(!window.zapPlanLimits||window.zapPlanLimits.canUse("eldHos"))loadConnections()},250);
     if(event.target.closest('[data-screen="dashboard"]'))setTimeout(()=>{ensureHosUi();renderHosDashboard()},150);
