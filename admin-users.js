@@ -12,19 +12,20 @@
      the user can actually use the TMS right now — "Status" is just the admin's manual
      on/off switch, and "Subscription" is a raw Stripe label that stays 'trialing'
      forever for anyone who never paid, so neither one answers that question on its own. */
+  function accessSpan(text,ok){return '<span style="white-space:nowrap;font-weight:600;color:'+(ok?'var(--green)':'var(--red)')+'">'+text+'</span>'}
   function accessCell(u,isOwner){
-    if(isOwner)return '<span class="pill green">Unlimited</span>';
-    if(!u.is_active)return '<span class="pill red">🔒 Deactivated</span>';
-    if(u.comp_access)return '<span class="pill green">✅ Free access</span>';
-    if(u.subscription_status==='active')return '<span class="pill green">✅ Paying</span>';
+    if(isOwner)return accessSpan('Unlimited',true);
+    if(!u.is_active)return accessSpan('🔒 Deactivated',false);
+    if(u.comp_access)return accessSpan('✅ Free',true);
+    if(u.subscription_status==='active')return accessSpan('✅ Paying',true);
     if(u.trial_ends_at){
       const msLeft=new Date(u.trial_ends_at)-new Date();
       if(msLeft>0){
         const daysLeft=Math.max(1,Math.ceil(msLeft/86400000));
-        return '<span class="pill green">✅ Trial — '+daysLeft+'d left</span>';
+        return accessSpan('✅ '+daysLeft+'d left',true);
       }
     }
-    return '<span class="pill red">🔒 Locked — trial expired</span>';
+    return accessSpan('🔒 Locked',false);
   }
 
   async function sessionUserId(){
