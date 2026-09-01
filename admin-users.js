@@ -8,6 +8,25 @@
   function esc2(v){return String(v==null?'':v).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))}
   function fmtDate(d){return d?String(d).slice(0,10):''}
 
+  /* Mirrors public.has_access(uid) exactly, so this column always tells you whether
+     the user can actually use the TMS right now — "Status" is just the admin's manual
+     on/off switch, and "Subscription" is a raw Stripe label that stays 'trialing'
+     forever for anyone who never paid, so neither one answers that question on its own. */
+  function accessCell(u,isOwner){
+    if(isOwner)return '<span class="pill green">Unlimited</span>';
+    if(!u.is_active)return '<span class="pill red">🔒 Deactivated</span>';
+    if(u.comp_access)return '<span class="pill green">✅ Free access</span>';
+    if(u.subscription_status==='active')return '<span class="pill green">✅ Paying</span>';
+    if(u.trial_ends_at){
+      const msLeft=new Date(u.trial_ends_at)-new Date();
+      if(msLeft>0){
+        const daysLeft=Math.max(1,Math.ceil(msLeft/86400000));
+        return '<span class="pill green">✅ Trial — '+daysLeft+'d left</span>';
+      }
+    }
+    return '<span class="pill red">🔒 Locked — trial expired</span>';
+  }
+
   async function sessionUserId(){
     try{const s=(await sb.auth.getSession()).data.session;return s?s.user.id:null}catch(e){return null}
   }
@@ -28,7 +47,7 @@
     const rows=r.data||[];
     let html='<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
       +'<thead><tr style="text-align:left;border-bottom:1px solid rgba(255,255,255,.18)">'
-      +'<th style="padding:8px 6px">Email</th><th>Account</th><th>Plan</th><th>Role</th><th>Status</th><th>Free access</th><th>Subscription</th><th>Trial ends</th><th>Joined</th><th></th></tr></thead><tbody>';
+      +'<th style="padding:8px 6px">Email</th><th>Account</th><th>Plan</th><th>Role</th><th>Access</th><th>Status</th><th>Free access</th><th>Subscription</th><th>Trial ends</th><th>Joined</th><th></th></tr></thead><tbody>';
     rows.forEach(u=>{
       const isMe=u.id===meId;
       const isOwner=u.role==='admin';
@@ -45,6 +64,7 @@
       const roleCell=isOwner?'<span class="pill">owner</span>':esc2(u.role);
       const subscriptionCell=isOwner?'Not required':esc2(u.subscription_status);
       const trialCell=isOwner?'—':fmtDate(u.trial_ends_at);
+      const accessCellHtml=accessCell(u,isOwner);
       let actions;
       if(isMe){
         actions='<span class="muted" style="font-size:12px">(you)</span>';
@@ -59,7 +79,9 @@
         +'<td style="padding:8px 6px">'+esc2(u.email)+'</td>'
         +'<td><select class="zau-type" data-id="'+esc2(u.id)+'" '+(isMe?'disabled':'')+' style="min-width:112px;padding:7px"><option value="dispatcher" '+(u.account_type==='carrier'?'':'selected')+'>Dispatcher</option><option value="carrier" '+(u.account_type==='carrier'?'selected':'')+'>Carrier</option></select></td>'
         +'<td>'+planCell+'</td>'
-        +'<td>'+roleCell+'</td><td>'+badge+'</td>'
+        +'<td>'+roleCell+'</td>'
+        +'<td>'+accessCellHtml+'</td>'
+        +'<td>'+badge+'</td>'
         +'<td>'+comp+'</td>'
         +'<td>'+subscriptionCell+'</td>'
         +'<td>'+trialCell+'</td>'
