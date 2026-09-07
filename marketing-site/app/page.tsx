@@ -418,6 +418,7 @@ export default function Home() {
           <div>
             <a href={appUrl}>Log in</a>
             <a href="mailto:rolando@zapdispatch.com">Contact</a>
+            <a href="/privacy-policy">Privacy Policy</a>
           </div>
           <small>© 2026 ZAP Dispatch. All rights reserved.</small>
         </div>

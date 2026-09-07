@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-async function render() {
+async function render(pathname = "/") {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", {
+    new Request(`http://localhost${pathname}`, {
       headers: { accept: "text/html" },
     }),
     {
@@ -34,6 +34,21 @@ test("server-renders the ZAP Dispatch commercial page", async () => {
   assert.match(html, /Start free for 30 days/i);
   assert.match(html, /<sup>\$<\/sup><b>29<\/b>/);
   assert.match(html, /https:\/\/app\.zapdispatch\.com/i);
+});
+
+test("server-renders the public privacy policy page", async () => {
+  const response = await render("/privacy-policy");
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+
+  const html = await response.text();
+  assert.match(html, /<title>Privacy Policy \| ZAP Dispatch<\/title>/i);
+  assert.match(html, /Zap Dispatch LLC/i);
+  assert.match(html, /driver recruiting/i);
+  assert.match(html, /Message and data rates may apply/i);
+  assert.match(html, /Consent to receive text messages is not a condition of employment/i);
+  assert.match(html, /We do not sell personal information/i);
+  assert.match(html, /rolando@zapdispatch\.com/i);
 });
 
 test("publishes the commercial metadata and privacy promise", async () => {
