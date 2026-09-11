@@ -154,6 +154,9 @@ function loadStatusClass(status){
   const key=String(status||"Booked").trim().toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
   return "status-"+(key||"booked");
 }
+function loadDateTimeText(date,time){
+  return [date,time].filter(Boolean).join(" ")||"-";
+}
 function buildLoadCard(l){
   const status=String(l.status||"Booked");
   const statusClass=loadStatusClass(status);
@@ -161,8 +164,9 @@ function buildLoadCard(l){
   const canInvoice=["Delivered","Invoiced","Paid"].includes(status);
   const isArchived=status==="Archived";
   const loadContext=accountType==="carrier"
-    ?((l.broker||"Broker")+" • Load # "+(l.loadNumber||"-")+" • "+(l.pickupDate||""))
-    :((l.carrier||"Carrier")+" • "+(l.broker||"Broker")+" • Load # "+(l.loadNumber||"-")+" • "+(l.pickupDate||""));
+    ?((l.broker||"Broker")+" • Load # "+(l.loadNumber||"-"))
+    :((l.carrier||"Carrier")+" • "+(l.broker||"Broker")+" • Load # "+(l.loadNumber||"-"));
+  const schedule="Pickup: "+loadDateTimeText(l.pickupDate,l.pickupTime)+" • Delivery: "+loadDateTimeText(l.deliveryDate,l.deliveryTime);
   const extra=[
     l.driverName?("Driver: "+l.driverName+(l.driverPhone?" ("+l.driverPhone+")":"")):"",
     l.truckNumber?("Truck "+l.truckNumber):"",
@@ -176,6 +180,7 @@ function buildLoadCard(l){
     (canInvoice&&l.id?`<label class="invoice-select-box" style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800;color:#86efac"><input type="checkbox" class="invoice-select" data-id="${esc(l.id)}"> Select for invoice</label>`:"")+
     `<h3>${esc((l.pickup||"Pickup")+" → "+(l.delivery||"Delivery"))}</h3>`+
     `<p class="muted">${esc(loadContext)}</p>`+
+    `<p class="load-schedule-line">${esc(schedule)}</p>`+
     (extra?`<p class="muted">${esc(extra)}</p>`:"")+
     `<div class="pill-row"><span class="pill load-status-pill ${statusClass}">${esc(status)}</span><span class="pill">${money(l.rate)}</span>${accountType==="carrier"?`<span class="pill red">Cost ${money(loadCost(l))}</span><span class="pill green">CPM ${money(l.miles?loadCost(l)/num(l.miles):0)} • Profit ${money(num(l.rate)-loadCost(l))}</span>`:`<span class="pill green">Comm ${money(comm)}</span>`}<span class="pill">${esc(l.equipment||"")}</span></div>`+
     `<div class="card-actions">`+
@@ -499,11 +504,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="charges-1";
+      const version="load-card-schedule-1";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=charges-1").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=load-card-schedule-1").catch(()=>{});
 }
