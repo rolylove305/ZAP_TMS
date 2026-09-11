@@ -177,6 +177,7 @@ function buildLoadCard(l){
   el.className="list-card";
   if(l.id)el.dataset.loadId=l.id;
   el.innerHTML=
+    (l.id?`<label class="bulk-select-box" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;font-weight:800;color:#93c5fd"><input type="checkbox" class="bulk-select" data-id="${esc(l.id)}"> Select</label>`:"")+
     (canInvoice&&l.id?`<label class="invoice-select-box" style="display:flex;gap:8px;align-items:center;margin-top:8px;font-weight:800;color:#86efac"><input type="checkbox" class="invoice-select" data-id="${esc(l.id)}"> Select for invoice</label>`:"")+
     `<h3>${esc((l.pickup||"Pickup")+" → "+(l.delivery||"Delivery"))}</h3>`+
     `<p class="muted">${esc(loadContext)}</p>`+
@@ -210,18 +211,61 @@ function buildLoadCard(l){
   });
   return el;
 }
+function ensureBulkActionBar(){
+  if($("bulkActionBar"))return;
+  const anchor=$("folderBar")||document.querySelector("#loads .section-title");
+  if(!anchor)return;
+  const bar=document.createElement("div");
+  bar.id="bulkActionBar";
+  bar.className="card";
+  bar.style.cssText="padding:12px;margin:0 0 12px;display:none";
+  bar.innerHTML='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b id="bulkSelCount">0 selected</b>'
+    +'<button type="button" class="small-btn" data-bulk="Invoiced">Mark Invoiced</button>'
+    +'<button type="button" class="small-btn" data-bulk="Paid">Mark Paid</button>'
+    +'<button type="button" class="small-btn" data-bulk="Archived">Archive</button>'
+    +'<button type="button" class="small-btn" id="bulkClearBtn">Clear selection</button></div>';
+  anchor.after(bar);
+  bar.addEventListener("click",e=>{
+    const b=e.target.closest("[data-bulk]");
+    if(b)return actionBulkSetStatus(b.dataset.bulk);
+    if(e.target.id==="bulkClearBtn"){document.querySelectorAll(".bulk-select:checked").forEach(x=>x.checked=false);updateBulkActionBar()}
+  });
+}
+function updateBulkActionBar(){
+  const bar=$("bulkActionBar");if(!bar)return;
+  const n=document.querySelectorAll(".bulk-select:checked").length;
+  bar.style.display=n?"block":"none";
+  const c=$("bulkSelCount");if(c)c.textContent=n+" selected";
+}
+async function actionBulkSetStatus(status){
+  const ids=[...document.querySelectorAll(".bulk-select:checked")].map(x=>x.dataset.id).filter(Boolean);
+  if(!ids.length)return alert("Select at least one load first.");
+  const label=status==="Archived"?"Archive":"Mark as "+status;
+  if(!confirm(label+" "+ids.length+" selected load(s)?"))return;
+  setBusy(true);
+  try{
+    const {error}=await sb.from("loads").update({status}).in("id",ids);
+    if(error)throw error;
+    ids.forEach(id=>{const idx=appData.loads.findIndex(x=>x.id===id);if(idx>-1)appData.loads[idx].status=status});
+    cache();refresh();
+    showToast("✓ "+ids.length+" load(s) marked "+status,"success");
+  }catch(e){alert("Bulk update error: "+e.message)}
+  finally{setBusy(false)}
+}
 function renderLoads(){
   const list=$("loadsList");if(!list)return;
   const arr=data().loads;
   const folder=getSelectedLoadFolder();
   updateLoadFolderTabs(arr,folder);
+  ensureBulkActionBar();
   const visible=arr.filter(l=>getLoadFolder(l.status)===folder);
   list.textContent="";
-  if(!arr.length){list.innerHTML="<div class='card'><p class='muted'>No loads yet.</p></div>";return}
-  if(!visible.length){list.innerHTML="<div class='card'><p class='muted'>No loads in this folder.</p></div>";return}
+  if(!arr.length){list.innerHTML="<div class='card'><p class='muted'>No loads yet.</p></div>";updateBulkActionBar();return}
+  if(!visible.length){list.innerHTML="<div class='card'><p class='muted'>No loads in this folder.</p></div>";updateBulkActionBar();return}
   const frag=document.createDocumentFragment();
   visible.forEach(l=>frag.appendChild(buildLoadCard(l)));
   list.appendChild(frag);
+  updateBulkActionBar();
 }
 function portalUrl(token){const base=location.origin+location.pathname.replace(/index\.html$/,"").replace(/\/$/,"/");return base+"portal.html?t="+token}
 function escAttr(v){return String(v??"").replace(/"/g,"&quot;").replace(/</g,"&lt;")}
@@ -417,7 +461,7 @@ function onLoadBoardClick(e){
   if(a==="archive")return actionArchive(l);
   if(a==="delete"){const i=appData.loads.findIndex(x=>x.id===id);if(i>-1)return removeItem("loads",i)}
 }
-(()=>{const el=$("loadsList");if(el&&!el.dataset.delegated){el.dataset.delegated="1";el.addEventListener("click",onLoadBoardClick)}})();
+(()=>{const el=$("loadsList");if(el&&!el.dataset.delegated){el.dataset.delegated="1";el.addEventListener("click",onLoadBoardClick);el.addEventListener("change",e=>{if(e.target.classList.contains("bulk-select"))updateBulkActionBar()})}})();
 /* ===== end Load Board v2 ===== */
 async function cycleLoad(i){const statuses=["Booked","Dispatched","Picked Up","Delivered","Invoiced","Paid"];const l=appData.loads[i];if(!l)return;let idx=statuses.indexOf(l.status);l.status=statuses[(idx+1)%statuses.length];await updateRow("loads",l)}window.cycleLoad=cycleLoad;
 function renderExpenses(){const list=$("expensesList"),arr=data().expenses;list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No costs yet.</p></div>";arr.forEach((e,i)=>list.innerHTML+=card(`${e.category||"Other"} • ${money(e.amount)}`,`${e.date||""}${e.notes?" • "+e.notes:""}`,`<span class="pill red">Cost</span>`,`<div class="card-actions"><button class="small-btn" onclick="removeItem('expenses',${i})">Delete</button></div>`))}
@@ -504,11 +548,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="load-card-schedule-1";
+      const version="bulk-status-1";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=load-card-schedule-1").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=bulk-status-1").catch(()=>{});
 }
