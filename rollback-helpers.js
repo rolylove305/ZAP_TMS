@@ -6,6 +6,6 @@ setTimeout(()=>{
  load('storageUploadHelper','storage-upload.js?v=5700');
  load('storageManageHelper','storage-manage.js?v=5500');
  load('cardStabilizerHelper','card-stabilizer.js?v=5600');
- load('invoiceSelectHelper','invoice-select.js?v=select-label-1');
+ load('invoiceSelectHelper','invoice-select.js?v=select-label-2');
 },700);
 })();

@@ -109,7 +109,7 @@ function showInvoiceModal(ctx){
       +'<button class="small-btn" id="ziMark">Mark selected loads as Invoiced</button>'
     +'</div>'
     +'<p class="muted">'+esc(note)+'</p></div>';
-  const unselect=()=>qa('.invoice-select:checked').forEach(x=>x.checked=false);
+  const unselect=()=>qa('.invoice-select:checked').forEach(x=>{if(typeof bulkSelectedIds!=='undefined'&&x.dataset.id)bulkSelectedIds.delete(x.dataset.id);x.checked=false});
   m.querySelector('#ziClose').onclick=()=>{m.remove()};
   m.querySelector('#ziView').onclick=()=>showPrintableOverlay({invoiceNumber:ctx.invoiceNumber,carrier:ctx.carrier,createdAt:new Date().toLocaleDateString(),rows:ctx.rows,total:ctx.total,st:ctx.st});
   m.querySelector('#ziCopy').onclick=async()=>{

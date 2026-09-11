@@ -177,7 +177,7 @@ function buildLoadCard(l){
   el.className="list-card";
   if(l.id)el.dataset.loadId=l.id;
   el.innerHTML=
-    (canInvoice&&l.id?`<label class="invoice-select-box" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;font-weight:800;color:var(--green)"><input type="checkbox" class="invoice-select" data-id="${esc(l.id)}"> Select (invoice / mark paid / archive)</label>`:"")+
+    (canInvoice&&l.id?`<label class="invoice-select-box" style="display:flex;gap:8px;align-items:center;margin-bottom:8px;font-weight:800;color:var(--green)"><input type="checkbox" class="invoice-select" data-id="${esc(l.id)}"${bulkSelectedIds.has(l.id)?" checked":""}> Select (invoice / mark paid / archive)</label>`:"")+
     `<h3>${esc((l.pickup||"Pickup")+" → "+(l.delivery||"Delivery"))}</h3>`+
     `<p class="muted">${esc(loadContext)}</p>`+
     `<p class="load-schedule-line">${esc(schedule)}</p>`+
@@ -210,6 +210,11 @@ function buildLoadCard(l){
   });
   return el;
 }
+/* Selection state lives here, not just in checkbox DOM nodes — renderLoads() rebuilds every
+   card from scratch (folder switch, sync, edit save...), which would silently drop checked
+   boxes and made "select several, then bulk-update" only ever apply to whichever load's
+   checkbox survived the last re-render. Cards now read their checked state FROM this set. */
+const bulkSelectedIds=new Set();
 function ensureBulkActionBar(){
   if($("bulkActionBar"))return;
   const anchor=$("folderBar")||document.querySelector("#loads .section-title");
@@ -223,32 +228,34 @@ function ensureBulkActionBar(){
     +'<button type="button" class="small-btn" data-bulk="Paid">Set status: Paid</button>'
     +'<button type="button" class="small-btn" data-bulk="Archived">Archive</button>'
     +'<button type="button" class="small-btn" id="bulkClearBtn">Clear selection</button></div>'
-    +'<p class="muted" style="margin:8px 0 0;font-size:12px">Just changes the status on the selected loads. To create and email an actual invoice, use "Invoice selected" instead.</p>';
+    +'<p class="muted" style="margin:8px 0 0;font-size:12px">Just changes the status on the selected loads (kept even if you switch tabs/folders). To create and email an actual invoice, use "Invoice selected" instead.</p>';
   anchor.after(bar);
   bar.addEventListener("click",e=>{
     const b=e.target.closest("[data-bulk]");
     if(b)return actionBulkSetStatus(b.dataset.bulk);
-    if(e.target.id==="bulkClearBtn"){document.querySelectorAll(".invoice-select:checked").forEach(x=>x.checked=false);updateBulkActionBar()}
+    if(e.target.id==="bulkClearBtn"){bulkSelectedIds.clear();document.querySelectorAll(".invoice-select:checked").forEach(x=>x.checked=false);updateBulkActionBar()}
   });
 }
 function updateBulkActionBar(){
   const bar=$("bulkActionBar");if(!bar)return;
-  const n=document.querySelectorAll(".invoice-select:checked").length;
+  const n=bulkSelectedIds.size;
   bar.style.display=n?"block":"none";
   const c=$("bulkSelCount");if(c)c.textContent=n+" selected";
 }
 async function actionBulkSetStatus(status){
-  const ids=[...document.querySelectorAll(".invoice-select:checked")].map(x=>x.dataset.id).filter(Boolean);
+  const ids=[...bulkSelectedIds];
   if(!ids.length)return alert("Select at least one load first.");
   const label=status==="Archived"?"Archive":"Mark as "+status;
   if(!confirm(label+" "+ids.length+" selected load(s)?"))return;
   setBusy(true);
   try{
-    const {error}=await sb.from("loads").update({status}).in("id",ids);
+    const {data,error}=await sb.from("loads").update({status}).in("id",ids).select("id");
     if(error)throw error;
-    ids.forEach(id=>{const idx=appData.loads.findIndex(x=>x.id===id);if(idx>-1)appData.loads[idx].status=status});
+    const updatedIds=(data||[]).map(x=>x.id);
+    updatedIds.forEach(id=>{const idx=appData.loads.findIndex(x=>x.id===id);if(idx>-1)appData.loads[idx].status=status;bulkSelectedIds.delete(id)});
     cache();refresh();
-    showToast("✓ "+ids.length+" load(s) marked "+status,"success");
+    if(updatedIds.length<ids.length)showToast("⚠ "+updatedIds.length+" of "+ids.length+" updated — the rest could not be changed","warning",5000);
+    else showToast("✓ "+updatedIds.length+" load(s) marked "+status,"success");
   }catch(e){alert("Bulk update error: "+e.message)}
   finally{setBusy(false)}
 }
@@ -461,7 +468,7 @@ function onLoadBoardClick(e){
   if(a==="archive")return actionArchive(l);
   if(a==="delete"){const i=appData.loads.findIndex(x=>x.id===id);if(i>-1)return removeItem("loads",i)}
 }
-(()=>{const el=$("loadsList");if(el&&!el.dataset.delegated){el.dataset.delegated="1";el.addEventListener("click",onLoadBoardClick);el.addEventListener("change",e=>{if(e.target.classList.contains("invoice-select"))updateBulkActionBar()})}})();
+(()=>{const el=$("loadsList");if(el&&!el.dataset.delegated){el.dataset.delegated="1";el.addEventListener("click",onLoadBoardClick);el.addEventListener("change",e=>{if(!e.target.classList.contains("invoice-select"))return;const id=e.target.dataset.id;if(!id)return;if(e.target.checked)bulkSelectedIds.add(id);else bulkSelectedIds.delete(id);updateBulkActionBar()})}})();
 /* ===== end Load Board v2 ===== */
 async function cycleLoad(i){const statuses=["Booked","Dispatched","Picked Up","Delivered","Invoiced","Paid"];const l=appData.loads[i];if(!l)return;let idx=statuses.indexOf(l.status);l.status=statuses[(idx+1)%statuses.length];await updateRow("loads",l)}window.cycleLoad=cycleLoad;
 function renderExpenses(){const list=$("expensesList"),arr=data().expenses;list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No costs yet.</p></div>";arr.forEach((e,i)=>list.innerHTML+=card(`${e.category||"Other"} • ${money(e.amount)}`,`${e.date||""}${e.notes?" • "+e.notes:""}`,`<span class="pill red">Cost</span>`,`<div class="card-actions"><button class="small-btn" onclick="removeItem('expenses',${i})">Delete</button></div>`))}
@@ -548,11 +555,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="bulk-status-2";
+      const version="bulk-status-3";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=bulk-status-2").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=bulk-status-3").catch(()=>{});
 }
