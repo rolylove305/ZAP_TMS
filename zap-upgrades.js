@@ -5,7 +5,7 @@ function run(){
   css('mobileFixCss','mobile-fix.css?v=5500');
   /* login-invite-patch removed: invite-only was replaced by open self-signup.
      Auth is handled by pw-login.js. */
-  load('rollbackHelpers','rollback-helpers.js?v=6300');
+  load('rollbackHelpers','rollback-helpers.js?v=6400');
   load('actionsKeeper','actions-keeper.js?v=6300');
   load('tmsDashboardStable','tms-dashboard-stable.js?v=active-loop-fix-1');
   load('driverLocate','driver-locate.js?v=5');

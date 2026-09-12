@@ -222,25 +222,37 @@ function ensureBulkActionBar(){
   const bar=document.createElement("div");
   bar.id="bulkActionBar";
   bar.className="card";
-  bar.style.cssText="padding:12px;margin:0 0 12px;display:none";
-  bar.innerHTML='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b id="bulkSelCount">0 selected</b>'
+  bar.style.cssText="padding:12px;margin:0 0 12px;position:sticky;top:0;z-index:40;border:2px solid var(--green);box-shadow:0 10px 24px rgba(0,0,0,.35)";
+  bar.innerHTML='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">'
+    +'<label style="display:flex;gap:6px;align-items:center;font-weight:800;color:var(--green)"><input type="checkbox" id="bulkSelectAll"> Select all in this tab</label>'
+    +'<b id="bulkSelCount">0 selected</b>'
     +'<button type="button" class="small-btn" data-bulk="Invoiced">Set status: Invoiced</button>'
     +'<button type="button" class="small-btn" data-bulk="Paid">Set status: Paid</button>'
     +'<button type="button" class="small-btn" data-bulk="Archived">Archive</button>'
     +'<button type="button" class="small-btn" id="bulkClearBtn">Clear selection</button></div>'
-    +'<p class="muted" style="margin:8px 0 0;font-size:12px">Just changes the status on the selected loads (kept even if you switch tabs/folders). To create and email an actual invoice, use "Invoice selected" instead.</p>';
+    +'<p class="muted" style="margin:8px 0 0;font-size:12px">Check loads below (or use "Select all in this tab"), then click an action here. Selections are kept even if you switch tabs. To create and email an actual invoice, use "Invoice selected" instead.</p>';
   anchor.after(bar);
   bar.addEventListener("click",e=>{
     const b=e.target.closest("[data-bulk]");
     if(b)return actionBulkSetStatus(b.dataset.bulk);
     if(e.target.id==="bulkClearBtn"){bulkSelectedIds.clear();document.querySelectorAll(".invoice-select:checked").forEach(x=>x.checked=false);updateBulkActionBar()}
   });
+  bar.addEventListener("change",e=>{
+    if(e.target.id!=="bulkSelectAll")return;
+    [...document.querySelectorAll("#loadsList .invoice-select")].forEach(cb=>{
+      cb.checked=e.target.checked;
+      if(e.target.checked)bulkSelectedIds.add(cb.dataset.id);else bulkSelectedIds.delete(cb.dataset.id);
+    });
+    updateBulkActionBar();
+  });
 }
 function updateBulkActionBar(){
   const bar=$("bulkActionBar");if(!bar)return;
   const n=bulkSelectedIds.size;
-  bar.style.display=n?"block":"none";
   const c=$("bulkSelCount");if(c)c.textContent=n+" selected";
+  const visible=[...document.querySelectorAll("#loadsList .invoice-select")];
+  const allCb=$("bulkSelectAll");
+  if(allCb)allCb.checked=visible.length>0&&visible.every(cb=>bulkSelectedIds.has(cb.dataset.id));
 }
 async function actionBulkSetStatus(status){
   const ids=[...bulkSelectedIds];
@@ -555,11 +567,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="bulk-status-3";
+      const version="bulk-status-4";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=bulk-status-3").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=bulk-status-4").catch(()=>{});
 }
