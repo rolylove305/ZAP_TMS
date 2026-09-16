@@ -80,8 +80,9 @@ function loadLabel(l){return "Load # "+(l.loadNumber||"-")+" • "+(l.pickup||"P
 function esc(v){return String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]))}function card(title,body,pills="",actions=""){return `<div class="list-card"><h3>${esc(title)}</h3><p class="muted">${esc(body)}</p><div class="pill-row">${pills}</div>${actions}</div>`}
 function carrierLoads(carrierName){const key=carrierKey(carrierName);return data().loads.filter(l=>carrierKey(l.carrier)===key)}
 function loadDateVal(l){return l.deliveryDate||l.pickupDate||""}
-function weekStart(d){const dow=(d.getDay()+6)%7;const mon=new Date(d);mon.setHours(0,0,0,0);mon.setDate(d.getDate()-dow);return mon}
-function carrierWeekGross(carrierName){const mon=weekStart(new Date());const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);return carrierLoads(carrierName).reduce((s,l)=>{const v=loadDateVal(l);if(!v)return s;const d=new Date(v+"T12:00:00");return(!isNaN(d)&&d>=mon&&d<=sun)?s+num(l.rate):s},0)}
+/* Carrier week runs Tuesday through the following Monday, not the calendar Mon–Sun week. */
+function weekStart(d){const dow=(d.getDay()+5)%7;const tue=new Date(d);tue.setHours(0,0,0,0);tue.setDate(d.getDate()-dow);return tue}
+function carrierWeekGross(carrierName){const tue=weekStart(new Date());const end=new Date(tue);end.setDate(tue.getDate()+6);end.setHours(23,59,59,999);return carrierLoads(carrierName).reduce((s,l)=>{const v=loadDateVal(l);if(!v)return s;const d=new Date(v+"T12:00:00");return(!isNaN(d)&&d>=tue&&d<=end)?s+num(l.rate):s},0)}
 function carrierMonthGross(carrierName){const now=new Date();return carrierLoads(carrierName).reduce((s,l)=>{const v=loadDateVal(l);if(!v)return s;const d=new Date(v+"T12:00:00");return(!isNaN(d)&&d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth())?s+num(l.rate):s},0)}
 function carrierWeeklyHistory(carrierName){const buckets={};carrierLoads(carrierName).forEach(l=>{const v=loadDateVal(l);if(!v)return;const d=new Date(v+"T12:00:00");if(isNaN(d))return;const key=weekStart(d).toISOString().slice(0,10);buckets[key]=(buckets[key]||0)+num(l.rate)});return Object.entries(buckets).sort((a,b)=>b[0].localeCompare(a[0]))}
 function carrierMonthlyHistory(carrierName){const buckets={};carrierLoads(carrierName).forEach(l=>{const v=loadDateVal(l);if(!v)return;const d=new Date(v+"T12:00:00");if(isNaN(d))return;const key=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");buckets[key]=(buckets[key]||0)+num(l.rate)});return Object.entries(buckets).sort((a,b)=>b[0].localeCompare(a[0]))}
@@ -589,11 +590,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="carrier-gross-1";
+      const version="carrier-gross-2";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=carrier-gross-1").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=carrier-gross-2").catch(()=>{});
 }
