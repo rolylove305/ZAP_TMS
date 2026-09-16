@@ -78,7 +78,29 @@ function renderEldStatus(){const list=$("eldStatus");if(!list)return;if(accountT
 function renderSelects(){const d=data();["loadCarrier","expenseCarrier","chargeCarrier"].forEach(id=>{const sel=$(id);if(!sel)return;const old=sel.value;sel.innerHTML="<option value=''>Select</option>";d.carriers.forEach(c=>{let o=document.createElement("option");o.value=c.name;o.textContent=c.name;o.dataset.carrierId=c.id||"";o.dataset.carrierOrganizationId=c.linkedCarrierOrganizationId||"";o.dataset.commission=String(num(c.commission,0));sel.appendChild(o)});sel.value=old;if(id==="loadCarrier")sel.onchange=syncCommissionFromCarrier;if(id==="chargeCarrier")sel.onchange=renderChargeLoadOptions});renderChargeLoadOptions();syncCommissionFromCarrier();const bsel=$("loadBroker");if(bsel){const old=bsel.value;bsel.innerHTML="<option value=''>Select</option>";d.brokers.forEach(b=>{let o=document.createElement("option");o.value=b.name;o.textContent=b.name;bsel.appendChild(o)});if(old&&!Array.from(bsel.options).some(o=>o.value===old)){const o=document.createElement("option");o.value=old;o.textContent=old;bsel.appendChild(o)}bsel.value=old}}
 function loadLabel(l){return "Load # "+(l.loadNumber||"-")+" • "+(l.pickup||"Pickup")+" → "+(l.delivery||"Delivery")+" • "+(l.pickupDate||l.deliveryDate||"")}function renderChargeLoadOptions(){const sel=$("chargeLoad");if(!sel)return;const carrier=$("chargeCarrier")?.value||"";const old=sel.value;sel.innerHTML="<option value=''>Weekly / General charge</option>";(data().loads||[]).filter(l=>!carrier||carrierKey(l.carrier)===carrierKey(carrier)).sort((a,b)=>String(b.pickupDate||b.deliveryDate||"").localeCompare(String(a.pickupDate||a.deliveryDate||""))).forEach(l=>{if(!l.id)return;const o=document.createElement("option");o.value=l.id;o.textContent=loadLabel(l);sel.appendChild(o)});sel.value=Array.from(sel.options).some(o=>o.value===old)?old:""}
 function esc(v){return String(v??"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[m]))}function card(title,body,pills="",actions=""){return `<div class="list-card"><h3>${esc(title)}</h3><p class="muted">${esc(body)}</p><div class="pill-row">${pills}</div>${actions}</div>`}
-function renderCarriers(){const list=$("carriersList"),arr=data().carriers;list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No carriers yet.</p></div>";arr.forEach((c,i)=>list.innerHTML+=card(c.name||"Unnamed carrier",`${c.equipment||""} • ${c.trucks||0} truck(s) • ${c.contact||""} ${c.phone||""}`,`<span class="pill">MC/DOT: ${esc(c.mcDot||"-")}</span><span class="pill green">${esc(num(c.commission,0))}%</span>`,`<div class="card-actions"><button class="small-btn" onclick="removeItem('carriers',${i})">Delete</button></div>`))}
+function carrierLoads(carrierName){const key=carrierKey(carrierName);return data().loads.filter(l=>carrierKey(l.carrier)===key)}
+function loadDateVal(l){return l.deliveryDate||l.pickupDate||""}
+function weekStart(d){const dow=(d.getDay()+6)%7;const mon=new Date(d);mon.setHours(0,0,0,0);mon.setDate(d.getDate()-dow);return mon}
+function carrierWeekGross(carrierName){const mon=weekStart(new Date());const sun=new Date(mon);sun.setDate(mon.getDate()+6);sun.setHours(23,59,59,999);return carrierLoads(carrierName).reduce((s,l)=>{const v=loadDateVal(l);if(!v)return s;const d=new Date(v+"T12:00:00");return(!isNaN(d)&&d>=mon&&d<=sun)?s+num(l.rate):s},0)}
+function carrierMonthGross(carrierName){const now=new Date();return carrierLoads(carrierName).reduce((s,l)=>{const v=loadDateVal(l);if(!v)return s;const d=new Date(v+"T12:00:00");return(!isNaN(d)&&d.getFullYear()===now.getFullYear()&&d.getMonth()===now.getMonth())?s+num(l.rate):s},0)}
+function carrierWeeklyHistory(carrierName){const buckets={};carrierLoads(carrierName).forEach(l=>{const v=loadDateVal(l);if(!v)return;const d=new Date(v+"T12:00:00");if(isNaN(d))return;const key=weekStart(d).toISOString().slice(0,10);buckets[key]=(buckets[key]||0)+num(l.rate)});return Object.entries(buckets).sort((a,b)=>b[0].localeCompare(a[0]))}
+function carrierMonthlyHistory(carrierName){const buckets={};carrierLoads(carrierName).forEach(l=>{const v=loadDateVal(l);if(!v)return;const d=new Date(v+"T12:00:00");if(isNaN(d))return;const key=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0");buckets[key]=(buckets[key]||0)+num(l.rate)});return Object.entries(buckets).sort((a,b)=>b[0].localeCompare(a[0]))}
+function showCarrierHistory(carrierName){
+  const weekly=carrierWeeklyHistory(carrierName),monthly=carrierMonthlyHistory(carrierName);
+  const fmtWeek=key=>{const mon=new Date(key+"T12:00:00");const sun=new Date(mon);sun.setDate(mon.getDate()+6);const opts={month:"short",day:"numeric"};return mon.toLocaleDateString(undefined,opts)+" – "+sun.toLocaleDateString(undefined,opts)+", "+sun.getFullYear()};
+  const fmtMonth=key=>{const[y,m]=key.split("-");return new Date(Number(y),Number(m)-1,1).toLocaleDateString(undefined,{month:"long",year:"numeric"})};
+  const row=(label,val)=>'<p style="display:flex;justify-content:space-between;gap:10px;margin:4px 0;border-bottom:1px solid var(--line);padding-bottom:4px"><span>'+esc(label)+'</span><b>'+money(val)+"</b></p>";
+  let m=document.getElementById("zapCarrierHistoryModal");
+  if(!m){m=document.createElement("div");m.id="zapCarrierHistoryModal";m.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px";document.body.appendChild(m)}
+  m.innerHTML='<div class="card" style="width:min(480px,96vw);max-height:88vh;overflow:auto"><div class="section-title"><h2>'+esc(carrierName)+' — Gross history</h2><button class="small-btn" id="zapCHClose">Close</button></div>'
+    +'<h3 style="margin:14px 0 6px">By week</h3>'+(weekly.length?weekly.map(([k,v])=>row(fmtWeek(k),v)).join(""):'<p class="muted">No loads yet.</p>')
+    +'<h3 style="margin:14px 0 6px">By month</h3>'+(monthly.length?monthly.map(([k,v])=>row(fmtMonth(k),v)).join(""):'<p class="muted">No loads yet.</p>')
+    +"</div>";
+  m.querySelector("#zapCHClose").onclick=()=>m.remove();
+  m.onclick=e=>{if(e.target===m)m.remove()};
+}
+window.showCarrierHistory=showCarrierHistory;
+function renderCarriers(){const list=$("carriersList"),arr=data().carriers;list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No carriers yet.</p></div>";arr.forEach((c,i)=>{const wk=carrierWeekGross(c.name),mo=carrierMonthGross(c.name);list.innerHTML+=card(c.name||"Unnamed carrier",`${c.equipment||""} • ${c.trucks||0} truck(s) • ${c.contact||""} ${c.phone||""}`,`<span class="pill">MC/DOT: ${esc(c.mcDot||"-")}</span><span class="pill green">${esc(num(c.commission,0))}%</span><span class="pill">This week: ${money(wk)}</span><span class="pill">This month: ${money(mo)}</span>`,`<div class="card-actions"><button class="small-btn" onclick="showCarrierHistory('${escAttr(c.name||"")}')">Gross history</button><button class="small-btn" onclick="removeItem('carriers',${i})">Delete</button></div>`)})}
 function renderBrokers(){const list=$("brokersList"),arr=data().brokers;list.innerHTML=arr.length?"":"<div class='card'><p class='muted'>No brokers yet.</p></div>";arr.forEach((b,i)=>list.innerHTML+=card(b.name||"Unnamed broker",`${b.contact||""} • ${b.phone||""} • ${b.email||""}`,`<span class="pill">${esc(b.source||"Source")}</span>`,`<div class="card-actions"><button class="small-btn" onclick="removeItem('brokers',${i})">Delete</button></div>`))}
 /* ===== Load Board v2 (Step 1): stable cards, data-load-id, native actions, one delegated listener ===== */
 const LOAD_STATUSES=["Booked","Dispatched","Picked Up","Delivered","Invoiced","Paid"];
@@ -567,11 +589,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="bulk-status-4";
+      const version="carrier-gross-1";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=bulk-status-4").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=carrier-gross-1").catch(()=>{});
 }
