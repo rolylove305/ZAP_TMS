@@ -662,6 +662,11 @@ function normalizeResult(
       dot_number:
         stringValue(rawCarrier["dot_number"]),
     },
+
+    /* Set true by estimateMilesIfMissing() below when the Rate Con didn't state
+       mileage and we filled it in ourselves from a routing lookup, so the client
+       can flag it as an estimate rather than a value read off the document. */
+    milesEstimated: false,
   };
 
   const criticalMissing =
@@ -713,6 +718,114 @@ function normalizeResult(
     invalidFormats;
 
   return result;
+}
+
+/*
+ * Miles auto-calculation (OpenRouteService): when a Rate Con doesn't state loaded
+ * miles, Gemini can't reliably compute real driving distance from addresses on its
+ * own — it's a text extractor, not a router. This geocodes pickup/delivery and asks
+ * ORS for an actual driving distance instead. Entirely best-effort: any failure
+ * (missing key, address that won't geocode, ORS outage) just leaves miles at 0/
+ * whatever Gemini found, and never fails the overall Rate Con parse.
+ */
+async function orsGeocode(
+  apiKey: string,
+  address: string,
+): Promise<[number, number] | null> {
+  const text = address.trim();
+  if (!text) return null;
+
+  try {
+    const url =
+      `https://api.openrouteservice.org/geocode/search?api_key=${
+        encodeURIComponent(apiKey)
+      }&size=1&text=${encodeURIComponent(text)}`;
+
+    const res = await fetch(url);
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const coords = data?.features?.[0]?.geometry?.coordinates;
+
+    if (
+      Array.isArray(coords) &&
+      coords.length === 2 &&
+      Number.isFinite(coords[0]) &&
+      Number.isFinite(coords[1])
+    ) {
+      return [coords[0], coords[1]];
+    }
+  } catch {
+    // fall through to null
+  }
+
+  return null;
+}
+
+async function orsDrivingMiles(
+  apiKey: string,
+  start: [number, number],
+  end: [number, number],
+): Promise<number | null> {
+  for (const profile of ["driving-hgv", "driving-car"]) {
+    try {
+      const res = await fetch(
+        `https://api.openrouteservice.org/v2/directions/${profile}`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": apiKey,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ coordinates: [start, end] }),
+        },
+      );
+
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      const meters = data?.routes?.[0]?.summary?.distance;
+
+      if (Number.isFinite(meters) && meters > 0) {
+        return Math.round(meters / 1609.344);
+      }
+    } catch {
+      // try the next profile
+    }
+  }
+
+  return null;
+}
+
+async function estimateMilesIfMissing(
+  result: ReturnType<typeof normalizeResult>,
+): Promise<void> {
+  if (result.miles > 0) return;
+
+  const orsKey = Deno.env.get("ORS_API_KEY")?.trim();
+  if (!orsKey) return;
+
+  const pickupText = result.pickupAddress || result.pickup;
+  const deliveryText = result.deliveryAddress || result.delivery;
+  if (!pickupText || !deliveryText) return;
+
+  try {
+    const [start, end] = await Promise.all([
+      orsGeocode(orsKey, pickupText),
+      orsGeocode(orsKey, deliveryText),
+    ]);
+
+    if (!start || !end) return;
+
+    const miles = await orsDrivingMiles(orsKey, start, end);
+
+    if (miles) {
+      result.miles = miles;
+      result.milesEstimated = true;
+    }
+  } catch {
+    // best-effort only
+  }
 }
 
 function bytesToBase64(
@@ -1414,6 +1527,10 @@ Deno.serve(
         normalizeResult(
           rawExtractedData,
         );
+
+      await estimateMilesIfMissing(
+        extractedData,
+      );
 
       /*
        * Devuelve directamente el objeto esperado

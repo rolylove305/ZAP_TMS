@@ -559,6 +559,7 @@ if(accountType==="dispatcher"&&(overwrite||!$("loadCarrier").value)){
   if(matchedCarrier){$("loadCarrier").value=matchedCarrier.name;syncCommissionFromCarrier();filled++;carrierMatchNote="✓ Carrier matched: "+matchedCarrier.name}
   else if(ai.carrier_details&&(ai.carrier_details.mc_number||ai.carrier_details.company))carrierMatchNote="⚠ Carrier on the Rate Con ("+(ai.carrier_details.company||"MC "+ai.carrier_details.mc_number)+") was not found in your saved carriers — select it manually.";
 }
+if(ai.milesEstimated)carrierMatchNote+=(carrierMatchNote?"\n":"")+"ℹ Miles were not on the Rate Con — estimated from the pickup/delivery addresses. Double-check before saving.";
 filled+=fillNewLoadStopsFromAi(ai.stops)}
 saveDraft();btn.textContent="✅ Processed";alert("AI read "+files.length+" document"+(files.length>1?"s":"")+" — "+filled+" empty field"+(filled===1?"":"s")+" completed. Fields you already filled were kept. Review before saving."+(carrierMatchNote?"\n\n"+carrierMatchNote:""));if(carrierMatchNote.startsWith("✓")&&$("driverPick")){$("driverPick").scrollIntoView({behavior:"smooth",block:"center"});$("driverPick").focus()}setTimeout(()=>{btn.textContent=LABEL;btn.disabled=false},2000)}catch(e){alert("Upload error: "+(e&&e.message?e.message:String(e)));btn.textContent=LABEL;btn.disabled=false}finally{$("rateconFile").value=""}};$("addCarrier").onclick=addCarrierFromForm;
 $("addBroker").onclick=()=>insertRow("brokers",{name:$("brokerName").value,contact:$("brokerContact").value,phone:$("brokerPhone").value,email:$("brokerEmail").value,source:$("brokerSource").value,notes:$("brokerNotes").value}).then(()=>clearInputs(["brokerName","brokerContact","brokerPhone","brokerEmail","brokerSource","brokerNotes"]));
@@ -620,11 +621,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="ratecon-carrier-match-1";
+      const version="ratecon-miles-calc-1";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=ratecon-carrier-match-1").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=ratecon-miles-calc-1").catch(()=>{});
 }
