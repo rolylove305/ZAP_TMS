@@ -4,8 +4,8 @@ function load(id,src){if(document.getElementById(id))return;const s=document.cre
 setTimeout(()=>{
  load('tmsDocsStable','tms-docs-stable.js?v=5200');
  load('storageUploadHelper','storage-upload.js?v=paste-upload-1');
- load('storageManageHelper','storage-manage.js?v=5500');
+ load('storageManageHelper','storage-manage.js?v=manage-docs-fix-1');
  load('cardStabilizerHelper','card-stabilizer.js?v=5600');
- load('invoiceSelectHelper','invoice-select.js?v=paste-upload-1');
+ load('invoiceSelectHelper','invoice-select.js?v=manage-docs-fix-1');
 },700);
 })();
