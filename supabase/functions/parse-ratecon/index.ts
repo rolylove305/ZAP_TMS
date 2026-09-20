@@ -816,25 +816,52 @@ async function estimateMilesIfMissing(
     return;
   }
 
-  const pickupText = result.pickupAddress || result.pickup;
-  const deliveryText = result.deliveryAddress || result.delivery;
-  if (!pickupText || !deliveryText) {
+  /*
+   * Try the full facility address first (most precise), then fall back to
+   * the plain city/state label if that fails to geocode. Some Rate Cons put
+   * an address-shaped value in an unrelated "Name" field alongside the real
+   * "Address" field; Gemini concatenates both since both look like
+   * addresses, producing a garbled string a geocoder can't resolve even
+   * though the document's actual address data was read correctly. The
+   * city/state fallback is coarser but still gets a usable estimate instead
+   * of nothing.
+   */
+  const pickupCandidates = [result.pickupAddress, result.pickup].filter(Boolean);
+  const deliveryCandidates = [result.deliveryAddress, result.delivery].filter(Boolean);
+  if (!pickupCandidates.length || !deliveryCandidates.length) {
     result.milesDebug =
-      `skipped: no pickup/delivery text to geocode (pickup="${pickupText}", delivery="${deliveryText}")`;
+      `skipped: no pickup/delivery text to geocode (pickup="${result.pickup}", delivery="${result.delivery}")`;
     return;
   }
 
   try {
-    const [start, end] = await Promise.all([
-      orsGeocode(orsKey, pickupText),
-      orsGeocode(orsKey, deliveryText),
-    ]);
+    let start: [number, number] | null = null;
+    let end: [number, number] | null = null;
+    let usedPickup = "";
+    let usedDelivery = "";
+
+    for (const candidate of pickupCandidates) {
+      start = await orsGeocode(orsKey, candidate);
+      if (start) {
+        usedPickup = candidate;
+        break;
+      }
+    }
+    for (const candidate of deliveryCandidates) {
+      end = await orsGeocode(orsKey, candidate);
+      if (end) {
+        usedDelivery = candidate;
+        break;
+      }
+    }
 
     if (!start || !end) {
       result.milesDebug =
-        `geocoding failed (pickup="${pickupText}" -> ${
-          start ? "ok" : "FAILED"
-        }, delivery="${deliveryText}" -> ${end ? "ok" : "FAILED"})`;
+        `geocoding failed even after city/state fallback (pickup tried: ${
+          JSON.stringify(pickupCandidates)
+        } -> ${start ? "ok" : "FAILED"}, delivery tried: ${
+          JSON.stringify(deliveryCandidates)
+        } -> ${end ? "ok" : "FAILED"})`;
       return;
     }
 
@@ -843,7 +870,8 @@ async function estimateMilesIfMissing(
     if (miles) {
       result.miles = miles;
       result.milesEstimated = true;
-      result.milesDebug = `estimated ${miles} mi via ORS routing`;
+      result.milesDebug =
+        `estimated ${miles} mi via ORS routing (pickup="${usedPickup}", delivery="${usedDelivery}")`;
     } else {
       result.milesDebug = "geocoded both ends, but ORS routing returned no distance";
     }
@@ -919,7 +947,27 @@ function thinkingConfigFor(
 async function authenticateUser(
   req: Request,
   config: EnvConfig,
+  trustedUserId?: string,
 ): Promise<User> {
+  /*
+   * Server-to-server calls (the email Rate Con intake path) have no live
+   * Supabase session to hand us a JWT. They instead prove themselves with a
+   * shared secret only our own Cloudflare Worker knows, and name the target
+   * user directly (already resolved from the recipient's inbox code before
+   * this function is called) — never trust a caller-supplied user id without
+   * that secret also matching.
+   */
+  const intakeSecret = Deno.env.get("EMAIL_INTAKE_SECRET")?.trim();
+  const providedSecret = req.headers.get("X-Intake-Secret")?.trim();
+  if (
+    trustedUserId &&
+    intakeSecret &&
+    providedSecret &&
+    providedSecret === intakeSecret
+  ) {
+    return { id: trustedUserId } as User;
+  }
+
   const authorization =
     req.headers
       .get("Authorization")
@@ -1358,21 +1406,11 @@ Deno.serve(
       const config = getConfig();
 
       /*
-       * Valida el JWT real del usuario.
-       * No confía solamente en que exista
-       * un Authorization header.
-       */
-      const user =
-        await authenticateUser(
-          req,
-          config,
-        );
-
-      /*
        * GET autenticado para comprobar
        * que la función está funcionando.
        */
       if (req.method === "GET") {
+        const user = await authenticateUser(req, config);
         return jsonResponse({
           ok: true,
 
@@ -1397,6 +1435,23 @@ Deno.serve(
           "Request body must be valid JSON.",
         );
       }
+
+      /*
+       * Valida el JWT real del usuario, salvo cuando el llamador es el propio
+       * intake de email (secreto compartido + user_id ya resuelto por el
+       * Worker a partir del código de la dirección de destino).
+       */
+      const bodyUserId =
+        typeof requestBody["user_id"] === "string"
+          ? requestBody["user_id"] as string
+          : undefined;
+
+      const user =
+        await authenticateUser(
+          req,
+          config,
+          bodyUserId,
+        );
 
       const storagePath =
         normalizeStoragePath(
