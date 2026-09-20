@@ -667,6 +667,11 @@ function normalizeResult(
        mileage and we filled it in ourselves from a routing lookup, so the client
        can flag it as an estimate rather than a value read off the document. */
     milesEstimated: false,
+
+    /* Always set by estimateMilesIfMissing() below to say what happened, even on
+       skip/failure — Edge Function server logs aren't easy to reach from the app,
+       so this is how a failure gets diagnosed from the client response itself. */
+    milesDebug: "",
   };
 
   const criticalMissing =
@@ -800,14 +805,24 @@ async function orsDrivingMiles(
 async function estimateMilesIfMissing(
   result: ReturnType<typeof normalizeResult>,
 ): Promise<void> {
-  if (result.miles > 0) return;
+  if (result.miles > 0) {
+    result.milesDebug = `skipped: document already had miles (${result.miles})`;
+    return;
+  }
 
   const orsKey = Deno.env.get("ORS_API_KEY")?.trim();
-  if (!orsKey) return;
+  if (!orsKey) {
+    result.milesDebug = "skipped: ORS_API_KEY is not configured";
+    return;
+  }
 
   const pickupText = result.pickupAddress || result.pickup;
   const deliveryText = result.deliveryAddress || result.delivery;
-  if (!pickupText || !deliveryText) return;
+  if (!pickupText || !deliveryText) {
+    result.milesDebug =
+      `skipped: no pickup/delivery text to geocode (pickup="${pickupText}", delivery="${deliveryText}")`;
+    return;
+  }
 
   try {
     const [start, end] = await Promise.all([
@@ -815,16 +830,27 @@ async function estimateMilesIfMissing(
       orsGeocode(orsKey, deliveryText),
     ]);
 
-    if (!start || !end) return;
+    if (!start || !end) {
+      result.milesDebug =
+        `geocoding failed (pickup="${pickupText}" -> ${
+          start ? "ok" : "FAILED"
+        }, delivery="${deliveryText}" -> ${end ? "ok" : "FAILED"})`;
+      return;
+    }
 
     const miles = await orsDrivingMiles(orsKey, start, end);
 
     if (miles) {
       result.miles = miles;
       result.milesEstimated = true;
+      result.milesDebug = `estimated ${miles} mi via ORS routing`;
+    } else {
+      result.milesDebug = "geocoded both ends, but ORS routing returned no distance";
     }
-  } catch {
-    // best-effort only
+  } catch (error) {
+    result.milesDebug = `threw: ${
+      error instanceof Error ? error.message : String(error)
+    }`;
   }
 }
 
