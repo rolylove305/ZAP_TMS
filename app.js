@@ -38,7 +38,31 @@ const map={
   }
 };
 function tenantField(){return currentOrganizationId?{organization_id:currentOrganizationId}:{}}function num(v,d=0){const n=Number(v);return Number.isFinite(n)?n:d}function emptyDate(v){return v||null}function money(n){return "$"+(Number(n)||0).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:2})}function loadCost(l){return num(l.fuelCost)+num(l.driverCost)+num(l.tollsCost)+num(l.maintenanceCost)+num(l.otherCost)}function msg(t,bad=false){const el=$("authMessage");if(el){el.textContent=t||"";el.classList.toggle("bad",!!bad)}}function setBusy(b){["loginBtn","signupBtn","addCarrier","addBroker","addLoad","addExpense","addFleetPerson","syncNow"].forEach(id=>{const el=$(id);if(el)el.disabled=b})}
-function carrierKey(v){return String(v||"").trim().toLowerCase()}function carrierByName(name){const key=carrierKey(name);return appData.carriers.find(c=>carrierKey(c.name)===key)||null}function agreedCommission(name,fallback=null){const carrier=carrierByName(name);if(!carrier)return fallback;const pct=Number(carrier.commission);return Number.isFinite(pct)&&pct>=0&&pct<=100?pct:fallback}function loadCommissionPct(load){return num(load.commissionPct,0)}function syncCommissionFromCarrier(){if(accountType!=="dispatcher")return;const input=$("commissionPct"),select=$("loadCarrier");if(!input||!select)return;const pct=agreedCommission(select.value,null);input.readOnly=true;input.setAttribute("aria-readonly","true");input.value=pct==null?"":String(pct);input.placeholder=select.value?"Carrier percentage missing":"Select carrier first"}
+function carrierKey(v){return String(v||"").trim().toLowerCase()}function carrierByName(name){const key=carrierKey(name);return appData.carriers.find(c=>carrierKey(c.name)===key)||null}function agreedCommission(name,fallback=null){const carrier=carrierByName(name);if(!carrier)return fallback;const pct=Number(carrier.commission);return Number.isFinite(pct)&&pct>=0&&pct<=100?pct:fallback}function loadCommissionPct(load){return num(load.commissionPct,0)}
+/* Rate Con AI carrier auto-match: try the carrier's MC/DOT number first (reliable,
+   format-independent), then fall back to a loose company-name overlap. Returns the
+   matched carrier record or null — never guesses when nothing lines up. */
+function mcDotTokens(s){return String(s||"").match(/\d{4,8}/g)||[]}
+function nameWords(s){return String(s||"").normalize("NFD").replace(/[̀-ͯ]/g,"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim().split(/\s+/).filter(w=>w.length>2)}
+function matchCarrierFromRateConAi(ai){
+  const cd=ai&&ai.carrier_details;if(!cd)return null;
+  const wantTokens=new Set([...mcDotTokens(cd.mc_number),...mcDotTokens(cd.dot_number)]);
+  if(wantTokens.size){
+    const byNumber=appData.carriers.find(c=>mcDotTokens(c.mcDot).some(t=>wantTokens.has(t)));
+    if(byNumber)return byNumber;
+  }
+  const wantWords=nameWords(cd.company);
+  if(wantWords.length){
+    const byName=appData.carriers.find(c=>{
+      const haveWords=nameWords(c.name);
+      if(!haveWords.length)return false;
+      const shared=wantWords.filter(w=>haveWords.includes(w));
+      return shared.length>=Math.min(2,wantWords.length,haveWords.length);
+    });
+    if(byName)return byName;
+  }
+  return null;
+}function syncCommissionFromCarrier(){if(accountType!=="dispatcher")return;const input=$("commissionPct"),select=$("loadCarrier");if(!input||!select)return;const pct=agreedCommission(select.value,null);input.readOnly=true;input.setAttribute("aria-readonly","true");input.value=pct==null?"":String(pct);input.placeholder=select.value?"Carrier percentage missing":"Select carrier first"}
 function data(){return appData}function cache(){tables.forEach(t=>store.set(t,appData[t]));store.set("settings",appData.settings)}
 async function loadCloud(){if(!currentUser)return;setBusy(true);try{for(const t of tables){const {data,error}=await sb.from(t).select("*").order("created_at",{ascending:false});if(error)throw error;appData[t]=(data||[]).map(map[t].fromDb)}cache();refresh()}catch(e){alert("Cloud sync error: "+e.message)}finally{setBusy(false)}}
 async function insertRow(t,row){setBusy(true);try{const {data,error}=await sb.from(t).insert(map[t].toDb(row)).select().single();if(error)throw error;appData[t]=[map[t].fromDb(data),...appData[t]];cache();refresh();const typeLabel=t==="loads"?"Load":t==="carriers"?"Carrier":t==="brokers"?"Broker":t==="expenses"?"Expense":t==="carrier_charges"?"Charge":t==="fleet_people"?"Driver":"Item";showToast(`✓ ${typeLabel} saved`,"success")}catch(e){alert("Save error: "+e.message)}finally{setBusy(false)}}
@@ -525,12 +549,18 @@ const LOAD_DRAFT_KEY="zapLoadDraft";const LOAD_DRAFT_FIELDS=["loadCarrier","load
 /* Fields already typed by the dispatcher (or filled by a previous document) are never
    overwritten: brokers often send a Rate Con first and a Driver Info Sheet later, and
    each document only completes what is still empty. */
-const MAP={broker:"loadBroker",loadNumber:"loadNumber",rate:"rate",equipment:"equipment",miles:"loadMiles",pickup:"pickup",pickupAddress:"pickupAddress",pickupDate:"pickupDate",pickupTime:"pickupTime",pickupNumber:"pickupNumber",delivery:"delivery",deliveryAddress:"deliveryAddress",deliveryDate:"deliveryDate",deliveryTime:"deliveryTime",deliveryNumber:"deliveryNumber",notes:"loadNotes"};let filled=0;
+const MAP={broker:"loadBroker",loadNumber:"loadNumber",rate:"rate",equipment:"equipment",miles:"loadMiles",pickup:"pickup",pickupAddress:"pickupAddress",pickupDate:"pickupDate",pickupTime:"pickupTime",pickupNumber:"pickupNumber",delivery:"delivery",deliveryAddress:"deliveryAddress",deliveryDate:"deliveryDate",deliveryTime:"deliveryTime",deliveryNumber:"deliveryNumber",notes:"loadNotes"};let filled=0;let carrierMatchNote="";
 for(let i=0;i<files.length;i++){const file=files[i];const tag=files.length>1?" "+(i+1)+"/"+files.length:"";btn.textContent="📤 Uploading"+tag+"...";const path=uid+"/ratecon-inbox/"+Date.now()+"_"+i+"_doc.pdf";const up=await sb.storage.from("load-documents").upload(path,file,{contentType:"application/pdf"});if(up.error)throw up.error;const rec=await sb.from("load_documents").insert({user_id:uid,load_id:null,file_name:"[Rate Confirmation] "+(file.name||"document.pdf"),file_type:"application/pdf",storage_bucket:"load-documents",storage_path:path,uploaded_by:"dispatcher"});if(rec.error)throw rec.error;btn.textContent="🤖 Reading with AI"+tag+"...";const res=await fetch(cfg.url+"/functions/v1/parse-ratecon",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+sess.access_token,"apikey":cfg.token},body:JSON.stringify({storage_path:path})});const ai=await res.json().catch(()=>null);if(!res.ok||!ai||ai.error)throw new Error((ai&&ai.error?String(ai.error):"AI could not read this document.")+(files.length>1?" (file "+(i+1)+" of "+files.length+")":""));const overwrite=i===0;/* the first document in a batch is a fresh new load — it should win over
    whatever a stale unsaved draft left sitting in the field (e.g. yesterday's broker); a
    second document in the SAME batch (Rate Con + Driver Sheet) still only fills gaps. */
-Object.keys(MAP).forEach(k=>{const v=ai[k];const el=$(MAP[k]);if(!el||(!overwrite&&String(el.value||"").trim()!=="")||v===undefined||v===null||v==="")return;if(el.tagName==="SELECT"){const want=String(v).trim().toLowerCase();let opt=Array.from(el.options).find(o=>o.value.trim().toLowerCase()===want);if(!opt)opt=Array.from(el.options).find(o=>{const t=o.value.trim().toLowerCase();return t&&(t.includes(want)||want.includes(t))});if(!opt){opt=document.createElement("option");opt.value=String(v).trim();opt.textContent=String(v).trim();el.appendChild(opt)}el.value=opt.value;filled++}else{let val=v;if(el.type==="number"){val=String(v).replace(/[^0-9.-]/g,"");const n=parseFloat(val);if(!isFinite(n))return;val=String(n)}el.value=val;filled++}});filled+=fillNewLoadStopsFromAi(ai.stops)}
-saveDraft();btn.textContent="✅ Processed";alert("AI read "+files.length+" document"+(files.length>1?"s":"")+" — "+filled+" empty field"+(filled===1?"":"s")+" completed. Fields you already filled were kept. Review before saving.");setTimeout(()=>{btn.textContent=LABEL;btn.disabled=false},2000)}catch(e){alert("Upload error: "+(e&&e.message?e.message:String(e)));btn.textContent=LABEL;btn.disabled=false}finally{$("rateconFile").value=""}};$("addCarrier").onclick=addCarrierFromForm;
+Object.keys(MAP).forEach(k=>{const v=ai[k];const el=$(MAP[k]);if(!el||(!overwrite&&String(el.value||"").trim()!=="")||v===undefined||v===null||v==="")return;if(el.tagName==="SELECT"){const want=String(v).trim().toLowerCase();let opt=Array.from(el.options).find(o=>o.value.trim().toLowerCase()===want);if(!opt)opt=Array.from(el.options).find(o=>{const t=o.value.trim().toLowerCase();return t&&(t.includes(want)||want.includes(t))});if(!opt){opt=document.createElement("option");opt.value=String(v).trim();opt.textContent=String(v).trim();el.appendChild(opt)}el.value=opt.value;filled++}else{let val=v;if(el.type==="number"){val=String(v).replace(/[^0-9.-]/g,"");const n=parseFloat(val);if(!isFinite(n))return;val=String(n)}el.value=val;filled++}});
+if(accountType==="dispatcher"&&(overwrite||!$("loadCarrier").value)){
+  const matchedCarrier=matchCarrierFromRateConAi(ai);
+  if(matchedCarrier){$("loadCarrier").value=matchedCarrier.name;syncCommissionFromCarrier();filled++;carrierMatchNote="✓ Carrier matched: "+matchedCarrier.name}
+  else if(ai.carrier_details&&(ai.carrier_details.mc_number||ai.carrier_details.company))carrierMatchNote="⚠ Carrier on the Rate Con ("+(ai.carrier_details.company||"MC "+ai.carrier_details.mc_number)+") was not found in your saved carriers — select it manually.";
+}
+filled+=fillNewLoadStopsFromAi(ai.stops)}
+saveDraft();btn.textContent="✅ Processed";alert("AI read "+files.length+" document"+(files.length>1?"s":"")+" — "+filled+" empty field"+(filled===1?"":"s")+" completed. Fields you already filled were kept. Review before saving."+(carrierMatchNote?"\n\n"+carrierMatchNote:""));if(carrierMatchNote.startsWith("✓")&&$("driverPick")){$("driverPick").scrollIntoView({behavior:"smooth",block:"center"});$("driverPick").focus()}setTimeout(()=>{btn.textContent=LABEL;btn.disabled=false},2000)}catch(e){alert("Upload error: "+(e&&e.message?e.message:String(e)));btn.textContent=LABEL;btn.disabled=false}finally{$("rateconFile").value=""}};$("addCarrier").onclick=addCarrierFromForm;
 $("addBroker").onclick=()=>insertRow("brokers",{name:$("brokerName").value,contact:$("brokerContact").value,phone:$("brokerPhone").value,email:$("brokerEmail").value,source:$("brokerSource").value,notes:$("brokerNotes").value}).then(()=>clearInputs(["brokerName","brokerContact","brokerPhone","brokerEmail","brokerSource","brokerNotes"]));
 async function addChargeFromForm(){if(accountType!=="dispatcher")return alert("Only dispatch can create carrier charges.");const sel=$("chargeCarrier"),carrier=sel.value,amount=num($("chargeAmount").value,NaN);if(!carrier)return alert("Select a carrier first.");if(!Number.isFinite(amount)||amount<=0)return alert("Enter a charge amount greater than zero.");const opt=sel.selectedOptions&&sel.selectedOptions[0];const file=$("chargeAttachment")?.files?.[0]||null;const row={carrier,carrierId:opt?.dataset?.carrierId||null,carrierOrganizationId:opt?.dataset?.carrierOrganizationId||null,loadId:$("chargeLoad")?.value||null,date:$("chargeDate").value||getTodayDate(),category:$("chargeCategory").value,description:$("chargeDescription").value,amount,status:"pending"};if(file){if(file.size>10*1024*1024)return alert("File is too large. Keep it under 10 MB.");const safe=(file.name||"backup").replace(/[^a-zA-Z0-9._-]/g,"_");const path=currentUser.id+"/charges/"+Date.now()+"_"+safe;const up=await sb.storage.from("load-documents").upload(path,file,{contentType:file.type||"application/octet-stream"});if(up.error)return alert("Backup upload error: "+up.error.message);row.attachmentBucket="load-documents";row.attachmentPath=path;row.attachmentName=file.name||"backup";row.attachmentType=file.type||"application/octet-stream"}await insertRow("carrier_charges",row);clearInputs(["chargeAmount","chargeDescription","chargeLoad"]);if($("chargeAttachment"))$("chargeAttachment").value=""}
 if($("addCharge"))$("addCharge").onclick=addChargeFromForm;
@@ -590,11 +620,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="carrier-gross-2";
+      const version="ratecon-carrier-match-1";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=carrier-gross-2").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=ratecon-carrier-match-1").catch(()=>{});
 }

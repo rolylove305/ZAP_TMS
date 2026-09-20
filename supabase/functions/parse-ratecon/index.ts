@@ -62,6 +62,7 @@ const responseSchema = {
     "notes",
     "stops",
     "broker_details",
+    "carrier_details",
     "_meta",
   ],
 
@@ -247,6 +248,36 @@ const responseSchema = {
         "mc_number",
       ],
     },
+
+    carrier_details: {
+      type: "OBJECT",
+
+      propertyOrdering: [
+        "company",
+        "mc_number",
+        "dot_number",
+      ],
+
+      properties: {
+        company: {
+          type: "STRING",
+        },
+
+        mc_number: {
+          type: "STRING",
+        },
+
+        dot_number: {
+          type: "STRING",
+        },
+      },
+
+      required: [
+        "company",
+        "mc_number",
+        "dot_number",
+      ],
+    },
   },
 
   required: [
@@ -268,6 +299,7 @@ const responseSchema = {
     "notes",
     "stops",
     "broker_details",
+    "carrier_details",
     "_meta",
   ],
 } as const;
@@ -317,6 +349,20 @@ Rules:
 - broker_details.fax is the brokerage's fax number if present.
 - broker_details.mc_number is the brokerage's MC or DOT number if present.
 - Use an empty string for any broker detail that is not present.
+- carrier_details identifies the TRUCKING COMPANY this Rate Confirmation is
+  tendered TO (the carrier hauling the load), NOT the broker/brokerage
+  issuing the document. It is usually found in a "Carrier:", "Carrier
+  Information", or "Dispatch to:" section, separate from the broker's own
+  letterhead/company info.
+- carrier_details.company is the carrier's company name as written on the
+  document.
+- carrier_details.mc_number is the CARRIER's own MC number (format like
+  "MC-123456" or just digits), not the broker's MC number. Look for it next
+  to the carrier's name/address, often labeled "MC#", "MC No.", or "Motor
+  Carrier #".
+- carrier_details.dot_number is the CARRIER's own USDOT number if shown,
+  separate from any MC number.
+- Use an empty string for any carrier detail that is not present.
 `.trim();
 
 function envValue(...names: string[]): string {
@@ -474,6 +520,10 @@ function normalizeResult(
     raw["broker_details"],
   );
 
+  const rawCarrier = asRecord(
+    raw["carrier_details"],
+  );
+
   const rawStops = Array.isArray(
       raw["stops"],
     )
@@ -600,6 +650,17 @@ function normalizeResult(
 
       mc_number:
         stringValue(rawBroker["mc_number"]),
+    },
+
+    carrier_details: {
+      company:
+        stringValue(rawCarrier["company"]),
+
+      mc_number:
+        stringValue(rawCarrier["mc_number"]),
+
+      dot_number:
+        stringValue(rawCarrier["dot_number"]),
     },
   };
 
