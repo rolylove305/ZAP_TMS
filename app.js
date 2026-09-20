@@ -561,7 +561,7 @@ if(accountType==="dispatcher"&&(overwrite||!$("loadCarrier").value)){
 }
 if(ai.milesEstimated)carrierMatchNote+=(carrierMatchNote?"\n":"")+"ℹ Miles were not on the Rate Con — estimated from the pickup/delivery addresses. Double-check before saving.";
 filled+=fillNewLoadStopsFromAi(ai.stops)}
-saveDraft();btn.textContent="✅ Processed";alert("AI read "+files.length+" document"+(files.length>1?"s":"")+" — "+filled+" empty field"+(filled===1?"":"s")+" completed. Fields you already filled were kept. Review before saving."+(carrierMatchNote?"\n\n"+carrierMatchNote:""));if(carrierMatchNote.startsWith("✓")&&$("driverPick")){$("driverPick").scrollIntoView({behavior:"smooth",block:"center"});$("driverPick").focus()}setTimeout(()=>{btn.textContent=LABEL;btn.disabled=false},2000)}catch(e){alert("Upload error: "+(e&&e.message?e.message:String(e)));btn.textContent=LABEL;btn.disabled=false}finally{$("rateconFile").value=""}};$("addCarrier").onclick=addCarrierFromForm;
+saveDraft();btn.textContent="✅ Processed";alert("AI read "+files.length+" document"+(files.length>1?"s":"")+" — "+filled+" empty field"+(filled===1?"":"s")+" completed. Fields you already filled were kept. Review before saving."+(carrierMatchNote?"\n\n"+carrierMatchNote:""));if(carrierMatchNote.startsWith("✓")&&$("driverPick")){let sec=$("driverPick");while(sec&&sec!==document.body){if(sec.style&&sec.style.display==="none")sec.style.display="block";sec=sec.parentElement}$("driverPick").scrollIntoView({behavior:"smooth",block:"center"});$("driverPick").focus()}setTimeout(()=>{btn.textContent=LABEL;btn.disabled=false},2000)}catch(e){alert("Upload error: "+(e&&e.message?e.message:String(e)));btn.textContent=LABEL;btn.disabled=false}finally{$("rateconFile").value=""}};$("addCarrier").onclick=addCarrierFromForm;
 $("addBroker").onclick=()=>insertRow("brokers",{name:$("brokerName").value,contact:$("brokerContact").value,phone:$("brokerPhone").value,email:$("brokerEmail").value,source:$("brokerSource").value,notes:$("brokerNotes").value}).then(()=>clearInputs(["brokerName","brokerContact","brokerPhone","brokerEmail","brokerSource","brokerNotes"]));
 async function addChargeFromForm(){if(accountType!=="dispatcher")return alert("Only dispatch can create carrier charges.");const sel=$("chargeCarrier"),carrier=sel.value,amount=num($("chargeAmount").value,NaN);if(!carrier)return alert("Select a carrier first.");if(!Number.isFinite(amount)||amount<=0)return alert("Enter a charge amount greater than zero.");const opt=sel.selectedOptions&&sel.selectedOptions[0];const file=$("chargeAttachment")?.files?.[0]||null;const row={carrier,carrierId:opt?.dataset?.carrierId||null,carrierOrganizationId:opt?.dataset?.carrierOrganizationId||null,loadId:$("chargeLoad")?.value||null,date:$("chargeDate").value||getTodayDate(),category:$("chargeCategory").value,description:$("chargeDescription").value,amount,status:"pending"};if(file){if(file.size>10*1024*1024)return alert("File is too large. Keep it under 10 MB.");const safe=(file.name||"backup").replace(/[^a-zA-Z0-9._-]/g,"_");const path=currentUser.id+"/charges/"+Date.now()+"_"+safe;const up=await sb.storage.from("load-documents").upload(path,file,{contentType:file.type||"application/octet-stream"});if(up.error)return alert("Backup upload error: "+up.error.message);row.attachmentBucket="load-documents";row.attachmentPath=path;row.attachmentName=file.name||"backup";row.attachmentType=file.type||"application/octet-stream"}await insertRow("carrier_charges",row);clearInputs(["chargeAmount","chargeDescription","chargeLoad"]);if($("chargeAttachment"))$("chargeAttachment").value=""}
 if($("addCharge"))$("addCharge").onclick=addChargeFromForm;
@@ -621,11 +621,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="ratecon-miles-calc-1";
+      const version="ratecon-driver-jump-1";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=ratecon-miles-calc-1").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=ratecon-driver-jump-1").catch(()=>{});
 }
