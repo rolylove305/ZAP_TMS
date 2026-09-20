@@ -304,6 +304,32 @@ Deno.serve(async (req) => {
           .from("eld_vehicle_locations")
           .upsert(databaseRows, { onConflict: "connection_id,vehicle_id" });
         if (error) throw new EldHttpError(500, error.message);
+
+        // A vehicle that stops coming back from the provider (retired, deactivated,
+        // ELD unplugged) would otherwise sit here forever with its last known
+        // position, still showing on the Fleet Command Center map as a "needs
+        // attention" ghost truck. Prune anything for this connection that isn't in
+        // the batch we just wrote. Only runs when the batch is non-empty, so a
+        // transient empty/failed provider response can't wipe everything out.
+        const currentVehicleIds = databaseRows.map((row) => String(row.vehicle_id));
+        const { data: existing, error: existingError } = await admin
+          .from("eld_vehicle_locations")
+          .select("vehicle_id")
+          .eq("user_id", user.id)
+          .eq("connection_id", connectionId);
+        if (existingError) throw new EldHttpError(500, existingError.message);
+        const staleVehicleIds = (existing || [])
+          .map((row) => String(row.vehicle_id))
+          .filter((id) => !currentVehicleIds.includes(id));
+        if (staleVehicleIds.length) {
+          const { error: pruneError } = await admin
+            .from("eld_vehicle_locations")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("connection_id", connectionId)
+            .in("vehicle_id", staleVehicleIds);
+          if (pruneError) throw new EldHttpError(500, pruneError.message);
+        }
       }
 
       for (const assignment of assignments) {

@@ -23,7 +23,7 @@ const esc=s=>String(s??'').replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp
 const money=n=>'$'+Number(n||0).toFixed(2);
 async function currentUser(){return (await sb.auth.getSession()).data.session?.user}
 async function settings(){const u=await currentUser();if(!u)return {};let r=await sb.from('company_settings').select('*').eq('user_id',u.id).maybeSingle();if(r.error)return {};return r.data||{company_name:'Zap Dispatch',invoice_footer:'Thank you for your business.'}}
-function loadCompanySettings(){if(q('#companySettingsHelper'))return;const c=document.createElement('script');c.id='companySettingsHelper';c.src='company-settings.js?v=4300';document.body.appendChild(c)}
+function loadCompanySettings(){if(q('#companySettingsHelper'))return;const c=document.createElement('script');c.id='companySettingsHelper';c.src='company-settings.js?v=paste-upload-1';document.body.appendChild(c)}
 function addTop(){if(q('#invoiceSelectedBtn'))return;const bar=q('#folderBar')||q('#loads .section-title');if(!bar)return;const b=document.createElement('button');b.id='invoiceSelectedBtn';b.className='primary-btn';b.textContent='Invoice selected';b.style.marginTop='10px';b.onclick=invoiceSelected;bar.appendChild(b)}
 async function revokeLink(id){if(!confirm('Revoke driver link for this load? The driver portal link will stop working.'))return;const r=await sb.rpc('revoke_driver_link',{p_load_id:id});if(r.error)return alert(r.error.message);alert('Driver link revoked. Generate a new Driver Link if needed.')}
 function loadForCard(card,i,arr){const id=card?.dataset?.loadId;if(id){const byId=arr.find(l=>String(l.id)===String(id));if(byId)return byId}const fallback=arr[i];if(fallback?.id&&!card.dataset.loadId)card.dataset.loadId=fallback.id;return fallback}
