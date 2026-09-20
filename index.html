@@ -106,11 +106,12 @@
     </section>
 
     <section class="screen" id="loads">
-      <div class="section-title" style="position:sticky;top:0;z-index:30;background:linear-gradient(180deg,var(--card),var(--card2));border-radius:16px;padding:10px 12px;box-shadow:0 8px 18px rgba(0,0,0,.25)"><h2>Load Board</h2><button id="addLoad" class="small-btn" style="background:linear-gradient(135deg,#0284c7,#22c55e);color:#fff;font-weight:800">💾 Save load</button></div>
+      <div class="section-title"><h2>Load Board</h2></div>
       <button id="restoreDraftBtn" class="small-btn" style="display:none;background:var(--blue);margin:0 0 12px 0;width:100%">✎ Draft</button>
       <div class="card">
-        <div style="margin-bottom:8px">
-          <button type="button" id="rateconUploadBtn" class="small-btn" style="background:var(--green);width:100%;margin-bottom:8px">📎 Upload Rate Con / Driver Sheet (PDF)</button>
+        <div style="margin-bottom:8px;display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" id="rateconUploadBtn" class="small-btn" style="background:var(--green);flex:2 1 220px">📎 Upload Rate Con / Driver Sheet (PDF)</button>
+          <button type="button" id="addLoad" class="small-btn" style="background:linear-gradient(135deg,#0284c7,#22c55e);color:#fff;font-weight:800;flex:1 1 140px">💾 Save load</button>
           <input type="file" id="rateconFile" accept=".pdf" multiple style="display:none">
         </div>
         <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden">
