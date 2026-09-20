@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "zap-ratecon-email-worker",
+  "compatibility_date": "2026-09-20",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./src/index.ts",
+  "vars": {
+    "INTAKE_URL": "https://nhttbtvjcwtkecdlxpzk.supabase.co/functions/v1/email-ratecon-intake",
+    "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_IfzdNltSaCOHh8703TWt0w_k4KDxJcT"
+  }
+}
