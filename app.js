@@ -490,7 +490,7 @@ function actionEdit(l){
   const lockedPct=accountType==="dispatcher"?loadCommissionPct(l):null;
   let modal=document.getElementById("zapEditModal");
   if(!modal){modal=document.createElement("div");modal.id="zapEditModal";modal.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:9999;display:flex;align-items:center;justify-content:center;padding:18px";document.body.appendChild(modal)}
-  modal.innerHTML='<div class="card" style="width:min(760px,96vw);max-height:88vh;overflow:auto"><div class="section-title"><h2>Edit Load</h2><button class="small-btn" id="zeClose">Close</button></div><div class="form-grid">'
+  modal.innerHTML='<div class="card" style="width:min(760px,96vw);max-height:88vh;overflow:auto"><div class="section-title" style="position:sticky;top:0;z-index:10;background:linear-gradient(180deg,var(--card),var(--card2));padding:10px 0;margin:-18px 0 12px"><h2>Edit Load</h2><div style="display:flex;gap:8px"><button class="small-btn" id="zeSaveTop" style="background:linear-gradient(135deg,#0284c7,#22c55e);color:#fff;font-weight:800">💾 Save changes</button><button class="small-btn" id="zeClose">Close</button></div></div><div class="form-grid">'
     +'<label>Status<select id="ze_status">'+ALL.map(s=>'<option'+(s===l.status?" selected":"")+">"+esc(s)+"</option>").join("")+"</select></label>"
     +(accountType==="dispatcher"?'<label>Dispatcher % - locked<input id="ze_commissionPct" type="number" readonly value="'+esc(lockedPct??"")+'"><small class="muted">This is the carrier agreement saved with the load.</small></label>':"")
     +F.map(f=>'<label>'+esc(f[0])+'<input id="ze_'+f[1]+'" type="'+f[2]+'"'+(f[2]==="number"?' step="0.01"':"")+' value="'+esc(l[f[1]]??"")+'"></label>').join("")
@@ -499,7 +499,7 @@ function actionEdit(l){
     +'<div class="card-actions" style="margin-top:12px"><button class="small-btn" id="zeSave">Save changes</button></div></div>';
   modal.querySelector("#zeClose").onclick=()=>modal.remove();
   initStopsEditor(modal.querySelector("#zeStops"),modal.querySelector("#zeAddStop"),l.stops);
-  modal.querySelector("#zeSave").onclick=async()=>{
+  const zeSaveHandler=async()=>{
     if(accountType==="dispatcher"&&lockedPct==null)return alert("This carrier does not have a valid agreed dispatch percentage. Update the carrier first.");
     const upd={...l,status:modal.querySelector("#ze_status").value};
     F.forEach(f=>{upd[f[1]]=modal.querySelector("#ze_"+f[1]).value});
@@ -508,6 +508,8 @@ function actionEdit(l){
     modal.remove();
     await updateRow("loads",upd);
   };
+  modal.querySelector("#zeSave").onclick=zeSaveHandler;
+  modal.querySelector("#zeSaveTop").onclick=zeSaveHandler;
 }
 function onLoadBoardClick(e){
   const btn=e.target.closest("[data-action]");
@@ -628,11 +630,11 @@ if("serviceWorker"in navigator){
   const hadController=!!navigator.serviceWorker.controller;
   if(hadController){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{
-      const version="ratecon-debug-link-save-1";
+      const version="edit-modal-sticky-save-1";
       if(sessionStorage.getItem("zapServiceWorkerReload")===version)return;
       sessionStorage.setItem("zapServiceWorkerReload",version);
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=ratecon-debug-link-save-1").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=edit-modal-sticky-save-1").catch(()=>{});
 }
