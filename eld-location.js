@@ -226,6 +226,15 @@
     return ({active:"On active load",available:"Available",attention:"Needs attention",offline:"Location offline"})[state]||"Unknown";
   }
 
+  function movementInfo(item){
+    const speed=item?.speed;
+    if(speed===null||speed===undefined||speed==="")return {cls:"unknown",label:"Speed unavailable"};
+    const value=Number(speed);
+    if(!Number.isFinite(value))return {cls:"unknown",label:"Speed unavailable"};
+    if(value>3)return {cls:"driving",label:`Driving • ${Math.round(value)} mph`};
+    return {cls:"stopped",label:"Stopped"};
+  }
+
   function fleetSearchText(item,load){
     return [item.vehicle_id,driverFor(item,load),item.connection_name,item.geocoded_location,load?.load_number,load?.carrier,load?.pickup,load?.delivery,load?.status].join(" ").toLowerCase();
   }
@@ -262,7 +271,7 @@
     fleetMap=L.map(element,{
       zoomControl:true,
       preferCanvas:true,
-      scrollWheelZoom:false,
+      scrollWheelZoom:true,
       doubleClickZoom:true,
       touchZoom:true,
       dragging:true,
@@ -270,11 +279,8 @@
       keyboard:false,
       zoomSnap:1,
       zoomDelta:1,
-      wheelPxPerZoomLevel:120
+      wheelPxPerZoomLevel:90
     }).setView([39.5,-98.35],4);
-    fleetMap.dragging.disable();
-    fleetMap.on('click',()=>{if(!fleetMap._isHandlingDrag)fleetMap.dragging.enable()});
-    fleetMap.on('dragend',()=>setTimeout(()=>fleetMap.dragging.disable(),300));
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
       maxZoom:19,
       attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
@@ -285,14 +291,16 @@
   }
 
   function markerHtml(item,state){
-    return `<span class="fleet-marker fleet-marker--${state}"><span aria-hidden="true">🚚</span><b>${esc(item.vehicle_id||"?")}</b></span>`;
+    const movement=movementInfo(item);
+    return `<span class="fleet-marker fleet-marker--${state}"><span class="fleet-marker-dot fleet-marker-dot--${movement.cls}" aria-hidden="true"></span><span aria-hidden="true">🚚</span><b>${esc(item.vehicle_id||"?")}</b></span>`;
   }
 
   function popupHtml(row){
     const {item,load,state}=row;
+    const movement=movementInfo(item);
     const route=load?[load.pickup,load.delivery].filter(Boolean).join(" → "):"No route assigned";
     const loadLabel=load?.load_number?`#${load.load_number}`:"No active load";
-    return `<div class="fleet-popup"><strong>Truck ${esc(item.vehicle_id||"Unknown")}</strong><span><b>Driver:</b> ${esc(driverFor(item,load))}</span><span><b>Carrier:</b> ${esc(carrierFor(item,load))}</span><span><b>Status:</b> ${esc(fleetStateLabel(state))}</span><span><b>Load:</b> ${esc(loadLabel)}</span><span><b>Route:</b> ${esc(route)}</span><small>${esc(item.geocoded_location||"Address unavailable")}</small><small>Updated ${esc(formatTime(item.location_time||item.synced_at))}</small></div>`;
+    return `<div class="fleet-popup"><strong>Truck ${esc(item.vehicle_id||"Unknown")}</strong><span><b>Driver:</b> ${esc(driverFor(item,load))}</span><span><b>Carrier:</b> ${esc(carrierFor(item,load))}</span><span><b>Status:</b> ${esc(fleetStateLabel(state))}</span><span class="fleet-popup-movement fleet-popup-movement--${movement.cls}"><b>Moving:</b> ${esc(movement.label)}</span><span><b>Load:</b> ${esc(loadLabel)}</span><span><b>Route:</b> ${esc(route)}</span><small>${esc(item.geocoded_location||"Address unavailable")}</small><small>Updated ${esc(formatTime(item.location_time||item.synced_at))}</small></div>`;
   }
 
   function toggleFleetMapExpanded(expanded){
@@ -338,7 +346,8 @@
     const selected=Number(by("eldLocationVehicle")?.value||0);
     list.innerHTML=rows.length?rows.map(row=>{
       const {item,index,load,state}=row;
-      return `<button type="button" class="fleet-vehicle ${index===selected?"is-selected":""}" data-fleet-index="${index}"><span class="fleet-vehicle-icon fleet-vehicle-icon--${state}">🚚</span><span class="fleet-vehicle-copy"><strong>Truck ${esc(item.vehicle_id||"Unknown")}</strong><span>${esc(driverFor(item,load))}</span><small>${load?.load_number?`Load #${esc(load.load_number)} • `:""}${esc(item.geocoded_location||"Location unavailable")}</small></span><span class="fleet-status fleet-status--${state}">${esc(fleetStateLabel(state))}</span></button>`;
+      const movement=movementInfo(item);
+      return `<button type="button" class="fleet-vehicle ${index===selected?"is-selected":""}" data-fleet-index="${index}"><span class="fleet-vehicle-icon fleet-vehicle-icon--${state}">🚚</span><span class="fleet-vehicle-copy"><strong>Truck ${esc(item.vehicle_id||"Unknown")}</strong><span>${esc(driverFor(item,load))}</span><small>${load?.load_number?`Load #${esc(load.load_number)} • `:""}${esc(item.geocoded_location||"Location unavailable")}</small></span><span class="fleet-movement fleet-movement--${movement.cls}">${esc(movement.label)}</span><span class="fleet-status fleet-status--${state}">${esc(fleetStateLabel(state))}</span></button>`;
     }).join(""):'<div class="fleet-list-empty">No trucks match these filters.</div>';
 
     const map=initializeFleetMap();
