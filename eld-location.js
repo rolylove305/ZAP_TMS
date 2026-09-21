@@ -83,7 +83,7 @@
         <button type="button" class="small-btn fleet-expand-btn" id="fleetMapExpand" aria-pressed="false">Expand map</button>
       </div>
       <div class="fleet-command-grid">
-        <div class="fleet-map-shell" id="fleetMapShell"><button type="button" class="small-btn fleet-map-collapse" id="fleetMapCollapse">Close map</button><div id="fleetMap" class="fleet-map" role="application" aria-label="Live fleet map"></div><div class="fleet-map-empty hidden" id="fleetMapEmpty">No trucks with coordinates match these filters.</div></div>
+        <div class="fleet-map-shell" id="fleetMapShell"><button type="button" class="small-btn fleet-map-collapse" id="fleetMapCollapse">Close map</button><div id="fleetMap" class="fleet-map" role="application" aria-label="Live fleet map"></div><div class="fleet-map-zoom-hint" aria-hidden="true">Hold Ctrl (⌘ on Mac) + scroll to zoom</div><div class="fleet-map-empty hidden" id="fleetMapEmpty">No trucks with coordinates match these filters.</div></div>
         <div class="fleet-vehicle-list" id="fleetVehicleList" aria-label="Fleet vehicle list"></div>
       </div>
       <div class="fleet-map-legend" aria-label="Map status legend">
@@ -281,7 +281,7 @@
     fleetMap=L.map(element,{
       zoomControl:true,
       preferCanvas:true,
-      scrollWheelZoom:true,
+      scrollWheelZoom:false,
       doubleClickZoom:true,
       touchZoom:true,
       dragging:true,
@@ -296,6 +296,16 @@
       attribution:'&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
     }).addTo(fleetMap);
     fleetMarkers=L.featureGroup().addTo(fleetMap);
+    element.addEventListener("wheel",e=>{
+      if(!(e.ctrlKey||e.metaKey)){
+        const hint=element.parentElement?.querySelector(".fleet-map-zoom-hint");
+        if(hint){hint.classList.add("is-visible");clearTimeout(hint._hideTimer);hint._hideTimer=setTimeout(()=>hint.classList.remove("is-visible"),1400)}
+        return;
+      }
+      e.preventDefault();
+      const point=fleetMap.mouseEventToContainerPoint(e);
+      fleetMap.setZoomAround(point,fleetMap.getZoom()+(e.deltaY<0?1:-1),{animate:true});
+    },{passive:false});
     setTimeout(()=>fleetMap?.invalidateSize(),0);
     return fleetMap;
   }
