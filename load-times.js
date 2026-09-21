@@ -5,7 +5,7 @@ function load(id,src){if(document.getElementById(id)&&document.getElementById(id
 function run(){
   load('tmsDashboardStable','tms-dashboard-stable.js?v=active-loop-fix-1');
   load('docsQuietHelper','docs-quiet.js?v=6000');
-  load('companySettingsHelper','company-settings.js?v=6000');
+  load('companySettingsHelper','company-settings.js?v=email-removed-1');
   load('rateCalculatorHelper','rate-calculator.js?v=3');
   load('eldFleetAddHelper','eld-fleet-add.js?v=2');
   load('eldCarrierDriversHelper','eld-carrier-drivers.js?v=2');
