@@ -226,13 +226,23 @@
     return ({active:"On active load",available:"Available",attention:"Needs attention",offline:"Location offline"})[state]||"Unknown";
   }
 
+  const DUTY_STATUS_LABELS={D:"Driving",DRIVING:"Driving",ON:"On duty",ONDUTY:"On duty",OFF:"Off duty",OFFDUTY:"Off duty",SB:"Sleeper berth",SLEEPERBERTH:"Sleeper berth",YM:"Yard move",YARDMOVE:"Yard move",PC:"Personal conveyance",PERSONALCONVEYANCE:"Personal conveyance"};
+
   function movementInfo(item){
     const speed=item?.speed;
-    if(speed===null||speed===undefined||speed==="")return {cls:"unknown",label:"Speed unavailable"};
-    const value=Number(speed);
-    if(!Number.isFinite(value))return {cls:"unknown",label:"Speed unavailable"};
-    if(value>3)return {cls:"driving",label:`Driving • ${Math.round(value)} mph`};
-    return {cls:"stopped",label:"Stopped"};
+    if(speed!==null&&speed!==undefined&&speed!==""){
+      const value=Number(speed);
+      if(Number.isFinite(value)){
+        if(value>3)return {cls:"driving",label:`Driving • ${Math.round(value)} mph`};
+        return {cls:"stopped",label:"Stopped"};
+      }
+    }
+    const duty=String(item?.duty_status||"").toUpperCase().replace(/[\s_-]+/g,"");
+    if(duty){
+      const label=DUTY_STATUS_LABELS[duty]||"Stopped";
+      return {cls:duty==="D"||duty==="DRIVING"?"driving":"stopped",label};
+    }
+    return {cls:"unknown",label:"Speed unavailable"};
   }
 
   function fleetSearchText(item,load){
