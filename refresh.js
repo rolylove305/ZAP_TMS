@@ -5,7 +5,7 @@
 if(!document.getElementById("eldLocationModule")){
   const script=document.createElement("script");
   script.id="eldLocationModule";
-  script.src="eld-location.js?v=map-zoom-speed-3";
+  script.src="eld-location.js?v=map-zoom-speed-4";
   script.defer=true;
   document.body.appendChild(script);
 }

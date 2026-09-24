@@ -239,8 +239,9 @@
     }
     const duty=String(item?.duty_status||"").toUpperCase().replace(/[\s_-]+/g,"");
     if(duty){
-      const label=DUTY_STATUS_LABELS[duty]||"Stopped";
-      return {cls:duty==="D"||duty==="DRIVING"?"driving":"stopped",label};
+      const label=DUTY_STATUS_LABELS[duty];
+      if(label)return {cls:duty==="D"||duty==="DRIVING"?"driving":"stopped",label};
+      return {cls:"unknown",label:"Movement unavailable"};
     }
     return {cls:"unknown",label:"Speed unavailable"};
   }
