@@ -130,7 +130,7 @@ const pricingPlans = [
 const faqs = [
   {
     question: "Do I need a credit card to start?",
-    answer: "No. Start free for 30 days. Your account begins with Founder access, and higher plans are available as your operation grows.",
+    answer: "No. Start free for 15 days. Your account begins with Founder access, and higher plans are available as your operation grows.",
   },
   {
     question: "Is ZAP TMS for dispatchers or carriers?",
@@ -177,7 +177,7 @@ export default function Home() {
             One focused TMS for independent dispatchers and small carriers—loads, drivers, documents, tracking, HOS, and invoices in one place.
           </p>
           <div className="hero-actions">
-            <a className="button button-primary" href={appUrl}>Start free for 30 days <span>↗</span></a>
+            <a className="button button-primary" href={appUrl}>Start free for 15 days <span>↗</span></a>
             <a className="text-link" href="#features">Explore the platform <span>↓</span></a>
           </div>
           <div className="hero-trust" aria-label="Trial details">
@@ -359,7 +359,7 @@ export default function Home() {
       <section className="pricing-section" id="pricing">
         <div className="shell pricing-inner">
           <div className="pricing-copy">
-            <span className="founder-pill">30 DAYS FREE</span>
+            <span className="founder-pill">15 DAYS FREE</span>
             <h2>Choose the plan<br /><em>that fits today.</em></h2>
             <p>Start low-cost, prove the workflow, then upgrade when your operation needs ELD/HOS readiness, more capacity, or AI.</p>
           </div>
@@ -384,7 +384,7 @@ export default function Home() {
               </article>
             ))}
           </div>
-          <p className="pricing-note">All plans start with a 30-day free trial. Month to month. Cancel anytime.</p>
+          <p className="pricing-note">All plans start with a 15-day free trial. Month to month. Cancel anytime.</p>
         </div>
       </section>
 
@@ -408,7 +408,7 @@ export default function Home() {
           <p className="eyebrow-simple">Your next load starts here</p>
           <h2>Bring your dispatch<br />operation into focus.</h2>
         </div>
-        <a className="button button-light" href={appUrl}>Start free for 30 days <span>↗</span></a>
+        <a className="button button-light" href={appUrl}>Start free for 15 days <span>↗</span></a>
       </section>
 
       <footer>

@@ -31,7 +31,7 @@ test("server-renders the ZAP Dispatch commercial page", async () => {
   assert.match(html, /<title>ZAP Dispatch TMS \| Dispatch, Tracking &amp; HOS<\/title>/i);
   assert.match(html, /Run dispatch\./i);
   assert.match(html, /Track every load\./i);
-  assert.match(html, /Start free for 30 days/i);
+  assert.match(html, /Start free for 15 days/i);
   assert.match(html, /<sup>\$<\/sup><b>29<\/b>/);
   assert.match(html, /https:\/\/app\.zapdispatch\.com/i);
 });

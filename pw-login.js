@@ -35,7 +35,7 @@
 
     login.textContent='Log in';
     signup.textContent='Create account';
-    document.querySelectorAll('.small-copy').forEach(p=>p.textContent='Create an account with a strong password and confirm your email to activate your 30-day free trial. No payment is required to start. After 30 days, continue on the Founder plan for $29.99/month with fair-use limits.');
+    document.querySelectorAll('.small-copy').forEach(p=>p.textContent='Create an account with a strong password and confirm your email to activate your 15-day free trial. No payment is required to start. After 15 days, continue on the Founder plan for $29.99/month with fair-use limits.');
 
     async function run(create){
       const e=(email.value||'').trim().toLowerCase();
@@ -66,7 +66,7 @@
           say('Account created. Opening TMS...');
           setTimeout(()=>location.replace(location.origin+location.pathname+'?ok='+Date.now()),500);
         }else{
-          say('Account created! Check your email ('+e+') and open the confirmation link to activate your 30-day free trial, then come back and log in.');
+          say('Account created! Check your email ('+e+') and open the confirmation link to activate your 15-day free trial, then come back and log in.');
         }
         return;
       }
