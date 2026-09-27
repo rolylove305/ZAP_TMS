@@ -84,7 +84,7 @@
       if(!force&&list.dataset.loaded==='true')return;
       const activeRequest=++requestId;
       const year=new Date().getFullYear();
-      subtitle.textContent=`Invoiced and Paid load dispatch earnings for ${year}. Existing billed loads are included automatically.`;
+      subtitle.textContent=`Carrier gross and dispatch earnings from Invoiced and Paid loads for ${year}. Existing billed loads are included automatically.`;
       if(typeof win.sb==='undefined'){
         list.innerHTML="<div class='card'><p class='muted'>YTD earnings could not load yet.</p></div>";
         return;
@@ -102,10 +102,11 @@
         list.innerHTML=rows.map(row=>
           '<div class="metric-card">'
             +'<p>'+esc(row.carrier)+'</p>'
-            +'<h2>'+money(row.earnings)+'</h2>'
-            +'<div class="pill-row">'
+            +'<h2>'+money(row.gross)+'</h2>'
+            +'<p class="muted" style="margin:2px 0 0">Carrier gross YTD</p>'
+            +'<div class="pill-row" style="margin-top:8px">'
               +'<span class="pill green">'+row.billedLoads+' billed load'+(row.billedLoads===1?'':'s')+'</span>'
-              +'<span class="pill">Billed carrier gross '+money(row.gross)+'</span>'
+              +'<span class="pill">Dispatch fee YTD '+money(row.earnings)+'</span>'
             +'</div>'
           +'</div>'
         ).join('');

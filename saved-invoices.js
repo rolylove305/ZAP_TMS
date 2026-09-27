@@ -43,7 +43,7 @@ function showPrintableOverlay(ctx){
   } else {
     bodyHtml='<p style="margin-top:22px;padding:14px;border:1px solid #ddd;background:#fafafa;border-radius:6px;color:#555">'+esc(ctx.emptyMessage||'No load details found for this saved invoice.')+'</p>';
   }
-  const ytd=ctx.ytd&&ctx.ytd.year?'<div style="margin-top:18px;padding:14px;border:1px solid #bbf7d0;background:#f0fdf4;border-radius:8px;text-align:right"><b>'+esc(ctx.ytd.year)+' YTD Invoiced Earnings:</b> '+money(ctx.ytd.earnings)+'<br><span style="font-size:13px;color:#555">'+esc(ctx.ytd.billedLoads)+' billed load'+(ctx.ytd.billedLoads===1?'':'s')+' • Carrier gross '+money(ctx.ytd.gross)+'</span></div>':'';
+  const ytd=ctx.ytd&&ctx.ytd.year?'<div style="margin-top:18px;padding:14px;border:1px solid #bbf7d0;background:#f0fdf4;border-radius:8px;text-align:right"><b>'+esc(ctx.ytd.year)+' YTD — '+esc(ctx.carrier||'Carrier')+':</b><br>Carrier gross: '+money(ctx.ytd.gross)+'<br>Dispatch fee collected: '+money(ctx.ytd.earnings)+'<br><span style="font-size:13px;color:#555">'+esc(ctx.ytd.billedLoads)+' billed load'+(ctx.ytd.billedLoads===1?'':'s')+' invoiced this year</span></div>':'';
   o.innerHTML='<div id="zpInvoiceCard" style="width:min(800px,96vw);max-height:92vh;overflow:auto;background:#fff;color:#111;padding:30px;border-radius:10px">'
     +'<div class="zp-noprint" style="margin:0 0 18px;display:flex;gap:8px;flex-wrap:wrap">'
       +'<button id="zpPrint" style="background:#0f766e;color:#fff;border:0;padding:10px 14px;border-radius:8px;cursor:pointer;font-size:14px">Print / Save as PDF</button>'
@@ -180,7 +180,7 @@ async function renderSavedInvoices(force=false){
     el.innerHTML='<h3>'+esc(inv.invoice_number||'-')+'</h3>'
       +'<p class="muted">'+esc(inv.carrier||'-')+' • '+esc(date)+'</p>'
       +'<div class="pill-row"><span class="pill green">Total Due '+money(inv.total)+'</span>'
-      +(inv.ytd&&inv.ytd.year?'<span class="pill">'+esc(inv.ytd.year)+' YTD Earnings '+money(inv.ytd.earnings)+'</span>':'')+'</div>'
+      +(inv.ytd&&inv.ytd.year?'<span class="pill">'+esc(inv.ytd.year)+' YTD carrier gross '+money(inv.ytd.gross)+'</span><span class="pill">'+esc(inv.ytd.year)+' YTD dispatch fee '+money(inv.ytd.earnings)+'</span>':'')+'</div>'
       +'<div class="card-actions"><button class="small-btn" data-saved-invoice-view>View / Print invoice</button><button class="small-btn" data-saved-invoice-delete style="border-color:rgba(251,113,133,.45);color:#fda4af">Delete invoice</button></div>';
     el.querySelector('[data-saved-invoice-view]').onclick=e=>viewPrintableInvoice(inv,e.currentTarget);
     el.querySelector('[data-saved-invoice-delete]').onclick=e=>deleteSavedInvoice(inv,e.currentTarget);
