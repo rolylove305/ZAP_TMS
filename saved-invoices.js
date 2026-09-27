@@ -43,6 +43,7 @@ function showPrintableOverlay(ctx){
   } else {
     bodyHtml='<p style="margin-top:22px;padding:14px;border:1px solid #ddd;background:#fafafa;border-radius:6px;color:#555">'+esc(ctx.emptyMessage||'No load details found for this saved invoice.')+'</p>';
   }
+  const ytd=ctx.ytd&&ctx.ytd.year?'<div style="margin-top:18px;padding:14px;border:1px solid #bbf7d0;background:#f0fdf4;border-radius:8px;text-align:right"><b>'+esc(ctx.ytd.year)+' YTD Invoiced Earnings:</b> '+money(ctx.ytd.earnings)+'<br><span style="font-size:13px;color:#555">'+esc(ctx.ytd.billedLoads)+' billed load'+(ctx.ytd.billedLoads===1?'':'s')+' • Carrier gross '+money(ctx.ytd.gross)+'</span></div>':'';
   o.innerHTML='<div id="zpInvoiceCard" style="width:min(800px,96vw);max-height:92vh;overflow:auto;background:#fff;color:#111;padding:30px;border-radius:10px">'
     +'<div class="zp-noprint" style="margin:0 0 18px;display:flex;gap:8px;flex-wrap:wrap">'
       +'<button id="zpPrint" style="background:#0f766e;color:#fff;border:0;padding:10px 14px;border-radius:8px;cursor:pointer;font-size:14px">Print / Save as PDF</button>'
@@ -55,6 +56,7 @@ function showPrintableOverlay(ctx){
     +warningHtml
     +bodyHtml
     +'<div style="text-align:right;font-size:22px;font-weight:800;margin-top:6px">Total Due: '+money(ctx.total)+'</div>'
+    +ytd
     +'<div style="margin-top:28px;padding:14px;border:1px solid #ddd;background:#fafafa;border-radius:6px"><b>Payment Info:</b><br>'+pay+'</div>'
     +'<p style="color:#555">'+esc(ctx.st.invoice_footer||'Thank you for your business.')+'</p>'
     +'</div>';
@@ -78,7 +80,7 @@ async function viewPrintableInvoice(inv,btn){
     if(chR.error)throw new Error(chR.error.message);
     const charges=chR.data||[];
     if(!invoiceLoads.length&&!charges.length){
-      showPrintableOverlay({invoiceNumber:inv.invoice_number,carrier:inv.carrier,createdAt:inv.created_at?new Date(inv.created_at).toLocaleDateString():'',rows:[],total:inv.total,st,emptyMessage:'No load or fee details found for this saved invoice.'});
+      showPrintableOverlay({invoiceNumber:inv.invoice_number,carrier:inv.carrier,createdAt:inv.created_at?new Date(inv.created_at).toLocaleDateString():'',rows:[],total:inv.total,st,ytd:inv.ytd,emptyMessage:'No load or fee details found for this saved invoice.'});
       return;
     }
     const loadIds=[...new Set(invoiceLoads.map(x=>x.load_id).concat(charges.map(x=>x.load_id)).filter(Boolean))];
@@ -105,7 +107,7 @@ async function viewPrintableInvoice(inv,btn){
       };
     }).concat(chargeRows).sort((a,b)=>String(a.date).localeCompare(String(b.date)));
     const warning=missingCount?('Original load details could not be found for '+missingCount+' of '+invoiceLoads.length+' line item(s) on this invoice. Amount Due is still accurate; Rate and load info show as "-".'):'';
-    showPrintableOverlay({invoiceNumber:inv.invoice_number,carrier:inv.carrier,createdAt:inv.created_at?new Date(inv.created_at).toLocaleDateString():'',rows,total:inv.total,st,warning});
+    showPrintableOverlay({invoiceNumber:inv.invoice_number,carrier:inv.carrier,createdAt:inv.created_at?new Date(inv.created_at).toLocaleDateString():'',rows,total:inv.total,st,warning,ytd:inv.ytd});
   }catch(e){
     alert('Could not load invoice: '+(e.message||String(e)));
   }finally{
@@ -151,15 +153,34 @@ async function renderSavedInvoices(force=false){
   if(r.error){list.innerHTML="<p class='muted'>Could not load saved invoices: "+esc(r.error.message)+"</p>";return}
   const rows=r.data||[];
   if(!rows.length){list.innerHTML="<div class='card'><p class='muted'>No saved invoices yet. Create one from Load Board → Invoice selected.</p></div>";return}
+  let financialRows=[];
+  let ytdAvailable=!!(window.ZapCarrierYtd&&window.ZapCarrierYtd.summaryForInvoice);
+  if(ytdAvailable){
+    const years=rows.map(inv=>new Date(inv.created_at)).filter(date=>!Number.isNaN(date.getTime())).map(date=>date.getFullYear());
+    if(years.length){
+      const start=new Date(Math.min(...years),0,1).toISOString();
+      const end=new Date(Math.max(...years)+1,0,1).toISOString();
+      const pageSize=1000;
+      for(let from=0;;from+=pageSize){
+        const yr=await sb.from('loads').select('id,carrier,rate,commission_pct,invoiced_at').gte('invoiced_at',start).lt('invoiced_at',end).order('id',{ascending:true}).range(from,from+pageSize-1);
+        if(yr.error){ytdAvailable=false;break}
+        const page=yr.data||[];
+        financialRows.push(...page);
+        if(page.length<pageSize)break;
+      }
+    }
+  }
   list.textContent='';
   const frag=document.createDocumentFragment();
   rows.forEach(inv=>{
     const date=inv.created_at?new Date(inv.created_at).toLocaleDateString():'';
+    inv.ytd=ytdAvailable?window.ZapCarrierYtd.summaryForInvoice(financialRows,inv.carrier,inv.created_at):null;
     const el=document.createElement('div');
     el.className='list-card';
     el.innerHTML='<h3>'+esc(inv.invoice_number||'-')+'</h3>'
       +'<p class="muted">'+esc(inv.carrier||'-')+' • '+esc(date)+'</p>'
-      +'<div class="pill-row"><span class="pill green">Total Due '+money(inv.total)+'</span></div>'
+      +'<div class="pill-row"><span class="pill green">Total Due '+money(inv.total)+'</span>'
+      +(inv.ytd&&inv.ytd.year?'<span class="pill">'+esc(inv.ytd.year)+' YTD Earnings '+money(inv.ytd.earnings)+'</span>':'')+'</div>'
       +'<div class="card-actions"><button class="small-btn" data-saved-invoice-view>View / Print invoice</button><button class="small-btn" data-saved-invoice-delete style="border-color:rgba(251,113,133,.45);color:#fda4af">Delete invoice</button></div>';
     el.querySelector('[data-saved-invoice-view]').onclick=e=>viewPrintableInvoice(inv,e.currentTarget);
     el.querySelector('[data-saved-invoice-delete]').onclick=e=>deleteSavedInvoice(inv,e.currentTarget);

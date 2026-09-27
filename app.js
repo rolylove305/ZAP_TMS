@@ -636,5 +636,5 @@ if("serviceWorker"in navigator){
       location.reload();
     });
   }
-  navigator.serviceWorker.register("service-worker.js?v=edit-modal-sticky-save-1").catch(()=>{});
+  navigator.serviceWorker.register("service-worker.js?v=invoice-ytd-1").catch(()=>{});
 }
