@@ -67,10 +67,6 @@ async function signwellFetch(apiKey: string, path: string, init: RequestInit = {
   return payload as Record<string, unknown>;
 }
 
-function field(apiId: string, value: unknown) {
-  return { api_id: apiId, value: value == null ? "" : String(value) };
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
   try {
@@ -114,33 +110,17 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     const apiKey = await decryptSecret(connection.api_key_ciphertext, connection.api_key_iv);
-    const mcDot = String(carrier.mc_dot || "");
-    const mcMatch = mcDot.match(/MC\s*#?\s*(\d{4,8})/i);
-    const dotMatch = mcDot.match(/DOT\s*#?\s*(\d{4,8})/i) || mcDot.match(/(\d{4,8})/);
 
-    // Field api_ids must match exactly what exists on the SignWell template
-    // (Settings -> Carrier Agreements -> Template ID). Some fields kept the
-    // generic name SignWell assigns if the rename didn't take in the editor;
-    // this map reflects what is actually on the live template.
-    const templateFields = [
-      field("effective_date", new Date().toLocaleDateString("en-US")),
-      field("dispatcher_address", ""),
-      field("TextField_2", settings?.email || user.email || ""), // dispatcher_email
-      field("TextField_1", carrier.name), // carrier_name
-      field("carrier_mc", mcMatch ? mcMatch[1] : mcDot),
-      field("TextField_3", dotMatch ? dotMatch[1] : ""), // carrier_dot
-      field("carrier_address", ""),
-      field("TextField_5", carrier.contact || ""), // carrier_contact
-      field("agreed_fee", `${settings?.default_commission_pct ?? 8}% per load`),
-    ];
-
+    // No auto-fill: the template's data fields are left blank on purpose.
+    // The dispatcher fills them in by hand in the SignWell editor (opened
+    // from the preview link) before confirming send — this avoids guessing
+    // at field positions/parsing carrier data that doesn't fit a fixed shape.
     const created = await signwellFetch(apiKey, "/document_templates/documents", {
       method: "POST",
       body: JSON.stringify({
         template_id: connection.template_id,
         name: `Dispatch Agreement — ${carrier.name}`,
-        draft: true, // created for preview; a separate confirm step actually sends it
-        template_fields: templateFields,
+        draft: true, // created for preview/manual fill-in; a separate confirm step sends it
         recipients: [
           {
             id: "1",

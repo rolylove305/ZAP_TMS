@@ -62,7 +62,7 @@ async function prepareAgreement(carrierId,btn){
     await loadAgreements(true);
     renderCarrierButtons();
     if(result.preview_url)window.open(result.preview_url,"_blank");
-    alert("Draft created — review it in the new tab, then come back and click \"Confirm & Send\" to actually send it to the carrier. Nothing has been sent yet.");
+    alert("Blank draft opened in a new tab — fill in the carrier's info there (SignWell saves as you type), then come back and click \"Confirm & Send\" to actually send it. Nothing has been sent yet.");
   }catch(error){
     alert("Could not prepare agreement: "+(error.message||String(error)));
   }finally{
@@ -121,7 +121,7 @@ function renderCarrierButtons(){
     if(agreement&&agreement.status==="draft"){
       const docId=agreement.signwell_document_id;
       const url=docId&&previewUrls.get(docId);
-      if(url)html+=`<button class="small-btn" onclick="window.open('${escAttr(url)}','_blank')">Review draft</button> `;
+      if(url)html+=`<button class="small-btn" onclick="window.open('${escAttr(url)}','_blank')">Fill in / review draft</button> `;
       html+=`<button class="small-btn primary-btn" ${docId?"":"disabled"} onclick="zapConfirmSendCarrierAgreement('${escAttr(docId||"")}','${escAttr(carrier.id)}',this)">Confirm &amp; Send</button>`;
     }else{
       html+=`<button class="small-btn" ${connected?"":"disabled title=\"Connect SignWell in Settings first\""} onclick="zapPrepareCarrierAgreement('${escAttr(carrier.id)}',this)">${agreement?"Resend":"Prepare"} Agreement</button>`;
@@ -150,7 +150,7 @@ function settingsHtml(){
       <button class="small-btn" id="caSaveTemplate">Save Template ID</button>
       ${c?'<button class="small-btn" id="caDisconnect" style="border-color:rgba(251,113,133,.45);color:#fda4af">Disconnect</button>':""}
     </div>
-    <p class="muted" style="margin-top:10px;font-size:12px">One-time setup: in SignWell, upload your agreement PDF and create a Template. Add two signer roles named exactly <b>Dispatcher</b> and <b>Carrier</b>, and name the fillable fields (API IDs): <code>effective_date, dispatcher_name, dispatcher_email, dispatcher_phone, carrier_name, carrier_mc, carrier_dot, carrier_contact, carrier_email, carrier_phone, agreed_fee, invoice_schedule, payment_due, cancel_notice</code>. Then paste your API key and the Template ID here.</p>`;
+    <p class="muted" style="margin-top:10px;font-size:12px">One-time setup: in SignWell, upload your agreement PDF and create a Template with two signer roles named exactly <b>Dispatcher</b> and <b>Carrier</b> (signature + date for each). Then paste your API key and the Template ID here. "Prepare Agreement" opens a blank draft for you to fill in by hand before sending — no field setup needed.</p>`;
 }
 
 async function renderSettingsCard(){
