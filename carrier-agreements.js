@@ -31,7 +31,7 @@ async function loadAgreements(force=false){
   const now=Date.now();
   if(!force&&now-lastAgreementsFetch<4000)return agreementsByCarrier;
   lastAgreementsFetch=now;
-  const {data:rows,error}=await sb.from("carrier_agreements").select("carrier_id,status,sent_at,completed_at,storage_path").order("sent_at",{ascending:false});
+  const {data:rows,error}=await sb.from("carrier_agreements").select("carrier_id,status,signwell_document_id,sent_at,completed_at,storage_path").order("created_at",{ascending:false});
   if(error)return agreementsByCarrier;
   agreementsByCarrier=new Map();
   (rows||[]).forEach(row=>{if(!agreementsByCarrier.has(row.carrier_id))agreementsByCarrier.set(row.carrier_id,row)});
@@ -39,8 +39,10 @@ async function loadAgreements(force=false){
 }
 
 function statusLabel(status){
-  return ({sent:"Sent — awaiting signature",viewed:"Viewed by carrier",in_progress:"In progress",signed:"Signed ✓",declined:"Declined",expired:"Expired",canceled:"Canceled"})[status]||status;
+  return ({draft:"Ready to review",sent:"Sent — awaiting signature",viewed:"Viewed by carrier",in_progress:"In progress",signed:"Signed ✓",declined:"Declined",expired:"Expired",canceled:"Canceled"})[status]||status;
 }
+
+const previewUrls=new Map(); // document_id -> embedded edit/preview URL, kept in memory only
 
 async function viewSignedPdf(path){
   const r=await sb.storage.from("load-documents").createSignedUrl(path,3600);
@@ -49,27 +51,46 @@ async function viewSignedPdf(path){
 }
 window.zapViewCarrierAgreement=viewSignedPdf;
 
-async function sendAgreement(carrierId,btn){
+async function prepareAgreement(carrierId,btn){
   if(!connection||connection.status!=="connected"){alert("Connect your SignWell account first in Settings → Carrier Agreements.");return}
   if(!connection.template_id){alert("Save your SignWell template ID first in Settings → Carrier Agreements.");return}
-  const carrier=(window.appData&&window.appData.carriers||[]).find(c=>c.id===carrierId);
-  const name=carrier?.name||"this carrier";
-  const email=carrier?.email||"(no email on file)";
-  if(!confirm(`Send the dispatch agreement to ${name} (${email}) for e-signature?\n\nThis uses 1 of your SignWell sends for this month — it cannot be undone.`))return;
   const original=btn.textContent;
-  btn.disabled=true;btn.textContent="Sending…";
+  btn.disabled=true;btn.textContent="Preparing…";
   try{
-    await request("carrier-agreement-send","POST",{carrier_id:carrierId});
+    const result=await request("carrier-agreement-send","POST",{carrier_id:carrierId});
+    if(result.preview_url)previewUrls.set(result.document_id,result.preview_url);
     await loadAgreements(true);
     renderCarrierButtons();
-    alert("Agreement sent — the carrier will get an email from SignWell to sign.");
+    if(result.preview_url)window.open(result.preview_url,"_blank");
+    alert("Draft created — review it in the new tab, then come back and click \"Confirm & Send\" to actually send it to the carrier. Nothing has been sent yet.");
   }catch(error){
-    alert("Could not send agreement: "+(error.message||String(error)));
+    alert("Could not prepare agreement: "+(error.message||String(error)));
   }finally{
     btn.disabled=false;btn.textContent=original;
   }
 }
-window.zapSendCarrierAgreement=sendAgreement;
+window.zapPrepareCarrierAgreement=prepareAgreement;
+
+async function confirmSend(documentId,carrierId,btn){
+  const carrier=(window.appData&&window.appData.carriers||[]).find(c=>c.id===carrierId);
+  const name=carrier?.name||"this carrier";
+  const email=carrier?.email||"(no email on file)";
+  if(!confirm(`Send this agreement to ${name} (${email}) for e-signature now?\n\nThis uses 1 of your SignWell sends for this month — it cannot be undone.`))return;
+  const original=btn.textContent;
+  btn.disabled=true;btn.textContent="Sending…";
+  try{
+    await request("carrier-agreement-confirm","POST",{document_id:documentId});
+    previewUrls.delete(documentId);
+    await loadAgreements(true);
+    renderCarrierButtons();
+    alert("Sent — the carrier will get an email from SignWell to sign. They can sign right from their phone by opening that email on it, no app needed.");
+  }catch(error){
+    alert("Could not send: "+(error.message||String(error)));
+  }finally{
+    btn.disabled=false;btn.textContent=original;
+  }
+}
+window.zapConfirmSendCarrierAgreement=confirmSend;
 
 function renderCarrierButtons(){
   const list=by("carriersList");
@@ -97,7 +118,14 @@ function renderCarrierButtons(){
         html+=`<button class="small-btn" onclick="zapViewCarrierAgreement('${escAttr(agreement.storage_path)}')">View signed PDF</button> `;
       }
     }
-    html+=`<button class="small-btn" ${connected?"":"disabled title=\"Connect SignWell in Settings first\""} onclick="zapSendCarrierAgreement('${escAttr(carrier.id)}',this)">${agreement?"Resend":"Send"} Agreement</button>`;
+    if(agreement&&agreement.status==="draft"){
+      const docId=agreement.signwell_document_id;
+      const url=docId&&previewUrls.get(docId);
+      if(url)html+=`<button class="small-btn" onclick="window.open('${escAttr(url)}','_blank')">Review draft</button> `;
+      html+=`<button class="small-btn primary-btn" ${docId?"":"disabled"} onclick="zapConfirmSendCarrierAgreement('${escAttr(docId||"")}','${escAttr(carrier.id)}',this)">Confirm &amp; Send</button>`;
+    }else{
+      html+=`<button class="small-btn" ${connected?"":"disabled title=\"Connect SignWell in Settings first\""} onclick="zapPrepareCarrierAgreement('${escAttr(carrier.id)}',this)">${agreement?"Resend":"Prepare"} Agreement</button>`;
+    }
     slot.innerHTML=html;
   });
 }

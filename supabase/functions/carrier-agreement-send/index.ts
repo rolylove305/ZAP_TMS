@@ -139,15 +139,17 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         template_id: connection.template_id,
         name: `Dispatch Agreement — ${carrier.name}`,
-        draft: false,
+        draft: true, // created for preview; a separate confirm step actually sends it
         template_fields: templateFields,
         recipients: [
           {
+            id: "1",
             placeholder_name: "Dispatcher",
             name: settings?.company_name || "Zap Dispatch LLC",
             email: settings?.email || user.email || "",
           },
           {
+            id: "2",
             placeholder_name: "Carrier",
             name: carrier.contact || carrier.name,
             email: carrier.email,
@@ -158,16 +160,17 @@ Deno.serve(async (req) => {
     });
 
     const documentId = String((created as { id?: string }).id || "");
+    const previewUrl = String((created as { embedded_edit_url?: string }).embedded_edit_url || "");
     const { error: insertError } = await admin.from("carrier_agreements").insert({
       user_id: user.id,
       carrier_id: carrier.id,
       carrier_name: carrier.name,
       signwell_document_id: documentId || null,
-      status: "sent",
+      status: "draft",
     });
     if (insertError) throw new HttpError(500, insertError.message);
 
-    return json({ ok: true, document_id: documentId });
+    return json({ ok: true, document_id: documentId, preview_url: previewUrl });
   } catch (error) {
     const status = error instanceof HttpError ? error.status : 500;
     const message = error instanceof Error ? error.message : "Unexpected error";
