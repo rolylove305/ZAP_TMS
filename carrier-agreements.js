@@ -42,7 +42,6 @@ function statusLabel(status){
   return ({draft:"Ready to review",sent:"Sent — awaiting signature",viewed:"Viewed by carrier",in_progress:"In progress",signed:"Signed ✓",declined:"Declined",expired:"Expired",canceled:"Canceled"})[status]||status;
 }
 
-const previewUrls=new Map(); // document_id -> embedded edit/preview URL, kept in memory only
 
 async function viewSignedPdf(path){
   const r=await sb.storage.from("load-documents").createSignedUrl(path,3600);
@@ -58,7 +57,6 @@ async function prepareAgreement(carrierId,btn){
   btn.disabled=true;btn.textContent="Preparing…";
   try{
     const result=await request("carrier-agreement-send","POST",{carrier_id:carrierId});
-    if(result.preview_url)previewUrls.set(result.document_id,result.preview_url);
     await loadAgreements(true);
     renderCarrierButtons();
     if(result.preview_url)window.open(result.preview_url,"_blank");
@@ -71,6 +69,21 @@ async function prepareAgreement(carrierId,btn){
 }
 window.zapPrepareCarrierAgreement=prepareAgreement;
 
+async function reviewDraft(documentId,btn){
+  const original=btn.textContent;
+  btn.disabled=true;btn.textContent="Opening…";
+  try{
+    const result=await request("carrier-agreement-preview","POST",{document_id:documentId});
+    if(!result.preview_url)throw new Error("No preview link returned.");
+    window.open(result.preview_url,"_blank");
+  }catch(error){
+    alert("Could not open the draft: "+(error.message||String(error)));
+  }finally{
+    btn.disabled=false;btn.textContent=original;
+  }
+}
+window.zapReviewCarrierAgreementDraft=reviewDraft;
+
 async function confirmSend(documentId,carrierId,btn){
   const carrier=(window.appData&&window.appData.carriers||[]).find(c=>c.id===carrierId);
   const name=carrier?.name||"this carrier";
@@ -80,7 +93,6 @@ async function confirmSend(documentId,carrierId,btn){
   btn.disabled=true;btn.textContent="Sending…";
   try{
     await request("carrier-agreement-confirm","POST",{document_id:documentId});
-    previewUrls.delete(documentId);
     await loadAgreements(true);
     renderCarrierButtons();
     alert("Sent — the carrier will get an email from SignWell to sign. They can sign right from their phone by opening that email on it, no app needed.");
@@ -120,8 +132,7 @@ function renderCarrierButtons(){
     }
     if(agreement&&agreement.status==="draft"){
       const docId=agreement.signwell_document_id;
-      const url=docId&&previewUrls.get(docId);
-      if(url)html+=`<button class="small-btn" onclick="window.open('${escAttr(url)}','_blank')">Fill in / review draft</button> `;
+      html+=`<button class="small-btn" ${docId?"":"disabled"} onclick="zapReviewCarrierAgreementDraft('${escAttr(docId||"")}',this)">Fill in / review draft</button> `;
       html+=`<button class="small-btn primary-btn" ${docId?"":"disabled"} onclick="zapConfirmSendCarrierAgreement('${escAttr(docId||"")}','${escAttr(carrier.id)}',this)">Confirm &amp; Send</button>`;
     }else{
       html+=`<button class="small-btn" ${connected?"":"disabled title=\"Connect SignWell in Settings first\""} onclick="zapPrepareCarrierAgreement('${escAttr(carrier.id)}',this)">${agreement?"Resend":"Prepare"} Agreement</button>`;
