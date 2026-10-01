@@ -52,6 +52,10 @@ window.zapViewCarrierAgreement=viewSignedPdf;
 async function sendAgreement(carrierId,btn){
   if(!connection||connection.status!=="connected"){alert("Connect your SignWell account first in Settings → Carrier Agreements.");return}
   if(!connection.template_id){alert("Save your SignWell template ID first in Settings → Carrier Agreements.");return}
+  const carrier=(window.appData&&window.appData.carriers||[]).find(c=>c.id===carrierId);
+  const name=carrier?.name||"this carrier";
+  const email=carrier?.email||"(no email on file)";
+  if(!confirm(`Send the dispatch agreement to ${name} (${email}) for e-signature?\n\nThis uses 1 of your SignWell sends for this month — it cannot be undone.`))return;
   const original=btn.textContent;
   btn.disabled=true;btn.textContent="Sending…";
   try{

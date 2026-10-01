@@ -118,21 +118,20 @@ Deno.serve(async (req) => {
     const mcMatch = mcDot.match(/MC\s*#?\s*(\d{4,8})/i);
     const dotMatch = mcDot.match(/DOT\s*#?\s*(\d{4,8})/i) || mcDot.match(/(\d{4,8})/);
 
+    // Field api_ids must match exactly what exists on the SignWell template
+    // (Settings -> Carrier Agreements -> Template ID). Some fields kept the
+    // generic name SignWell assigns if the rename didn't take in the editor;
+    // this map reflects what is actually on the live template.
     const templateFields = [
       field("effective_date", new Date().toLocaleDateString("en-US")),
-      field("dispatcher_name", settings?.company_name || "Zap Dispatch LLC"),
-      field("dispatcher_email", settings?.email || user.email || ""),
-      field("dispatcher_phone", settings?.phone || ""),
-      field("carrier_name", carrier.name),
+      field("dispatcher_address", ""),
+      field("TextField_2", settings?.email || user.email || ""), // dispatcher_email
+      field("TextField_1", carrier.name), // carrier_name
       field("carrier_mc", mcMatch ? mcMatch[1] : mcDot),
-      field("carrier_dot", dotMatch ? dotMatch[1] : ""),
-      field("carrier_contact", carrier.contact || ""),
-      field("carrier_email", carrier.email),
-      field("carrier_phone", carrier.phone || ""),
+      field("TextField_3", dotMatch ? dotMatch[1] : ""), // carrier_dot
+      field("carrier_address", ""),
+      field("TextField_5", carrier.contact || ""), // carrier_contact
       field("agreed_fee", `${settings?.default_commission_pct ?? 8}% per load`),
-      field("invoice_schedule", "Weekly"),
-      field("payment_due", "Every Friday"),
-      field("cancel_notice", "14 days"),
     ];
 
     const created = await signwellFetch(apiKey, "/document_templates/documents", {
