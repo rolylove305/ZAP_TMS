@@ -366,9 +366,9 @@
     const rows=fleetRows();
     const selected=Number(by("eldLocationVehicle")?.value||0);
     list.innerHTML=rows.length?rows.map(row=>{
-      const {item,index,load,state}=row;
+      const {item,index,load,state,carrier}=row;
       const movement=movementInfo(item);
-      return `<button type="button" class="fleet-vehicle ${index===selected?"is-selected":""}" data-fleet-index="${index}"><span class="fleet-vehicle-icon fleet-vehicle-icon--${state}">🚚</span><span class="fleet-vehicle-copy"><strong>Truck ${esc(item.vehicle_id||"Unknown")}</strong><span>${esc(driverFor(item,load))}</span><small>${load?.load_number?`Load #${esc(load.load_number)} • `:""}${esc(item.geocoded_location||"Location unavailable")}</small></span><span class="fleet-movement fleet-movement--${movement.cls}">${esc(movement.label)}</span><span class="fleet-status fleet-status--${state}">${esc(fleetStateLabel(state))}</span></button>`;
+      return `<button type="button" class="fleet-vehicle ${index===selected?"is-selected":""}" data-fleet-index="${index}"><span class="fleet-vehicle-icon fleet-vehicle-icon--${state}">🚚</span><span class="fleet-vehicle-copy"><strong>Truck ${esc(item.vehicle_id||"Unknown")}</strong><span class="muted" style="font-size:11px">${esc(carrier||"Unassigned carrier")}</span><span>${esc(driverFor(item,load))}</span><small>${load?.load_number?`Load #${esc(load.load_number)} • `:""}${esc(item.geocoded_location||"Location unavailable")}</small></span><span class="fleet-movement fleet-movement--${movement.cls}">${esc(movement.label)}</span><span class="fleet-status fleet-status--${state}">${esc(fleetStateLabel(state))}</span></button>`;
     }).join(""):'<div class="fleet-list-empty">No trucks match these filters.</div>';
 
     const map=initializeFleetMap();
@@ -381,7 +381,7 @@
     const mapped=rows.filter(row=>hasCoordinates(row.item));
     mapped.forEach(row=>{
       const icon=L.divIcon({className:"fleet-marker-wrap",html:markerHtml(row.item,row.state),iconSize:[72,34],iconAnchor:[36,17]});
-      const marker=L.marker([Number(row.item.latitude),Number(row.item.longitude)],{icon,title:`Truck ${row.item.vehicle_id||"Unknown"}`}).bindPopup(popupHtml(row),{maxWidth:340});
+      const marker=L.marker([Number(row.item.latitude),Number(row.item.longitude)],{icon,title:`Truck ${row.item.vehicle_id||"Unknown"} — ${row.carrier||"Unassigned carrier"}`}).bindPopup(popupHtml(row),{maxWidth:340});
       marker.on("click",()=>{
         const select=by("eldLocationVehicle");
         if(select)select.value=String(row.index);
